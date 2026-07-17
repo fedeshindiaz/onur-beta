@@ -6,6 +6,7 @@ export const NORMALIZATION_RULE_VERSION = 'onur-normalization-1.0'
 const missingTokens = new Set(['nr', 'n/r', 'no registrado', 'sin dato', 's/d', 'sd', '-'])
 const notApplicableTokens = new Set(['na', 'n/a', 'no aplica', 'no aplicable'])
 const unknownTokens = new Set(['desconocido', 'unknown', 'no informado'])
+const infiniteTokens = new Set(['∞', 'infinito', 'infinity'])
 
 function normalizedToken(value: string) {
   return value.trim().toLocaleLowerCase('es-UY').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -55,7 +56,10 @@ export function normalizeMetricRow(row: MetricRowInput): NormalizedMetricRow {
     if (definition?.requiresCondition && !row.conditionCode.trim()) issues.push({ ruleCode: 'DQ-001', severity: 'blocked', message: 'La condición del protocolo es obligatoria incluso cuando el resultado no aplica.' })
     return { ...row, normalizedNumericValue, normalizedTextValue, normalizationRuleVersion: NORMALIZATION_RULE_VERSION, qualityStatus: issues.some((issue) => issue.severity === 'blocked') ? 'blocked' : 'not_applicable', issues }
   }
-  if (missingTokens.has(token)) {
+  if (infiniteTokens.has(token)) {
+    normalizedTextValue = 'infinite'
+    issues.push({ ruleCode: 'DQ-006', severity: 'review', message: 'El origen informa infinito; se conserva como texto y nunca se convierte en cero.' })
+  } else if (missingTokens.has(token)) {
     normalizedTextValue = 'not_recorded'
     issues.push({ ruleCode: 'DQ-001', severity: 'review', message: 'El origen indica que el dato no fue registrado; no se imputa ningún valor.' })
   } else if (unknownTokens.has(token)) {
@@ -69,6 +73,8 @@ export function normalizeMetricRow(row: MetricRowInput): NormalizedMetricRow {
     if (!normalizedTextValue) issues.push({ ruleCode: 'DQ-006', severity: 'quarantine', message: 'El valor booleano debe indicar sí/no, presente/ausente o equivalente.' })
   } else if (definition?.valueKind === 'categorical' && row.rawValue.trim()) {
     normalizedTextValue = token.replace(/\s+/g, '_')
+  } else if (definition?.valueKind === 'text' && row.rawValue.trim()) {
+    normalizedTextValue = row.rawValue.trim()
   }
 
   const detectedPercent = row.rawValue.trim().endsWith('%')

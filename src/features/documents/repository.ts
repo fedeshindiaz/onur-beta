@@ -1,4 +1,5 @@
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
+import { createExtractionDraft } from '../extraction/repository'
 import type { ClinicalDocumentRecord, DocumentAccessRequestRecord, DocumentPermissionLevel, DocumentRequestStatus, DocumentUploadInput, PatientDocumentCatalogRecord } from './types'
 
 const STORAGE_KEY='onur-demo-documents-v1'
@@ -14,9 +15,10 @@ function writeDemoRequests(items:DocumentAccessRequestRecord[]){localStorage.set
 function fromRow(row:Record<string,unknown>):ClinicalDocumentRecord{
   const permissions=(row.document_permissions??[]) as Record<string,unknown>[];const active=permissions.find(permission=>!permission.revoked_at)
   const studies=(row.clinical_studies??[]) as Record<string,unknown>[];const study=studies[0]
-  return{id:String(row.id),patientId:String(row.patient_id),treatmentCycleId:String(row.treatment_cycle_id??''),documentType:String(row.document_type) as ClinicalDocumentRecord['documentType'],originalFilename:String(row.original_filename),storagePath:String(row.storage_path),mimeType:String(row.mime_type),fileSizeBytes:Number(row.file_size_bytes??0),documentDate:String(row.document_date??String(row.created_at).slice(0,10)),description:String(row.description??''),createdAt:String(row.created_at),sharedWithPatient:Boolean(active),permissionId:String(active?.id??''),permissionLevel:String(active?.level??'') as ClinicalDocumentRecord['permissionLevel'],studyId:String(study?.id??''),studyStatus:String(study?.status??''),deviceName:String(study?.device_name??''),protocolCode:String(study?.protocol_code??''),protocolVersion:String(study?.protocol_version??'')}
+  const jobs=(row.document_extraction_jobs??[]) as Record<string,unknown>[]
+  return{id:String(row.id),patientId:String(row.patient_id),treatmentCycleId:String(row.treatment_cycle_id??''),documentType:String(row.document_type) as ClinicalDocumentRecord['documentType'],originalFilename:String(row.original_filename),storagePath:String(row.storage_path),mimeType:String(row.mime_type),fileSizeBytes:Number(row.file_size_bytes??0),documentDate:String(row.document_date??String(row.created_at).slice(0,10)),description:String(row.description??''),createdAt:String(row.created_at),sharedWithPatient:Boolean(active),permissionId:String(active?.id??''),permissionLevel:String(active?.level??'') as ClinicalDocumentRecord['permissionLevel'],studyId:String(study?.id??''),studyIds:studies.map(item=>String(item.id)),studyStatus:String(study?.status??''),deviceName:String(study?.device_name??''),protocolCode:String(study?.protocol_code??''),protocolVersion:String(study?.protocol_version??''),extractionJobId:String(jobs[0]?.id??'')}
 }
-const selectDocument='*, document_permissions(id, level, revoked_at), clinical_studies(id, study_type, status, performed_at, device_name, protocol_code, protocol_version)'
+const selectDocument='*, document_permissions(id, level, revoked_at), clinical_studies(id, study_type, status, performed_at, device_name, protocol_code, protocol_version), document_extraction_jobs(id, status)'
 
 export async function listPatientDocuments(patientId:string):Promise<ClinicalDocumentRecord[]>{
   if(!isSupabaseConfigured||!supabase)return readDemo().filter(item=>item.patientId===patientId).sort((a,b)=>b.documentDate.localeCompare(a.documentDate))
@@ -37,6 +39,12 @@ async function sha256(file:File){const digest=await crypto.subtle.digest('SHA-25
 export async function uploadClinicalDocument(input:DocumentUploadInput):Promise<ClinicalDocumentRecord>{
   if(input.file.size>25*1024*1024)throw new Error('El archivo supera el máximo de 25 MB.')
   const mimeType=resolvedMime(input.file);if(!mimeType)throw new Error('El tipo de archivo no está permitido.')
+  if ((!isSupabaseConfigured || !supabase) && input.extractionDraft) {
+    const record:ClinicalDocumentRecord={id:crypto.randomUUID(),patientId:input.patientId,treatmentCycleId:input.treatmentCycleId,documentType:input.documentType,originalFilename:input.file.name,storagePath:`demo/${crypto.randomUUID()}-${safeFilename(input.file.name)}`,mimeType,fileSizeBytes:input.file.size,documentDate:input.documentDate,description:input.description,createdAt:new Date().toISOString(),sharedWithPatient:false,permissionId:'',permissionLevel:'',studyId:'',studyStatus:'draft',deviceName:input.deviceName,protocolCode:input.protocolCode,protocolVersion:input.protocolVersion}
+    const extraction=await createExtractionDraft(record.id,input.patientId,input.extractionDraft,input.documentDate,input.treatmentCycleId,input.file.name,mimeType)
+    record.studyId=extraction.studyIds[0]??'';record.studyIds=extraction.studyIds;record.extractionJobId=extraction.jobId
+    writeDemo([...readDemo(),record]);return record
+  }
   if(!isSupabaseConfigured||!supabase){const record:ClinicalDocumentRecord={id:crypto.randomUUID(),patientId:input.patientId,treatmentCycleId:input.treatmentCycleId,documentType:input.documentType,originalFilename:input.file.name,storagePath:`demo/${crypto.randomUUID()}-${safeFilename(input.file.name)}`,mimeType,fileSizeBytes:input.file.size,documentDate:input.documentDate,description:input.description,createdAt:new Date().toISOString(),sharedWithPatient:input.shareWithPatient,permissionId:input.shareWithPatient?crypto.randomUUID():'',permissionLevel:input.shareWithPatient?'view':'',studyId:['posturography','vhit'].includes(input.documentType)?crypto.randomUUID():'',studyStatus:['posturography','vhit'].includes(input.documentType)?'draft':'',deviceName:input.deviceName,protocolCode:input.protocolCode,protocolVersion:input.protocolVersion};writeDemo([...readDemo(),record]);return record}
   const client=supabase
   const{data:auth,error:authError}=await client.auth.getUser();if(authError||!auth.user)throw authError??new Error('Sesión profesional no disponible.')
@@ -46,11 +54,13 @@ export async function uploadClinicalDocument(input:DocumentUploadInput):Promise<
   const{error:storageError}=await client.storage.from('clinical-documents').upload(storagePath,input.file,{contentType:mimeType,upsert:false});if(storageError)throw storageError
   const{data:document,error}=await client.from('source_documents').insert({patient_id:input.patientId,treatment_cycle_id:input.treatmentCycleId||null,document_type:input.documentType,original_filename:input.file.name,storage_path:storagePath,mime_type:mimeType,sha256:digest,uploaded_by:auth.user.id,document_date:input.documentDate,description:input.description||null,file_size_bytes:input.file.size}).select().single()
   if(error){await cleanup();throw error}
-  if(['posturography','vhit'].includes(input.documentType)){
+  if(input.extractionDraft){
+    try{await createExtractionDraft(document.id,input.patientId,input.extractionDraft,input.documentDate,input.treatmentCycleId,input.file.name,mimeType)}catch(extractionError){await cleanup(document.id);throw extractionError}
+  }else if(['posturography','vhit'].includes(input.documentType)){
     const{error:studyError}=await client.from('clinical_studies').insert({patient_id:input.patientId,treatment_cycle_id:input.treatmentCycleId||null,source_document_id:document.id,study_type:input.documentType,performed_at:`${input.documentDate}T12:00:00`,device_name:input.deviceName||null,protocol_code:input.protocolCode||'manual-upload',protocol_version:input.protocolVersion||'1',status:'draft',created_by:auth.user.id})
     if(studyError){await cleanup(document.id);throw studyError}
   }
-  if(input.shareWithPatient)await client.from('document_permissions').insert({patient_id:input.patientId,document_id:document.id,level:'view',granted_by:auth.user.id})
+  if(input.shareWithPatient&&!input.extractionDraft)await client.from('document_permissions').insert({patient_id:input.patientId,document_id:document.id,level:'view',granted_by:auth.user.id})
   const items=await listPatientDocuments(input.patientId);const created=items.find(item=>item.id===document.id);if(!created)throw new Error('El documento se guardó, pero no pudo recuperarse.');return created
 }
 

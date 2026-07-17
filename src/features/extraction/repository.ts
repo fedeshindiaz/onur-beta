@@ -1,0 +1,101 @@
+import { isSupabaseConfigured, supabase } from '../../lib/supabase'
+import type { ExtractedField, ExtractedPage, LocalExtractionDraft, PageClassification, PatientMatchStatus, PersistedExtractionDraft } from './types'
+
+const DEMO_KEY = 'onur-demo-extractions-v1'
+
+export interface ExtractionReviewRecord extends PersistedExtractionDraft {
+  sourceFilename: string
+  mimeType: string
+  documentUrl: string
+  sectionStudyId: string
+  sectionPageNumbers: number[]
+}
+
+function readDemo() {
+  try { return JSON.parse(localStorage.getItem(DEMO_KEY) ?? '[]') as ExtractionReviewRecord[] } catch { return [] }
+}
+
+function writeDemo(records: ExtractionReviewRecord[]) { localStorage.setItem(DEMO_KEY, JSON.stringify(records)) }
+
+function pagePayload(page: ExtractedPage) {
+  return { page_number: page.pageNumber, proposed_classification: page.proposedClassification, classification: page.classification, classification_confidence: page.classificationConfidence, rotation_degrees: page.rotationDegrees, width: page.width, height: page.height }
+}
+
+function fieldPayload(field: ExtractedField) {
+  return { client_id: field.clientId, code: field.code, label: field.label, group: field.group, study_type: field.studyType, required: field.required, metric_code: field.metricCode, raw_value: field.rawValue, normalized_value: field.normalizedValue, unit_code: field.unitCode, condition_code: field.conditionCode, side: field.side, page_number: field.pageNumber, region: field.region, confidence: field.confidence, status: field.status, extractor_method: field.extractorMethod, extractor_version: field.extractorVersion, professional_value: field.professionalValue, confirmed: field.confirmed }
+}
+
+export function extractionPayload(draft: LocalExtractionDraft) {
+  return { intake_kind: draft.intakeKind, extractor_version: draft.extractorVersion, patient_match_status: draft.patientMatchStatus, mismatch_fields: draft.mismatchFields, pages: draft.pages.map(pagePayload), fields: draft.fields.map(fieldPayload) }
+}
+
+export async function createExtractionDraft(documentId: string, patientId: string, draft: LocalExtractionDraft, documentDate: string, treatmentCycleId: string, sourceFilename: string, mimeType: string) {
+  void patientId
+  if (!isSupabaseConfigured || !supabase) {
+    const jobId = crypto.randomUUID()
+    const types = [...new Set(draft.fields.map((field) => field.studyType))]
+    const studyIds = types.map(() => crypto.randomUUID())
+    const records = types.map((type, index): ExtractionReviewRecord => ({ ...draft, pages: draft.pages.map((page) => ({ ...page, text: '', lines: [] })), fields: draft.fields.filter((field) => field.studyType === type), id: jobId, documentId, studyIds, status: 'review', sourceFilename, mimeType, documentUrl: '', sectionStudyId: studyIds[index], sectionPageNumbers: draft.pages.filter((page) => type === 'posturography' ? page.classification === 'posturography' : page.classification !== 'posturography').map((page) => page.pageNumber) }))
+    writeDemo([...readDemo(), ...records])
+    return { jobId, studyIds }
+  }
+  const { data, error } = await supabase.rpc('create_document_extraction_draft', { target_document_id: documentId, extraction_payload: extractionPayload(draft), study_date: documentDate, target_treatment_cycle_id: treatmentCycleId || null })
+  if (error) throw error
+  const result = data as { job_id: string; study_ids: string[] }
+  return { jobId: result.job_id, studyIds: result.study_ids }
+}
+
+function fromPage(row: Record<string, unknown>): ExtractedPage {
+  return { pageNumber: Number(row.page_number), proposedClassification: String(row.proposed_classification) as PageClassification, classification: String(row.classification) as PageClassification, classificationConfidence: Number(row.classification_confidence ?? 0), rotationDegrees: Number(row.rotation_degrees ?? 0), width: Number(row.pixel_width ?? 0), height: Number(row.pixel_height ?? 0), previewUrl: '', text: '', lines: [] }
+}
+
+function fromField(row: Record<string, unknown>): ExtractedField {
+  return { clientId: String(row.client_key), code: String(row.field_code), label: String(row.field_label), group: String(row.field_group), studyType: String(row.study_type) as ExtractedField['studyType'], required: Boolean(row.required), metricCode: String(row.metric_code ?? ''), rawValue: String(row.raw_value ?? ''), normalizedValue: String(row.normalized_value ?? ''), unitCode: String(row.unit_code ?? ''), conditionCode: String(row.condition_code ?? ''), side: String(row.side ?? '') as ExtractedField['side'], pageNumber: Number(row.page_number), region: row.source_region as ExtractedField['region'], confidence: Number(row.extraction_confidence ?? 0), status: String(row.extraction_status) as ExtractedField['status'], extractorMethod: String(row.extractor_method) as ExtractedField['extractorMethod'], extractorVersion: String(row.extractor_version), professionalValue: String(row.professional_value ?? ''), confirmed: Boolean(row.is_confirmed) }
+}
+
+export async function getExtractionForStudy(studyId: string): Promise<ExtractionReviewRecord | null> {
+  if (!isSupabaseConfigured || !supabase) return readDemo().find((record) => record.sectionStudyId === studyId) ?? null
+  const { data: section, error: sectionError } = await supabase.from('study_extraction_sections').select('*').eq('study_id', studyId).maybeSingle()
+  if (sectionError) throw sectionError
+  if (!section) return null
+  const [{ data: job, error: jobError }, { data: pages, error: pagesError }, { data: fields, error: fieldsError }, { data: sections, error: sectionsError }] = await Promise.all([
+    supabase.from('document_extraction_jobs').select('*').eq('id', section.job_id).single(),
+    supabase.from('document_extraction_pages').select('*').eq('job_id', section.job_id).order('page_number'),
+    supabase.from('document_extraction_fields').select('*').eq('job_id', section.job_id).order('created_at'),
+    supabase.from('study_extraction_sections').select('study_id').eq('job_id', section.job_id),
+  ])
+  if (jobError || pagesError || fieldsError || sectionsError) throw jobError ?? pagesError ?? fieldsError ?? sectionsError
+  const { data: source, error: sourceError } = await supabase.from('source_documents').select('original_filename,mime_type,storage_path').eq('id', job.source_document_id).single()
+  if (sourceError) throw sourceError
+  const { data: signed, error: signedError } = await supabase.storage.from('clinical-documents').createSignedUrl(source.storage_path, 900)
+  if (signedError) throw signedError
+  return { id: job.id, documentId: job.source_document_id, studyIds: (sections ?? []).map((item) => String(item.study_id)), status: job.status, intakeKind: job.intake_kind, extractorVersion: job.extractor_version, patientMatchStatus: job.patient_match_status as PatientMatchStatus, mismatchFields: job.mismatch_field_codes ?? [], pages: (pages ?? []).map((row) => fromPage(row as Record<string, unknown>)), fields: (fields ?? []).map((row) => fromField(row as Record<string, unknown>)), sourceFilename: source.original_filename, mimeType: source.mime_type, documentUrl: signed.signedUrl, sectionStudyId: studyId, sectionPageNumbers: section.page_numbers }
+}
+
+function updateDemo(jobId: string, updater: (record: ExtractionReviewRecord) => ExtractionReviewRecord) {
+  writeDemo(readDemo().map((record) => record.id === jobId ? updater(record) : record))
+}
+
+export async function saveExtractionReview(draft: ExtractionReviewRecord) {
+  if (!isSupabaseConfigured || !supabase) { updateDemo(draft.id, (record) => ({ ...record, pages: draft.pages, fields: draft.fields, patientMatchStatus: draft.patientMatchStatus })); return }
+  const { error } = await supabase.rpc('save_document_extraction_review', { target_job_id: draft.id, review_payload: { patient_match_status: draft.patientMatchStatus, pages: draft.pages.map(pagePayload), fields: draft.fields.map(fieldPayload) } })
+  if (error) throw error
+}
+
+export async function confirmExtraction(jobId: string) {
+  if (!isSupabaseConfigured || !supabase) { updateDemo(jobId, (record) => ({ ...record, status: 'confirmed' })); return }
+  const { error } = await supabase.rpc('confirm_document_extraction', { target_job_id: jobId })
+  if (error) throw error
+}
+
+export async function markExtractionManual(jobId: string) {
+  if (!isSupabaseConfigured || !supabase) { updateDemo(jobId, (record) => ({ ...record, status: 'manual' })); return }
+  const { error } = await supabase.rpc('mark_document_extraction_manual', { target_job_id: jobId })
+  if (error) throw error
+}
+
+export async function discardExtraction(jobId: string) {
+  if (!isSupabaseConfigured || !supabase) { updateDemo(jobId, (record) => ({ ...record, status: 'discarded' })); return }
+  const { error } = await supabase.rpc('discard_document_extraction', { target_job_id: jobId })
+  if (error) throw error
+}

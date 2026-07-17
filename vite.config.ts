@@ -12,6 +12,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      workbox: { globIgnores: ['**/ocr/**'] },
       includeAssets: ['onur-mark.svg', 'onur-192.png', 'onur-512.png'],
       manifest: {
         name: 'ONUr Beta',

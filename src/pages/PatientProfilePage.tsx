@@ -64,6 +64,11 @@ export function PatientProfilePage() {
         }
       />
 
+      <section className="grid gap-4 lg:grid-cols-2" aria-label="Carga privada de estudios">
+        <Link to={`/app/estudios/importar?patient=${patient.id}&kind=bap`} className="rounded-3xl border-2 border-[#bcded9] bg-[#f4fbf9] p-6 transition hover:border-[#0b7a75]"><FileImage className="text-[#0b7a75]" size={25}/><strong className="mt-4 block text-sm font-black text-[#123238]">POSTUROGRAFÍA BAP</strong><span className="mt-2 block text-xs leading-5 text-[#60777d]">Imágenes, PDF, informes BAP, fotografías y capturas del posturógrafo.</span><span className="mt-4 block text-xs font-black text-[#0b7a75]">Cargar y extraer localmente →</span></Link>
+        <Link to={`/app/estudios/importar?patient=${patient.id}&kind=vestibular`} className="rounded-3xl border-2 border-[#d8dbe8] bg-[#f8f8fc] p-6 transition hover:border-[#606c9b]"><FileText className="text-[#606c9b]" size={25}/><strong className="mt-4 block text-sm font-black text-[#123238]">ESTUDIOS VESTIBULARES, vHIT E INFORMES</strong><span className="mt-2 block text-xs leading-5 text-[#60777d]">Informes, HIMP/SHIMP, oculomotores, órdenes, gráficos y estudios multipágina.</span><span className="mt-4 block text-xs font-black text-[#59658f]">Cargar y extraer localmente →</span></Link>
+      </section>
+
       <section className="grid gap-5 lg:grid-cols-[0.72fr_1.28fr]">
         <article className="rounded-3xl border border-[#dce7e5] bg-white p-6">
           <div className="flex items-center gap-4">

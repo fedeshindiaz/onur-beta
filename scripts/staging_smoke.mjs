@@ -106,6 +106,28 @@ try{
   assert(revoked.length===0,'La revocación no invalidó el acceso al documento.')
   log('Storage privado, solicitud, vista, descarga y revocación')
 
+  const extractionPayload={intake_kind:'posturography_bap',extractor_version:'onur-local-ocr-smoke-1',patient_match_status:'mismatch',mismatch_fields:['name'],pages:[{page_number:1,proposed_classification:'posturography',classification:'posturography',classification_confidence:.99,rotation_degrees:0,width:1000,height:1400}],fields:[{client_id:'synthetic-condition-1',code:'condition_1',label:'Condición 1',group:'Condiciones',study_type:'posturography',required:true,metric_code:'condition_score',raw_value:'75,0',normalized_value:'75',unit_code:'percent',condition_code:'1',side:'',page_number:1,region:{x:.1,y:.2,width:.4,height:.04},confidence:.98,status:'read',extractor_method:'local_ocr',extractor_version:'onur-local-ocr-smoke-1',professional_value:'75,0',confirmed:false}]}
+  const foreignDraft=await foreignProfessional.rpc('create_document_extraction_draft',{target_document_id:document.id,extraction_payload:extractionPayload,study_date:'2026-07-16',target_treatment_cycle_id:null})
+  assert(foreignDraft.error,'Un profesional ajeno pudo crear una extracción.')
+  const extraction=assertNoError(await professional.rpc('create_document_extraction_draft',{target_document_id:document.id,extraction_payload:extractionPayload,study_date:'2026-07-16',target_treatment_cycle_id:null}),'crear borrador de extracción')
+  const extractionStudyId=extraction.study_ids[0]
+  const patientJobs=assertNoError(await patientClient.from('document_extraction_jobs').select('id'),'ocultar borradores al paciente')
+  const foreignFields=assertNoError(await foreignProfessional.from('document_extraction_fields').select('id').eq('job_id',extraction.job_id),'aislar campos de extracción')
+  assert(patientJobs.length===0&&foreignFields.length===0,'RLS expuso el borrador o sus campos.')
+  const prematureConfirmation=await professional.rpc('confirm_document_extraction',{target_job_id:extraction.job_id})
+  assert(prematureConfirmation.error,'La extracción se confirmó sin revisar el campo obligatorio.')
+  extractionPayload.fields[0].confirmed=true
+  const unsafeMismatchResolution=await professional.rpc('save_document_extraction_review',{target_job_id:extraction.job_id,review_payload:{patient_match_status:'match',pages:extractionPayload.pages,fields:extractionPayload.fields}})
+  assert(unsafeMismatchResolution.error,'La discrepancia se resolvió sin confirmación profesional explícita.')
+  assertNoError(await professional.rpc('save_document_extraction_review',{target_job_id:extraction.job_id,review_payload:{patient_match_status:'confirmed_by_professional',pages:extractionPayload.pages,fields:extractionPayload.fields}}),'guardar revisión de extracción')
+  assertNoError(await professional.rpc('confirm_document_extraction',{target_job_id:extraction.job_id}),'confirmar extracción profesional')
+  const extractedStudy=assertNoError(await professional.from('clinical_studies').select('status,metric_values(raw_value,normalized_numeric_value,quality_status)').eq('id',extractionStudyId).single(),'leer estudio extraído')
+  assert(extractedStudy.status==='reviewed'&&extractedStudy.metric_values?.[0]?.raw_value==='75,0'&&extractedStudy.metric_values?.[0]?.normalized_numeric_value===75,'La confirmación no preservó raw y normalizado por separado.')
+  const extractionAudits=assertNoError(await admin.from('audit_events').select('action,metadata').eq('entity_id',extraction.job_id),'leer auditoría de extracción')
+  assert(extractionAudits.some(row=>row.action==='clinical_extraction_confirmed'),'Falta auditoría de confirmación profesional.')
+  assert(!JSON.stringify(extractionAudits).includes('75,0'),'La auditoría expuso un valor clínico extraído.')
+  log('extracción local, RLS, revisión, confirmación y auditoría sin contenido clínico')
+
   const study=assertNoError(await professional.from('clinical_studies').insert({patient_id:created.patientId,source_document_id:document.id,study_type:'posturography',performed_at:'2026-07-16T12:00:00Z',device_name:'Equipo ficticio',protocol_code:'bap-a-d',protocol_version:'1',created_by:created.professionalUserId}).select().single(),'crear estudio')
   const metricPayload=[{metric_code:'condition_score',raw_value:'75,0',normalized_numeric_value:75,normalized_text_value:null,unit_code:'percent',condition_code:'A',side:null,axis:null,trial_number:1,source_method:'transcribed',source_location:'Smoke test',normalization_rule_version:'onur-normalization-1.0',quality_status:'ok',issues:[]}]
   assertNoError(await professional.rpc('replace_study_import',{target_study_id:study.id,metric_payload:metricPayload,import_quality_notes:'Revisión ficticia de staging',import_interpretable:true,parser_version:'onur-normalization-1.0'}),'confirmar importación')
@@ -178,7 +200,14 @@ try{
 
   const auditRows=assertNoError(await admin.from('audit_events').select('action').in('actor_user_id',[created.professionalUserId,created.patientUserId]),'leer auditoría')
   const audited=auditRows.map(row=>row.action)
-  for(const action of ['patient_account_created','patient_pin_changed','document_access_requested','document_access_approved','document_viewed','document_downloaded','clinical_study_finalized','patient_acknowledgement_accepted','session_started','session_finished','supervised_in_person_session_started','supervised_in_person_session_restarted','supervised_in_person_session_finished','session_assignment_duplicated_as_home','patient_account_disable'])assert(audited.includes(action),`Falta auditoría ${action}.`)
+  for(const action of ['patient_account_created','patient_pin_changed','document_access_requested','document_access_approved','document_viewed','document_downloaded','clinical_extraction_started','clinical_pages_classified','clinical_extraction_review_saved','clinical_extraction_confirmed','clinical_study_finalized','patient_acknowledgement_accepted','session_started','session_finished','supervised_in_person_session_started','supervised_in_person_session_restarted','supervised_in_person_session_finished','session_assignment_duplicated_as_home','patient_account_disable'])assert(audited.includes(action),`Falta auditoría ${action}.`)
   log('eventos críticos de auditoría')
   process.stdout.write('\nSmoke test de staging completado correctamente.\n')
 }finally{await cleanup()}
+
+const patientResidue=assertNoError(await admin.from('patients').select('id').in('id',[created.patientId,created.otherPatientId].filter(Boolean)),'verificar limpieza de pacientes')
+const documentResidue=created.patientId?assertNoError(await admin.from('source_documents').select('id').eq('patient_id',created.patientId),'verificar limpieza de documentos'):[]
+const auditResidue=assertNoError(await admin.from('audit_events').select('id').in('actor_user_id',[created.patientUserId,created.professionalUserId,created.foreignProfessionalUserId].filter(Boolean)),'verificar limpieza de auditoría')
+const storageResidue=created.professionalUserId&&created.patientId?assertNoError(await admin.storage.from('clinical-documents').list(`${created.professionalUserId}/${created.patientId}`),'verificar limpieza de Storage'):[]
+assert(patientResidue.length===0&&documentResidue.length===0&&auditResidue.length===0&&storageResidue.length===0,'Quedaron residuos sintéticos del smoke test en staging.')
+log('limpieza completa de datos sintéticos de staging')

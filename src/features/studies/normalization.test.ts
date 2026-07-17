@@ -22,6 +22,13 @@ describe('normalización clínica trazable', () => {
     expect(results[2].normalizedTextValue).toBe('not_recorded')
   })
 
+  it('conserva infinito como texto revisable y nunca como cero', () => {
+    const [result] = normalizeMetricRows([row({ rawValue: '∞' })])
+    expect(result.normalizedNumericValue).toBeNull()
+    expect(result.normalizedTextValue).toBe('infinite')
+    expect(result.qualityStatus).toBe('review')
+  })
+
   it('exige identificar la métrica y condición aunque el valor no aplique', () => {
     const [result] = normalizeMetricRows([row({ metricCode: '', conditionCode: '', rawValue: 'No aplica' })])
     expect(result.qualityStatus).toBe('blocked')

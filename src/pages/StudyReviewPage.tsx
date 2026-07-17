@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { PageHeader } from '../components/PageHeader'
 import { StatusBadge } from '../components/StatusBadge'
+import { ClinicalExtractionReview } from '../features/extraction/ClinicalExtractionReview'
+import { useStudyExtraction } from '../features/extraction/hooks'
 import { definitionsFor, metricLabel, unitOptions } from '../features/studies/catalog'
 import { useFinalizeStudy, useSaveStudyImport, useStudyReview } from '../features/studies/hooks'
 import { normalizeMetricRows, parseMetricTable } from '../features/studies/normalization'
@@ -17,6 +19,7 @@ const fieldClass = 'h-10 min-w-28 rounded-xl border border-[#cfddda] bg-white px
 export function StudyReviewPage() {
   const { studyId = '' } = useParams()
   const { data: study, isPending, error: loadError } = useStudyReview(studyId)
+  const { data: extraction } = useStudyExtraction(studyId)
   const save = useSaveStudyImport(studyId)
   const finalize = useFinalizeStudy(studyId)
   const [rows, setRows] = useState<MetricRowInput[]>([])
@@ -91,7 +94,9 @@ export function StudyReviewPage() {
     <PageHeader eyebrow="Importación estructurada" title={`Revisar ${study.studyType === 'posturography' ? 'posturografía' : 'vHIT'}`} description={`${study.patientName} · ${study.performedAt.slice(0, 10)} · ${study.sourceFilename}`}/>
     {study.status==='finalized'&&<div className="flex gap-3 rounded-3xl border border-[#bcded9] bg-[#e8f5f2] p-5"><LockKeyhole className="shrink-0 text-[#08746e]" size={20}/><div><p className="text-sm font-black text-[#075e5a]">Estudio finalizado</p><p className="mt-1 text-xs leading-5 text-[#3e716f]">La revisión quedó bloqueada para preservar el registro confirmado. Las sugerencias profesionales pueden seguir revisándose por separado.</p></div></div>}
 
-    <fieldset disabled={study.status==='finalized'} className="contents disabled:opacity-90">
+    <ClinicalExtractionReview studyId={study.id}/>
+
+    <fieldset disabled={study.status==='finalized'||extraction?.status==='review'||extraction?.status==='discarded'} className="contents disabled:opacity-90">
 
     <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <article className="rounded-3xl border border-[#dce7e5] bg-white p-5"><p className="text-[10px] font-black uppercase tracking-[.14em] text-[#71878c]">Protocolo</p><p className="mt-2 text-sm font-black text-[#29474d]">{study.protocolCode} · v{study.protocolVersion}</p><p className="mt-1 text-xs text-[#71878c]">{study.deviceName || 'Equipo no informado'}</p></article>
