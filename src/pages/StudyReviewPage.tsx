@@ -19,7 +19,7 @@ const fieldClass = 'h-10 min-w-28 rounded-xl border border-[#cfddda] bg-white px
 export function StudyReviewPage() {
   const { studyId = '' } = useParams()
   const { data: study, isPending, error: loadError } = useStudyReview(studyId)
-  const { data: extraction } = useStudyExtraction(studyId)
+  const { data: extraction, isPending: extractionPending } = useStudyExtraction(studyId)
   const save = useSaveStudyImport(studyId)
   const finalize = useFinalizeStudy(studyId)
   const [rows, setRows] = useState<MetricRowInput[]>([])
@@ -85,16 +85,20 @@ export function StudyReviewPage() {
     catch(caught){setError(caught instanceof Error?caught.message:'No fue posible finalizar el estudio.')}
   }
 
-  if (isPending) return <p className="text-sm text-[#60777d]">Cargando estudio…</p>
+  if (isPending || extractionPending) return <p className="text-sm text-[#60777d]">Cargando estudio…</p>
   if (loadError || !study) return <p role="alert" className="rounded-2xl bg-[#fceced] p-4 text-sm font-bold text-[#a94952]">{loadError instanceof Error ? loadError.message : 'Estudio no encontrado.'}</p>
   const definitions = definitionsFor(study.studyType)
+
+  if (extraction && extraction.status !== 'manual') return <div className="space-y-7">
+    <Link to={`/app/pacientes/${study.patientId}`} className="inline-flex items-center gap-2 text-xs font-black text-[#0b7a75]"><ChevronLeft size={16}/> Volver al paciente</Link>
+    <PageHeader eyebrow="Estudio clínico" title="Informe del estudio" description={`${study.patientName} · ${study.performedAt.slice(0, 10)} · ${study.sourceFilename}`}/>
+    <ClinicalExtractionReview studyId={study.id}/>
+  </div>
 
   return <div className="space-y-7">
     <Link to={`/app/pacientes/${study.patientId}`} className="inline-flex items-center gap-2 text-xs font-black text-[#0b7a75]"><ChevronLeft size={16}/> Volver al paciente</Link>
     <PageHeader eyebrow="Importación estructurada" title={`Revisar ${study.studyType === 'posturography' ? 'posturografía' : 'vHIT'}`} description={`${study.patientName} · ${study.performedAt.slice(0, 10)} · ${study.sourceFilename}`}/>
     {study.status==='finalized'&&<div className="flex gap-3 rounded-3xl border border-[#bcded9] bg-[#e8f5f2] p-5"><LockKeyhole className="shrink-0 text-[#08746e]" size={20}/><div><p className="text-sm font-black text-[#075e5a]">Estudio finalizado</p><p className="mt-1 text-xs leading-5 text-[#3e716f]">La revisión quedó bloqueada para preservar el registro confirmado. Las sugerencias profesionales pueden seguir revisándose por separado.</p></div></div>}
-
-    <ClinicalExtractionReview studyId={study.id}/>
 
     <fieldset disabled={study.status==='finalized'||extraction?.status==='review'||extraction?.status==='discarded'} className="contents disabled:opacity-90">
 

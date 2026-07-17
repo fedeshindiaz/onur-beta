@@ -50,6 +50,28 @@ describe('extracción literal revisable', () => {
     expect(fields.find((field) => field.code === 'study_date')?.status).toBe('review')
     expect(fields.find((field) => field.code === 'conclusion')).toMatchObject({ rawValue: '', required: true, status: 'unrecognized' })
   })
+
+  it('lee panel BAP compacto y porcentajes ubicados por columna', () => {
+    const bapPage: ExtractedPage = {
+      ...page('Posturografía BAP\nPorcentaje de condiciones\nTest de organización sensorial', 'posturography'),
+      lines: [
+        { text: 'Adel = -07,73   Atrás = 04,31', confidence: 91, region: { x: .02, y: .27, width: .2, height: .03 } },
+        { text: 'Izqui = -03,37   Derech = 03,02', confidence: 90, region: { x: .02, y: .31, width: .2, height: .03 } },
+        { text: '17/7/2026', confidence: 96, region: { x: .61, y: .91, width: .08, height: .02 } },
+        // En un BAP, los puntajes altos aparecen arriba de cada barra.
+        ...[90, 99, 98, 82, 79, 27, 81].map((value, index) => ({ text: String(value), confidence: 88, region: { x: .71 + index * .043, y: .14 + index * .01, width: .025, height: .02 } })),
+        ...[100, 82, 80, 70].map((value, index) => ({ text: String(value), confidence: 86, region: { x: .72 + index * .07, y: .65 + index * .01, width: .03, height: .02 } })),
+      ],
+    }
+    const fields = extractFields([bapPage], 'posturography_bap')
+    expect(fields.find((field) => field.code === 'los_forward')).toMatchObject({ rawValue: '-07,73', normalizedValue: '-7.73' })
+    expect(fields.find((field) => field.code === 'los_backward')).toMatchObject({ rawValue: '04,31', normalizedValue: '4.31' })
+    expect(fields.find((field) => field.code === 'condition_1')).toMatchObject({ rawValue: '90', normalizedValue: '90', status: 'review' })
+    expect(fields.find((field) => field.code === 'condition_4')).toMatchObject({ rawValue: '82', normalizedValue: '82' })
+    expect(fields.find((field) => field.code === 'composite_score')).toMatchObject({ rawValue: '81', normalizedValue: '81' })
+    expect(fields.find((field) => field.code === 'sensory_somatosensory')).toMatchObject({ rawValue: '100', normalizedValue: '100' })
+    expect(fields.find((field) => field.code === 'study_date')).toMatchObject({ rawValue: '17/7/2026' })
+  })
 })
 
 describe('coincidencia de paciente', () => {
