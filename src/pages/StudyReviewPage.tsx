@@ -91,7 +91,7 @@ export function StudyReviewPage() {
 
   if (extraction && extraction.status !== 'manual') return <div className="space-y-7">
     <Link to={`/app/pacientes/${study.patientId}`} className="inline-flex items-center gap-2 text-xs font-black text-[#0b7a75]"><ChevronLeft size={16}/> Volver al paciente</Link>
-    <PageHeader eyebrow="Estudio clínico" title="Informe del estudio" description={`${study.patientName} · ${study.performedAt.slice(0, 10)} · ${study.sourceFilename}`}/>
+    <PageHeader eyebrow="Estudio clínico" title={`Revisar ${study.studyType === 'posturography' ? 'posturografía' : 'vHIT'}`} description={`${study.patientName} · ${study.performedAt.slice(0, 10)} · ${study.sourceFilename}`}/>
     <ClinicalExtractionReview studyId={study.id}/>
   </div>
 

@@ -25,6 +25,7 @@ const PatientsPage = lazy(() => import('./pages/PatientsPage').then((module) => 
 const PatientTodayPage = lazy(() => import('./pages/PatientTodayPage').then((module) => ({ default: module.PatientTodayPage })))
 const SuggestionsPage = lazy(() => import('./pages/SuggestionsPage').then((module) => ({ default: module.SuggestionsPage })))
 const StudyReviewPage = lazy(() => import('./pages/StudyReviewPage').then((module) => ({ default: module.StudyReviewPage })))
+const StudyExtractionReportPage = lazy(() => import('./pages/StudyExtractionReportPage').then((module) => ({ default: module.StudyExtractionReportPage })))
 const StatisticsPage = lazy(() => import('./pages/StatisticsPage').then((module) => ({ default: module.StatisticsPage })))
 const StudiesPage = lazy(() => import('./pages/StudiesPage').then((module) => ({ default: module.StudiesPage })))
 
@@ -69,6 +70,7 @@ const router = createBrowserRouter([
       { path: 'estudios', element: load(<StudiesPage />) },
       { path: 'estudios/importar', element: load(<ImportStudyPage />) },
       { path: 'estudios/:studyId/revisar', element: load(<StudyReviewPage />) },
+      { path: 'estudios/:studyId/informe', element: load(<StudyExtractionReportPage />) },
       { path: 'sugerencias', element: load(<SuggestionsPage />) },
       { path: 'estadisticas', element: load(<StatisticsPage />) },
       { path: '*', element: <Navigate to="/app" replace /> },

@@ -131,6 +131,8 @@ try{
   assert(foreignReport.error,'Un profesional ajeno pudo redactar el informe.')
   assertNoError(await professional.rpc('save_document_extraction_report',{target_job_id:extraction.job_id,target_professional_conclusion:'Conclusión profesional completamente sintética',target_rehabilitation_suggestion:'Sugerencia profesional completamente sintética'}),'guardar conclusión y rehabilitación profesional')
   assertNoError(await professional.rpc('confirm_document_extraction',{target_job_id:extraction.job_id}),'confirmar extracción profesional')
+  const confirmedExtraction=assertNoError(await professional.from('document_extraction_jobs').select('status,professional_conclusion,rehabilitation_suggestion,report_confirmed_at').eq('id',extraction.job_id).single(),'leer informe confirmado')
+  assert(confirmedExtraction.status==='confirmed'&&confirmedExtraction.professional_conclusion==='Conclusión profesional completamente sintética'&&confirmedExtraction.rehabilitation_suggestion==='Sugerencia profesional completamente sintética'&&confirmedExtraction.report_confirmed_at,'El informe confirmado no conserva los textos profesionales exactos.')
   const extractedStudy=assertNoError(await professional.from('clinical_studies').select('status,metric_values(raw_value,normalized_numeric_value,quality_status)').eq('id',extractionStudyId).single(),'leer estudio extraído')
   assert(extractedStudy.status==='reviewed'&&extractedStudy.metric_values?.[0]?.raw_value==='75,0'&&extractedStudy.metric_values?.[0]?.normalized_numeric_value===75,'La confirmación no preservó raw y normalizado por separado.')
   const extractionAudits=assertNoError(await admin.from('audit_events').select('action,metadata').eq('entity_id',extraction.job_id),'leer auditoría de extracción')
