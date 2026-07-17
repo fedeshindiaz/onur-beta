@@ -1,0 +1,27 @@
+import { Check, Download, ExternalLink, FileText, X } from 'lucide-react'
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { createDocumentUrl } from './repository'
+import { usePatientDocumentAccessRequests, usePatientDocuments, useResolveDocumentAccessRequest, useSetDocumentPermission } from './hooks'
+import { documentTypeLabels, type DocumentPermissionLevel } from './types'
+
+export function PatientDocumentsPanel({patientId}:{patientId:string}) {
+  const {data:documents=[],isPending}=usePatientDocuments(patientId)
+  const {data:requests=[]}=usePatientDocumentAccessRequests(patientId)
+  const permission=useSetDocumentPermission(patientId)
+  const resolve=useResolveDocumentAccessRequest(patientId)
+  const [error,setError]=useState('')
+  const pendingRequests=requests.filter(request=>request.status==='pending')
+
+  const open=async(document:typeof documents[number],download=false)=>{setError('');try{const url=await createDocumentUrl(document,download);window.open(url,'_blank','noopener,noreferrer')}catch(caught){setError(caught instanceof Error?caught.message:'No fue posible abrir el archivo.')}}
+  const setLevel=(document:typeof documents[number],value:string)=>permission.mutate({document,level:(value||null) as DocumentPermissionLevel|null})
+
+  return <article className="rounded-3xl border border-[#dce7e5] bg-white p-6 sm:col-span-2">
+    <div><h2 className="text-lg font-black text-[#123238]">Documentos y estudios</h2><p className="mt-1 text-xs leading-5 text-[#71878c]">Los permisos permanecen activos hasta revocación manual. “Solo visualizar” no muestra un botón de descarga, aunque ningún visor web puede impedir por completo que se guarde una copia.</p></div>
+    {error&&<p className="mt-4 rounded-2xl bg-[#fff6e4] p-3 text-xs font-bold text-[#805b16]">{error}</p>}
+
+    {pendingRequests.length>0&&<section className="mt-5 rounded-3xl border border-[#f0d8a3] bg-[#fffaf0] p-5"><h3 className="text-sm font-black text-[#805b16]">Solicitudes pendientes ({pendingRequests.length})</h3><div className="mt-3 space-y-3">{pendingRequests.map(request=><div key={request.id} className="flex flex-col gap-3 rounded-2xl bg-white p-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-black text-[#29474d]">{documentTypeLabels[request.documentType]}</p><p className="mt-1 text-xs text-[#71878c]">{request.documentDate} · solicitado {new Date(request.requestedAt).toLocaleDateString('es-UY')}</p></div><div className="flex flex-wrap gap-2"><button type="button" disabled={resolve.isPending} onClick={()=>resolve.mutate({requestId:request.id,decision:'denied',level:'view'})} className="inline-flex items-center gap-1.5 rounded-xl border border-[#d6e1df] px-3 py-2 text-xs font-black text-[#687a7e]"><X size={14}/> No autorizar</button><button type="button" disabled={resolve.isPending} onClick={()=>resolve.mutate({requestId:request.id,decision:'approved',level:'view'})} className="inline-flex items-center gap-1.5 rounded-xl border border-[#9ccfc7] px-3 py-2 text-xs font-black text-[#0b7a75]"><Check size={14}/> Solo ver</button><button type="button" disabled={resolve.isPending} onClick={()=>resolve.mutate({requestId:request.id,decision:'approved',level:'view_download'})} className="inline-flex items-center gap-1.5 rounded-xl bg-[#0b7a75] px-3 py-2 text-xs font-black text-white"><Download size={14}/> Ver y descargar</button></div></div>)}</div></section>}
+
+    {isPending?<p className="mt-5 text-sm text-[#71878c]">Cargando documentos…</p>:documents.length===0?<p className="mt-5 text-sm text-[#71878c]">Todavía no hay documentos cargados.</p>:<div className="mt-5 divide-y divide-[#e8efed]">{documents.map(document=><div key={document.id} className="flex flex-col gap-4 py-4 sm:flex-row sm:items-center sm:justify-between"><div className="flex gap-3"><span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-[#f1f5f4] text-[#0b7a75]"><FileText size={18}/></span><div><p className="text-sm font-black text-[#29474d]">{documentTypeLabels[document.documentType]}</p><p className="mt-1 text-xs text-[#71878c]">{document.documentDate} · {document.originalFilename}</p>{document.description&&<p className="mt-1 text-xs text-[#60777d]">{document.description}</p>}</div></div><div className="flex flex-wrap items-center gap-2">{document.studyId&&<Link to={`/app/estudios/${document.studyId}/revisar`} className="rounded-xl border border-[#b9d5d1] px-3 py-2 text-xs font-black text-[#0b7a75]">Revisar valores</Link>}<button type="button" onClick={()=>open(document)} className="grid size-10 place-items-center rounded-xl border border-[#dce7e5] text-[#60777d]" aria-label="Abrir archivo"><ExternalLink size={16}/></button><button type="button" onClick={()=>open(document,true)} className="grid size-10 place-items-center rounded-xl border border-[#dce7e5] text-[#60777d]" aria-label="Descargar archivo"><Download size={16}/></button><label className="relative"><span className="sr-only">Permiso del paciente</span><select aria-label={`Permiso para ${document.originalFilename}`} disabled={permission.isPending} value={document.permissionLevel} onChange={event=>setLevel(document,event.target.value)} className={`h-10 rounded-xl border-0 px-3 text-xs font-black ${document.permissionLevel?'bg-[#e6f5ee] text-[#27734c]':'bg-[#eef1f2] text-[#687a7e]'}`}><option value="">Privado</option><option value="view">Solo visualizar</option><option value="view_download">Ver y descargar</option></select></label></div></div>)}</div>}
+  </article>
+}

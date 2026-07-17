@@ -1,0 +1,16 @@
+import { describe, expect, it } from 'vitest'
+import { defaultExerciseConfig } from '../exercise/types'
+import type { AssessmentRecord } from '../assessments/repository'
+import type { PatientRecord } from '../patients/repository'
+import type { SessionAssignmentRecord } from '../sessions/repository'
+import { buildProfessionalStatistics } from './analytics'
+
+const patient: PatientRecord = { id:'p1',fullName:'Paciente Uno',initials:'PU',age:60,insurer:'Particular',status:'active',cycleLabel:'Ciclo 1',todaySession:null,lastActivity:'',portalAccess:'enabled',birthDate:'',affiliateNumber:'',phone:'',privateNotes:'',username:'' }
+const session = (overrides:Partial<SessionAssignmentRecord>={}):SessionAssignmentRecord => ({ id:crypto.randomUUID(),patientId:'p1',patientName:'Paciente Uno',treatmentCycleId:'c1',sessionPlanId:'plan',title:'Sesión',instructions:'',mode:'home',exercises:[{...defaultExerciseConfig,durationSeconds:60,rounds:1,restSeconds:0}],availableFrom:'2026-07-10T00:00:00.000Z',availableUntil:'',status:'completed',createdAt:'2026-07-10T00:00:00.000Z',activeSeconds:60,completedAt:'2026-07-10T00:01:00.000Z',initialDiscomfort:2,finalDiscomfort:2,perceivedDifficulty:2,patientComment:'',...overrides })
+const assessment = (phase:'initial'|'final',date:string,responses:number[]):AssessmentRecord => ({ id:crypto.randomUUID(),patientId:'p1',patientName:'Paciente Uno',treatmentCycleId:'c1',sourceDocumentId:'',instrumentCode:'ONUR_PERCEPCION_18',instrumentVersion:2,phase,assessmentDate:date,responses,totalScore:responses.reduce((sum,value)=>sum+value,0),answeredCount:18,applicableCount:18,generalRating:null,fallsCount:null,walkingAidUsed:null,createdAt:`${date}T12:00:00.000Z` })
+
+describe('estadísticas profesionales descriptivas',()=>{
+  it('calcula realización, minutos y progreso sin incluir revocadas ni futuras',()=>{const result=buildProfessionalStatistics([session(),session({status:'partial',activeSeconds:30}),session({status:'revoked'}),session({availableFrom:'2026-08-01T00:00:00.000Z'})],[],[patient],{period:'all',patientId:'',now:new Date('2026-07-16T12:00:00.000Z')});expect(result.totals.sessions).toBe(2);expect(result.totals.realized).toBe(2);expect(result.totals.realizationRate).toBe(100);expect(result.totals.activeMinutes).toBe(2);expect(result.totals.averageActiveProgress).toBe(75)})
+  it('respeta el período y el paciente seleccionado',()=>{const result=buildProfessionalStatistics([session(),session({id:'old',availableFrom:'2026-01-01T00:00:00.000Z'}),session({id:'other',patientId:'p2'})],[],[patient],{period:'30',patientId:'p1',now:new Date('2026-07-16T12:00:00.000Z')});expect(result.totals.sessions).toBe(1);expect(result.patientRows[0].patientId).toBe('p1')})
+  it('compara únicamente pares completos del cuestionario v2',()=>{const initial=assessment('initial','2026-07-01',Array(18).fill(3));const final=assessment('final','2026-07-15',Array(18).fill(1));const result=buildProfessionalStatistics([], [initial,final], [patient], {period:'all',patientId:'',now:new Date('2026-07-16T12:00:00.000Z')});expect(result.assessmentComparisons).toHaveLength(1);expect(result.assessmentComparisons[0].difference).toBe(-36);expect(result.patientRows[0].questionnaireDifference).toBe(-36)})
+})

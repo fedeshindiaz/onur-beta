@@ -1,0 +1,36 @@
+name: Supabase staging
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-and-smoke:
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 20
+    env:
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      PATIENT_AUTH_PEPPER: ${{ secrets.PATIENT_AUTH_PEPPER }}
+      ALLOWED_ORIGIN: ${{ secrets.ALLOWED_ORIGIN }}
+      PROFESSIONAL_EMAIL: ${{ secrets.PROFESSIONAL_EMAIL }}
+      PROFESSIONAL_PASSWORD: ${{ secrets.PROFESSIONAL_PASSWORD }}
+      PROFESSIONAL_DISPLAY_NAME: ${{ secrets.PROFESSIONAL_DISPLAY_NAME }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run staging:dry-run
+      - run: npm run staging:deploy
+      - run: npm run admin:create
+      - run: npm run staging:smoke

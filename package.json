@@ -1,0 +1,47 @@
+{
+  "name": "onur-beta",
+  "private": true,
+  "version": "0.1.0-beta.13",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "typecheck": "tsc -b --pretty false",
+    "staging:dry-run": "bash scripts/deploy_staging.sh --dry-run",
+    "staging:deploy": "bash scripts/deploy_staging.sh",
+    "staging:smoke": "node scripts/staging_smoke.mjs",
+    "admin:create": "node scripts/create_professional.mjs",
+    "github:publish": "bash scripts/publish_github.sh",
+    "staging:bootstrap": "bash scripts/bootstrap_staging.sh"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.110.6",
+    "@tanstack/react-query": "^5.101.2",
+    "lucide-react": "^1.24.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-router-dom": "^7.18.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^24.13.2",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "jsdom": "^29.1.1",
+    "oxlint": "^1.71.0",
+    "supabase": "^2.109.1",
+    "tailwindcss": "^4.3.2",
+    "typescript": "~6.0.2",
+    "vite": "^8.1.1",
+    "vite-plugin-pwa": "^1.3.0",
+    "vitest": "^4.1.10"
+  }
+}
