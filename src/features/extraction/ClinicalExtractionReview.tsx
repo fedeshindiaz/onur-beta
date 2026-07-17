@@ -1,5 +1,6 @@
 import { AlertTriangle, CheckCircle2, ClipboardCheck, FilePenLine, LoaderCircle, Save, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { normalizeMetricRow } from '../studies/normalization'
 import { EXTRACTOR_VERSION } from './extractor'
 import { analyzeClinicalFile, releaseExtractionPreviews } from './localOcr'
@@ -18,6 +19,7 @@ function normalizedField(field: ExtractedField, value: string) {
 }
 
 export function ClinicalExtractionReview({ studyId }: { studyId: string }) {
+  const navigate = useNavigate()
   const query = useStudyExtraction(studyId)
   const save = useSaveExtraction(studyId)
   const confirm = useConfirmExtraction(studyId)
@@ -95,7 +97,7 @@ export function ClinicalExtractionReview({ studyId }: { studyId: string }) {
       await save.mutateAsync(confirmedDraft)
       await confirm.mutateAsync(confirmedDraft.id)
       setDraft({ ...confirmedDraft, status: 'confirmed' })
-      setNotice('Informe generado y transcripción confirmada por el profesional.')
+      navigate(`/app/estudios/${studyId}/informe`, { replace: true })
     } catch (caught) { setError(caught instanceof Error ? caught.message : 'No fue posible generar el informe.') }
   }
 
@@ -122,7 +124,7 @@ export function ClinicalExtractionReview({ studyId }: { studyId: string }) {
 
     {reprocessStatus && <div role="status" className="flex items-center gap-3 rounded-2xl bg-[#e8f5f2] p-4 text-sm font-black text-[#08746e]"><LoaderCircle className="animate-spin" size={18}/>{reprocessStatus}</div>}
     {draft.patientMatchStatus === 'mismatch' && <div className="rounded-2xl border border-[#efc3c7] bg-[#fceced] p-4"><div className="flex gap-3"><AlertTriangle className="shrink-0 text-[#a94952]"/><p className="text-sm font-black text-[#8d3c45]">La identidad del documento no coincide completamente con el paciente seleccionado.</p></div><label className="mt-3 flex items-start gap-3 text-xs font-bold text-[#8d3c45]"><input type="checkbox" onChange={(event) => updateMatch(event.target.checked ? 'confirmed_by_professional' : 'mismatch')}/> Confirmo que el documento corresponde a este paciente.</label></div>}
-    {locked && <div className="flex gap-3 rounded-2xl border border-[#bcded9] bg-[#e8f5f2] p-4"><CheckCircle2 className="text-[#08746e]"/><p className="text-sm font-black text-[#075e5a]">{draft.status === 'confirmed' ? 'Informe confirmado.' : draft.status === 'manual' ? 'Carga manual seleccionada.' : 'Borrador descartado.'}</p></div>}
+    {locked && <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-[#bcded9] bg-[#e8f5f2] p-4"><CheckCircle2 className="text-[#08746e]"/><p className="mr-auto text-sm font-black text-[#075e5a]">{draft.status === 'confirmed' ? 'Informe confirmado.' : draft.status === 'manual' ? 'Carga manual seleccionada.' : 'Borrador descartado.'}</p>{draft.status === 'confirmed' && <Link to={`/app/estudios/${studyId}/informe`} className="rounded-xl border border-[#86c6bd] bg-white px-3 py-2 text-xs font-black text-[#08746e]">Ver informe</Link>}</div>}
 
     <div className="grid gap-5 xl:grid-cols-[.9fr_1.1fr]">
       <section className="overflow-hidden rounded-3xl border border-[#dce7e5] bg-white">
@@ -156,7 +158,7 @@ export function ClinicalExtractionReview({ studyId }: { studyId: string }) {
     {error && <p role="alert" className="rounded-2xl bg-[#fceced] p-4 text-sm font-bold text-[#a94952]">{error}</p>}
     {notice && <p role="status" className="rounded-2xl bg-[#e8f5f2] p-4 text-sm font-bold text-[#08746e]">{notice}</p>}
 
-    {!locked && <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><button type="button" onClick={saveDraft} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#0b7a75] px-4 py-3 text-xs font-black text-[#0b7a75]"><Save size={15}/> Guardar para después</button><button type="button" onClick={confirmDraft} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#0b7a75] px-5 py-3 text-sm font-black text-white"><ClipboardCheck size={17}/> Confirmar y generar informe</button></div>}
+    {!locked && <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end"><button type="button" onClick={saveDraft} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#0b7a75] px-4 py-3 text-xs font-black text-[#0b7a75]"><Save size={15}/> Guardar para después</button><button type="button" onClick={confirmDraft} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#0b7a75] px-5 py-3 text-sm font-black text-white"><ClipboardCheck size={17}/> Confirmar y ver informe</button></div>}
     {!locked && <details className="text-right"><summary className="cursor-pointer text-xs font-bold text-[#71878c]">Opciones avanzadas</summary><div className="mt-3 flex justify-end gap-2"><button type="button" onClick={chooseManual} className="inline-flex items-center gap-2 rounded-xl border border-[#cfddda] px-3 py-2 text-xs font-bold text-[#29474d]"><FilePenLine size={14}/> Carga manual</button><button type="button" onClick={discardDraft} className="inline-flex items-center gap-2 rounded-xl border border-[#efc3c7] px-3 py-2 text-xs font-bold text-[#a94952]"><Trash2 size={14}/> Descartar</button></div></details>}
   </section>
 }
