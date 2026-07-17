@@ -28,13 +28,26 @@ async function patientLogin(secret){
 }
 
 async function cleanup(){
-  if(created.storagePath)await admin.storage.from('clinical-documents').remove([created.storagePath])
-  if(created.patientId)await admin.from('patients').delete().eq('id',created.patientId)
-  if(created.otherPatientId)await admin.from('patients').delete().eq('id',created.otherPatientId)
+  const failures=[]
+  async function attempt(label,operation){
+    try{
+      const result=await operation()
+      if(result?.error)failures.push(`${label}: ${result.error.message}`)
+    }catch(error){failures.push(`${label}: ${error instanceof Error?error.message:String(error)}`)}
+  }
+
+  if(created.storagePath)await attempt('archivo de Storage',()=>admin.storage.from('clinical-documents').remove([created.storagePath]))
+  if(created.patientId)await attempt('paciente principal',()=>admin.from('patients').delete().eq('id',created.patientId))
+  if(created.otherPatientId)await attempt('paciente aislado',()=>admin.from('patients').delete().eq('id',created.otherPatientId))
+  if(created.professionalUserId){
+    await attempt('planes de sesión',()=>admin.from('session_plans').delete().eq('professional_id',created.professionalUserId))
+    await attempt('plantillas de ejercicio',()=>admin.from('exercise_templates').delete().eq('professional_id',created.professionalUserId))
+  }
   const actorIds=[created.patientUserId,created.professionalUserId].filter(Boolean)
-  if(actorIds.length)await admin.from('audit_events').delete().in('actor_user_id',actorIds)
-  if(created.patientUserId)await admin.auth.admin.deleteUser(created.patientUserId)
-  if(created.professionalUserId)await admin.auth.admin.deleteUser(created.professionalUserId)
+  if(actorIds.length)await attempt('auditorías',()=>admin.from('audit_events').delete().in('actor_user_id',actorIds))
+  if(created.patientUserId)await attempt('identidad paciente',()=>admin.auth.admin.deleteUser(created.patientUserId))
+  if(created.professionalUserId)await attempt('identidad profesional',()=>admin.auth.admin.deleteUser(created.professionalUserId))
+  if(failures.length)throw new Error(`La limpieza de staging falló:\n- ${failures.join('\n- ')}`)
 }
 
 try{
