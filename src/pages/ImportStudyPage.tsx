@@ -1,4 +1,4 @@
-import { AlertTriangle, ChevronLeft, FileScan, ScanText, ShieldCheck } from 'lucide-react'
+import { AlertTriangle, ChevronLeft, ShieldCheck } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { PageHeader } from '../components/PageHeader'
@@ -10,9 +10,9 @@ import { pageClassificationLabels, type IntakeKind, type LocalExtractionDraft, t
 import { usePatients } from '../features/patients/hooks'
 import { useTreatmentCycles } from '../features/sessions/hooks'
 
-const intakeOptions: Array<{ value: IntakeKind; title: string; description: string; icon: typeof FileScan }> = [
-  { value: 'posturography_bap', title: 'POSTUROGRAFÍA BAP', description: 'Imágenes, PDF, informes BAP y capturas de pantalla del posturógrafo.', icon: FileScan },
-  { value: 'vestibular_and_reports', title: 'ESTUDIOS VESTIBULARES, vHIT E INFORMES', description: 'Informes otoneurológicos, HIMP/SHIMP, oculomotores, órdenes, gráficos y estudios multipágina.', icon: ScanText },
+const intakeOptions: Array<{ value: IntakeKind; title: string }> = [
+  { value: 'posturography_bap', title: 'Posturografía BAP' },
+  { value: 'vestibular_and_reports', title: 'Vestibular, vHIT o informe clínico' },
 ]
 
 const fieldClass = 'mt-2 h-12 w-full rounded-2xl border border-[#cfddda] bg-white px-4 text-sm text-[#17363c]'
@@ -25,8 +25,7 @@ export function ImportStudyPage() {
   const selectedPatient = patients.find((patient) => patient.id === patientId)
   const { data: cycles = [] } = useTreatmentCycles(patientId)
   const upload = useUploadDocument(patientId)
-  const initialKind = params.get('kind') === 'vestibular' ? 'vestibular_and_reports' : 'posturography_bap'
-  const [intakeKind, setIntakeKind] = useState<IntakeKind>(initialKind)
+  const [intakeKind, setIntakeKind] = useState<IntakeKind>(params.get('kind') === 'vestibular' ? 'vestibular_and_reports' : 'posturography_bap')
   const [cycleId, setCycleId] = useState('')
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
   const [description, setDescription] = useState('')
@@ -45,60 +44,62 @@ export function ImportStudyPage() {
     let cancelled = false
     setError(''); setDraft(null)
     void analyzeClinicalFile(file, intakeKind, selectedPatient, (value) => {
-      if (!cancelled) setProgress(value.phase === 'done' ? 'Borrador automático listo para revisar.' : `Analizando página ${value.currentPage} de ${value.totalPages}`)
+      if (!cancelled) setProgress(value.phase === 'done' ? 'Lectura terminada.' : `Analizando página ${value.currentPage} de ${value.totalPages}`)
     }).then((result) => { if (!cancelled) setDraft(result); else releaseExtractionPreviews(result) }).catch((caught) => { if (!cancelled) { setError(caught instanceof Error ? caught.message : 'No fue posible analizar el archivo localmente.'); setProgress('') } })
     return () => { cancelled = true }
   }, [file, intakeKind, selectedPatient])
 
-  const changeFile = (next: File) => { releaseExtractionPreviews(draft); setDraft(null); setProgress('Preparando análisis local…'); setFile(next); setError('') }
+  const changeFile = (next: File) => { releaseExtractionPreviews(draft); setDraft(null); setProgress('Preparando lectura local…'); setFile(next); setError('') }
   const changeClassification = (pageNumber: number, classification: PageClassification) => setDraft((current) => {
     if (!current) return current
     const pages = current.pages.map((page) => page.pageNumber === pageNumber ? { ...page, classification } : page)
     return { ...current, pages, fields: extractFields(pages, current.intakeKind) }
   })
-  const recognizedPages = useMemo(() => draft?.pages.filter((page) => page.classification !== 'unrecognized').length ?? 0, [draft])
+  const counts = useMemo(() => ({
+    read: draft?.fields.filter((field) => field.professionalValue.trim()).length ?? 0,
+    review: draft?.fields.filter((field) => field.professionalValue.trim() && field.status !== 'read').length ?? 0,
+    missing: draft?.fields.filter((field) => field.required && !field.professionalValue.trim()).length ?? 0,
+  }), [draft])
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
     if (!patientId || !selectedPatient) { setError('Seleccioná primero al paciente.'); return }
-    if (!file || !draft) { setError('Esperá a que termine el análisis local del archivo.'); return }
+    if (!file || !draft) { setError('Esperá a que termine la lectura del archivo.'); return }
     if (!date) { setError('Indicá la fecha del documento.'); return }
     setError('')
     try {
       const result = await upload.mutateAsync({ patientId, treatmentCycleId: cycleId, documentType: intakeKind === 'posturography_bap' ? 'posturography' : 'clinical_report', documentDate: date, description, shareWithPatient: false, file, deviceName: '', protocolCode: intakeKind === 'posturography_bap' ? 'bap-auto-review' : 'vestibular-auto-review', protocolVersion: '1', extractionDraft: draft })
-      if (!result.studyId) throw new Error('El borrador se guardó, pero no se encontró su sección de revisión.')
-      navigate(`/app/estudios/${result.studyId}/revisar`, { state: { notice: `Original privado y borrador automático guardados. ${result.studyIds?.length ?? 1} sección(es) vinculada(s).` } })
+      if (!result.studyId) throw new Error('El archivo se guardó, pero no se encontró el informe para revisar.')
+      navigate(`/app/estudios/${result.studyId}/revisar`)
     } catch (caught) { setError(caught instanceof Error ? caught.message : 'No fue posible guardar el documento.') }
   }
 
   return <div className="space-y-7">
     <Link to={patientId ? `/app/pacientes/${patientId}` : '/app'} className="inline-flex items-center gap-2 text-xs font-black text-[#0b7a75]"><ChevronLeft size={16}/> Volver</Link>
-    <PageHeader eyebrow="Carga privada y extracción local" title="Cargar estudio" description="Seleccioná el espacio correcto. ONUr conserva un único original privado y crea borradores que siempre requieren confirmación profesional."/>
-    <form onSubmit={submit} className="space-y-6">
-      <section className="grid gap-4 lg:grid-cols-2">{intakeOptions.map((option) => { const Icon = option.icon; const selected = intakeKind === option.value; return <button key={option.value} type="button" onClick={() => { setIntakeKind(option.value); setDraft(null) }} className={`rounded-3xl border-2 p-6 text-left transition ${selected ? 'border-[#0b7a75] bg-[#e8f5f2]' : 'border-[#dce7e5] bg-white'}`}><Icon className={selected ? 'text-[#0b7a75]' : 'text-[#60777d]'} size={26}/><strong className="mt-4 block text-sm font-black text-[#123238]">{option.title}</strong><span className="mt-2 block text-xs leading-5 text-[#60777d]">{option.description}</span></button> })}</section>
+    <PageHeader eyebrow="Carga privada" title="Cargar estudio" description="Elegí el paciente, cargá el archivo y revisá los parámetros obtenidos."/>
 
-      <section className="grid gap-6 xl:grid-cols-[.72fr_1.28fr]">
-        <div className="space-y-5 rounded-3xl border border-[#dce7e5] bg-white p-6">
-          <h2 className="text-lg font-black text-[#123238]">1. Paciente y original</h2>
-          <label className="block text-sm font-black text-[#29474d]">Paciente seleccionado *<select className={fieldClass} value={patientId} onChange={(event) => { setPatientId(event.target.value); setFile(null); setDraft(null) }}><option value="">Seleccionar…</option>{patients.map((patient) => <option key={patient.id} value={patient.id}>{patient.fullName}</option>)}</select></label>
-          <div className="grid gap-4 sm:grid-cols-2"><label className="text-sm font-black text-[#29474d]">Fecha del documento *<input type="date" className={fieldClass} value={date} onChange={(event) => setDate(event.target.value)}/></label><label className="text-sm font-black text-[#29474d]">Ciclo<select className={fieldClass} value={cycleId} onChange={(event) => setCycleId(event.target.value)}><option value="">Sin asociar</option>{cycles.map((cycle) => <option key={cycle.id} value={cycle.id}>{cycle.label}</option>)}</select></label></div>
-          <label className="block text-sm font-black text-[#29474d]">Descripción opcional<textarea className="mt-2 min-h-20 w-full rounded-2xl border border-[#cfddda] p-4 text-sm" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Contexto breve, sin interpretar el estudio."/></label>
-          <ClinicalFileDropzone file={file} previewUrl={draft?.pages[0]?.previewUrl ?? ''} pageCount={draft?.pages.length ?? 0} disabled={upload.isPending} onFile={changeFile} onError={setError}/>
-          <div className="flex gap-3 rounded-2xl bg-[#f5f8f7] p-4"><ShieldCheck className="shrink-0 text-[#0b7a75]" size={20}/><p className="text-xs leading-5 text-[#60777d]"><strong className="text-[#29474d]">Privado por defecto.</strong> El paciente no puede ver el original hasta solicitar acceso y recibir autorización profesional.</p></div>
+    <form onSubmit={submit} className="mx-auto max-w-4xl space-y-5">
+      <section className="rounded-3xl border border-[#dce7e5] bg-white p-5 sm:p-7">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="text-sm font-black text-[#29474d]">Paciente *<select className={fieldClass} value={patientId} onChange={(event) => { setPatientId(event.target.value); setFile(null); setDraft(null) }}><option value="">Seleccionar…</option>{patients.map((patient) => <option key={patient.id} value={patient.id}>{patient.fullName}</option>)}</select></label>
+          <label className="text-sm font-black text-[#29474d]">Tipo de estudio *<select className={fieldClass} value={intakeKind} onChange={(event) => setIntakeKind(event.target.value as IntakeKind)}>{intakeOptions.map((option) => <option key={option.value} value={option.value}>{option.title}</option>)}</select></label>
+          <label className="text-sm font-black text-[#29474d]">Fecha *<input type="date" className={fieldClass} value={date} onChange={(event) => setDate(event.target.value)}/></label>
+          <label className="text-sm font-black text-[#29474d]">Ciclo<select className={fieldClass} value={cycleId} onChange={(event) => setCycleId(event.target.value)}><option value="">Sin asociar</option>{cycles.map((cycle) => <option key={cycle.id} value={cycle.id}>{cycle.label}</option>)}</select></label>
         </div>
 
-        <div className="space-y-5 rounded-3xl border border-[#dce7e5] bg-white p-6">
-          <div><h2 className="text-lg font-black text-[#123238]">2. Borrador automático</h2><p className="mt-1 text-xs leading-5 text-[#60777d]">PDF.js y OCR español/inglés se ejecutan localmente. Las imágenes no se envían a servicios externos.</p></div>
-          {progress && <div role="status" className="rounded-2xl bg-[#e8f5f2] p-4 text-sm font-black text-[#08746e]">{progress}</div>}
-          {!file && <div className="grid min-h-48 place-items-center rounded-2xl border border-dashed border-[#cfddda] text-center text-sm text-[#71878c]">Elegí un paciente y un archivo para comenzar.</div>}
-          {draft && <>
-            <div className="flex flex-wrap gap-2 text-xs"><span className="rounded-full bg-[#e8f5f2] px-3 py-1.5 font-black text-[#08746e]">{draft.pages.length} páginas</span><span className="rounded-full bg-[#f5f8f7] px-3 py-1.5 font-black text-[#60777d]">{recognizedPages} clasificadas</span><span className="rounded-full bg-[#fff6e4] px-3 py-1.5 font-black text-[#98620b]">{draft.fields.filter((field) => field.status !== 'read').length} campos a revisar</span></div>
-            {draft.patientMatchStatus === 'mismatch' && <div className="flex gap-3 rounded-2xl border border-[#efc3c7] bg-[#fceced] p-4"><AlertTriangle className="shrink-0 text-[#a94952]" size={20}/><p className="text-xs leading-5 text-[#8d3c45]"><strong>Posible discrepancia con el paciente seleccionado.</strong> Se detectaron diferencias en {draft.mismatchFields.length} campo(s) de identidad. El perfil no se modificó ni se cambió de paciente.</p></div>}
-            <div className="grid gap-3 sm:grid-cols-2">{draft.pages.map((page) => <article key={page.pageNumber} className="overflow-hidden rounded-2xl border border-[#dce7e5]"><img src={page.previewUrl} alt={`Miniatura de página ${page.pageNumber}`} className="h-36 w-full bg-[#f5f8f7] object-contain"/><div className="p-3"><p className="text-xs font-black text-[#29474d]">Página {page.pageNumber}</p><select aria-label={`Clasificación página ${page.pageNumber}`} value={page.classification} onChange={(event) => changeClassification(page.pageNumber, event.target.value as PageClassification)} className="mt-2 h-10 w-full rounded-xl border border-[#cfddda] px-3 text-xs">{Object.entries(pageClassificationLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div></article>)}</div>
-          </>}
-          {error && <p role="alert" className="rounded-2xl bg-[#fceced] p-4 text-sm font-bold text-[#a94952]">{error}</p>}
-          <button disabled={!draft || upload.isPending} className="w-full rounded-2xl bg-[#0b7a75] px-5 py-4 text-sm font-black text-white disabled:opacity-50">{upload.isPending ? 'Guardando original privado…' : 'Guardar borrador y revisar campos'}</button>
-        </div>
+        <div className="mt-6"><ClinicalFileDropzone file={file} previewUrl={draft?.pages[0]?.previewUrl ?? ''} pageCount={draft?.pages.length ?? 0} disabled={upload.isPending} onFile={changeFile} onError={setError}/></div>
+
+        {progress && <div role="status" className="mt-4 rounded-2xl bg-[#e8f5f2] p-4 text-sm font-black text-[#08746e]">{progress}</div>}
+        {draft && <div className="mt-4 rounded-2xl border border-[#dce7e5] bg-[#f8fbfa] p-4"><p className="text-sm font-black text-[#29474d]">{counts.read} parámetros obtenidos</p><p className="mt-1 text-xs text-[#60777d]">{counts.review} dudosos · {counts.missing} obligatorios faltantes · {draft.pages.length} página(s)</p></div>}
+        {draft?.patientMatchStatus === 'mismatch' && <div className="mt-4 flex gap-3 rounded-2xl border border-[#efc3c7] bg-[#fceced] p-4"><AlertTriangle className="shrink-0 text-[#a94952]" size={20}/><p className="text-xs leading-5 text-[#8d3c45]"><strong>Posible discrepancia de identidad.</strong> Se confirmará en el informe sin cambiar el paciente automáticamente.</p></div>}
+
+        {draft && (draft.pages.length > 1 || draft.pages.some((page) => page.classification === 'unrecognized')) && <details className="mt-4 rounded-2xl border border-[#dce7e5] p-4"><summary className="cursor-pointer text-xs font-black text-[#29474d]">Revisar páginas</summary><div className="mt-4 grid gap-3 sm:grid-cols-2">{draft.pages.map((page) => <label key={page.pageNumber} className="text-xs font-bold text-[#60777d]">Página {page.pageNumber}<select value={page.classification} onChange={(event) => changeClassification(page.pageNumber, event.target.value as PageClassification)} className="mt-1 h-10 w-full rounded-xl border border-[#cfddda] px-3 text-xs">{Object.entries(pageClassificationLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>)}</div></details>}
+
+        <details className="mt-4"><summary className="cursor-pointer text-xs font-bold text-[#71878c]">Agregar una descripción</summary><textarea className="mt-3 min-h-20 w-full rounded-2xl border border-[#cfddda] p-4 text-sm" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Contexto opcional, sin interpretar el estudio."/></details>
+        <div className="mt-5 flex gap-3 rounded-2xl bg-[#f5f8f7] p-4"><ShieldCheck className="shrink-0 text-[#0b7a75]" size={20}/><p className="text-xs leading-5 text-[#60777d]">El original permanece privado. El OCR se ejecuta en este navegador y requiere confirmación profesional.</p></div>
+
+        {error && <p role="alert" className="mt-4 rounded-2xl bg-[#fceced] p-4 text-sm font-bold text-[#a94952]">{error}</p>}
+        <button disabled={!draft || upload.isPending} className="mt-6 w-full rounded-2xl bg-[#0b7a75] px-5 py-4 text-sm font-black text-white disabled:opacity-50">{upload.isPending ? 'Guardando…' : 'Continuar al informe'}</button>
       </section>
     </form>
   </div>

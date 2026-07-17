@@ -18,6 +18,8 @@ describe('ciclo de extracción demo', () => {
     const review = await getExtractionForStudy(created.studyIds[0])
     expect(review?.status).toBe('review')
     review!.fields[0] = { ...review!.fields[0], professionalValue: 'Texto sintético corregido', normalizedValue: 'Texto sintético corregido', confirmed: true }
+    review!.professionalConclusion = 'Conclusión profesional sintética.'
+    review!.rehabilitationSuggestion = 'Plan profesional sintético.'
     await saveExtractionReview(review!)
     expect((await getExtractionForStudy(created.studyIds[0]))?.fields[0]).toMatchObject({ professionalValue: 'Texto sintético corregido', confirmed: true })
     await confirmExtraction(created.jobId)

@@ -2,7 +2,7 @@ import { parseLocaleNumber } from '../studies/normalization'
 import { posturographyFieldDefinitions, vestibularFieldDefinitions } from './catalog'
 import type { ExtractedField, ExtractedPage, ExtractionFieldDefinition, IntakeKind, PageClassification, PatientMatchStatus, SourceRegion } from './types'
 
-export const EXTRACTOR_VERSION = 'onur-local-ocr-1.0'
+export const EXTRACTOR_VERSION = 'onur-local-ocr-1.1'
 
 function fold(value: string) {
   return value.toLocaleLowerCase('es-UY').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -41,6 +41,22 @@ function lineValue(text: string, alias: string) {
   return ''
 }
 
+const compactValueCodes = new Set([
+  'study_date', 'study_time', 'duration', 'reported_age', 'los_forward', 'los_backward', 'los_left', 'los_right',
+  'los_area', 'sway_x', 'sway_y', 'afis_pattern', 'los_score', 'mix_ve_som', 'mix_ve_vi', 'pppd_index',
+  'composite_score', 'condition_percentage', 'sensory_somatosensory', 'sensory_visual', 'sensory_vestibular',
+  'visual_preference', 'gain_right', 'gain_left', 'symmetry', 'saccadic_velocity',
+])
+
+function compactCandidate(definition: ExtractionFieldDefinition, value: string) {
+  const trimmed = value.trim()
+  if (!trimmed || !compactValueCodes.has(definition.code) && !definition.conditionCode) return trimmed
+  if (definition.code === 'study_date') return trimmed.match(/\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b/)?.[0] ?? trimmed
+  if (definition.code === 'study_time') return trimmed.match(/\b\d{1,2}:\d{2}(?::\d{2})?\b/)?.[0] ?? trimmed
+  const literal = trimmed.match(/(?:no\s+aplica|no\s+registrado|n\/?a|n\/?r|∞|infinito)|[+-]?\s*(?:\d+(?:[.,]\d+)?|[.,]\d+)\s*(?:%|cm[²2]|mm[²2]|deg|°|hz|s|seg(?:undos?)?)?/i)?.[0]
+  return literal?.replace(/\s+/g, ' ').trim() ?? trimmed
+}
+
 function normalizedValue(raw: string) {
   const number = parseLocaleNumber(raw)
   if (number !== null) return String(number)
@@ -56,24 +72,95 @@ function normalizedValue(raw: string) {
   return raw.trim()
 }
 
-function findDefinitionValue(definition: ExtractionFieldDefinition, page: ExtractedPage) {
+interface LocatedValue { value: string; confidence: number; region: SourceRegion | null }
+
+function numericFragments(page: ExtractedPage) {
+  return page.lines.flatMap((line) => [...line.text.matchAll(/[+-]?(?:\d+(?:[.,]\d+)?|[.,]\d+)\s*%?/g)].flatMap((match) => {
+    if (match.index === undefined) return []
+    const value = match[0].trim()
+    const normalized = parseLocaleNumber(value)
+    if (normalized === null) return []
+    const characterWidth = line.region.width / Math.max(1, line.text.length)
+    return [{
+      raw: value,
+      value: normalized,
+      confidence: line.confidence / 100,
+      region: {
+        x: line.region.x + characterWidth * match.index,
+        y: line.region.y,
+        width: Math.max(.008, characterWidth * value.length),
+        height: line.region.height,
+      },
+    }]
+  }))
+}
+
+function valuesByHorizontalPosition(page: ExtractedPage, bounds: SourceRegion) {
+  const candidates = numericFragments(page)
+    .filter((item) => item.value >= 0 && item.value <= 100 && item.region.x >= bounds.x && item.region.x <= bounds.x + bounds.width && item.region.y >= bounds.y && item.region.y <= bounds.y + bounds.height)
+    .sort((a, b) => a.region.x - b.region.x || a.region.y - b.region.y)
+  const columns: typeof candidates[] = []
+  for (const candidate of candidates) {
+    const column = columns.find((items) => Math.abs(items[0].region.x - candidate.region.x) < .025)
+    if (column) column.push(candidate)
+    else columns.push([candidate])
+  }
+  return columns.map((items) => items.sort((a, b) => a.region.y - b.region.y)[0]).sort((a, b) => a.region.x - b.region.x)
+}
+
+function positionalBapValue(definition: ExtractionFieldDefinition, page: ExtractedPage): LocatedValue | null {
+  if (page.classification !== 'posturography') return null
+  const dateLine = page.lines.find((line) => line.region.y > .78 && /\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b/.test(line.text))
+  if (definition.code === 'study_date' && dateLine) {
+    return { value: dateLine.text.match(/\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b/)?.[0] ?? '', confidence: dateLine.confidence / 100, region: dateLine.region }
+  }
+  if (definition.code === 'study_status') {
+    const statusLine = page.lines.find((line) => /\b(?:finalizad[ao]|completad[ao]|pendiente)\b/i.test(fold(line.text)))
+    if (statusLine) return { value: statusLine.text.trim(), confidence: statusLine.confidence / 100, region: statusLine.region }
+  }
+
+  const conditionIndex = definition.code.match(/^condition_([1-6])$/)?.[1]
+  if (conditionIndex) {
+    // En los informes BAP los valores se ubican arriba de las barras; las
+    // condiciones con mejor puntaje quedan muy cerca del encabezado del gráfico.
+    const values = valuesByHorizontalPosition(page, { x: .67, y: .10, width: .31, height: .42 })
+    const candidate = values[Number(conditionIndex) - 1]
+    if (candidate) return { value: candidate.raw, confidence: Math.min(candidate.confidence, .72), region: candidate.region }
+  }
+  if (definition.code === 'composite_score') {
+    const values = valuesByHorizontalPosition(page, { x: .67, y: .10, width: .31, height: .42 })
+    const candidate = values[6]
+    if (candidate) return { value: candidate.raw, confidence: Math.min(candidate.confidence, .72), region: candidate.region }
+  }
+
+  const sensoryCodes = ['sensory_somatosensory', 'sensory_visual', 'sensory_vestibular', 'visual_preference']
+  const sensoryIndex = sensoryCodes.indexOf(definition.code)
+  if (sensoryIndex >= 0) {
+    const values = valuesByHorizontalPosition(page, { x: .67, y: .56, width: .31, height: .34 })
+    const candidate = values[sensoryIndex]
+    if (candidate) return { value: candidate.raw, confidence: Math.min(candidate.confidence, .68), region: candidate.region }
+  }
+  return null
+}
+
+function findDefinitionValue(definition: ExtractionFieldDefinition, page: ExtractedPage): LocatedValue | null {
   for (const line of page.lines) {
     for (const alias of definition.aliases) {
       const value = lineValue(line.text, alias)
-      if (value) return { value, confidence: line.confidence / 100, region: line.region }
+      if (value) return { value: compactCandidate(definition, value), confidence: line.confidence / 100, region: line.region }
     }
   }
   for (const textLine of page.text.split(/\r?\n/)) {
     for (const alias of definition.aliases) {
       const value = lineValue(textLine, alias)
-      if (value) return { value, confidence: page.classificationConfidence * .95, region: null }
+      if (value) return { value: compactCandidate(definition, value), confidence: page.classificationConfidence * .95, region: null }
     }
   }
   for (const alias of definition.aliases) {
     const value = lineValue(page.text, alias)
-    if (value) return { value, confidence: page.classificationConfidence * .8, region: null }
+    if (value) return { value: compactCandidate(definition, value), confidence: page.classificationConfidence * .8, region: null }
   }
-  return null
+  return positionalBapValue(definition, page)
 }
 
 export function extractFields(pages: ExtractedPage[], intakeKind: IntakeKind): ExtractedField[] {

@@ -9,6 +9,7 @@ const studyFinalizationMigration = readFileSync(join(process.cwd(), 'supabase/mi
 const authProfileMigration = readFileSync(join(process.cwd(), 'supabase/migrations/202607170001_sync_auth_profile_metadata.sql'), 'utf8')
 const extractionMigration = readFileSync(join(process.cwd(), 'supabase/migrations/202607170004_private_clinical_extraction.sql'), 'utf8')
 const extractionHardeningMigration = readFileSync(join(process.cwd(), 'supabase/migrations/202607170005_harden_extraction_review.sql'), 'utf8')
+const extractionReportMigration = readFileSync(join(process.cwd(), 'supabase/migrations/202607170007_simplified_extraction_report.sql'), 'utf8')
 
 describe('contrato SQL de importación', () => {
   it('protege importaciones con RLS y propiedad del paciente', () => {
@@ -145,5 +146,24 @@ describe('contrato SQL de extracción clínica privada', () => {
     expect(extractionHardeningMigration).toContain("new.patient_match_status not in ('mismatch', 'confirmed_by_professional')")
     expect(extractionHardeningMigration).toContain('extraction_jobs_protect_patient_match')
     expect(extractionHardeningMigration).toContain('extraction_pages_sync_sections')
+  })
+
+  it('protege el reanálisis y exige conclusión y rehabilitación profesional', () => {
+    expect(extractionReportMigration).toContain('public.owns_patient(patient_id)')
+    expect(extractionReportMigration).toContain('public.is_professional()')
+    expect(extractionReportMigration).toContain('clinical_extraction_reprocessed')
+    expect(extractionReportMigration).toContain('require_extraction_report_before_confirmation')
+    expect(extractionReportMigration).toContain('Completá la conclusión profesional')
+    expect(extractionReportMigration).toContain('Completá la sugerencia profesional de rehabilitación')
+    expect(extractionReportMigration).toContain('revoke all on function public.replace_document_extraction_candidates')
+  })
+
+  it('no incluye el texto clínico del informe en auditoría', () => {
+    const auditStatements = extractionReportMigration.match(/insert into public\.audit_events[\s\S]*?;/g) ?? []
+    expect(auditStatements.length).toBeGreaterThanOrEqual(2)
+    for (const statement of auditStatements) {
+      expect(statement).not.toContain("'professional_conclusion',")
+      expect(statement).not.toContain("'rehabilitation_suggestion',")
+    }
   })
 })

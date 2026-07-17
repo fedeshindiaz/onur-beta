@@ -9,6 +9,8 @@ export interface ExtractionReviewRecord extends PersistedExtractionDraft {
   documentUrl: string
   sectionStudyId: string
   sectionPageNumbers: number[]
+  professionalConclusion: string
+  rehabilitationSuggestion: string
 }
 
 function readDemo() {
@@ -35,7 +37,7 @@ export async function createExtractionDraft(documentId: string, patientId: strin
     const jobId = crypto.randomUUID()
     const types = [...new Set(draft.fields.map((field) => field.studyType))]
     const studyIds = types.map(() => crypto.randomUUID())
-    const records = types.map((type, index): ExtractionReviewRecord => ({ ...draft, pages: draft.pages.map((page) => ({ ...page, text: '', lines: [] })), fields: draft.fields.filter((field) => field.studyType === type), id: jobId, documentId, studyIds, status: 'review', sourceFilename, mimeType, documentUrl: '', sectionStudyId: studyIds[index], sectionPageNumbers: draft.pages.filter((page) => type === 'posturography' ? page.classification === 'posturography' : page.classification !== 'posturography').map((page) => page.pageNumber) }))
+    const records = types.map((type, index): ExtractionReviewRecord => ({ ...draft, pages: draft.pages.map((page) => ({ ...page, text: '', lines: [] })), fields: draft.fields.filter((field) => field.studyType === type), id: jobId, documentId, studyIds, status: 'review', sourceFilename, mimeType, documentUrl: '', sectionStudyId: studyIds[index], sectionPageNumbers: draft.pages.filter((page) => type === 'posturography' ? page.classification === 'posturography' : page.classification !== 'posturography').map((page) => page.pageNumber), professionalConclusion: '', rehabilitationSuggestion: '' }))
     writeDemo([...readDemo(), ...records])
     return { jobId, studyIds }
   }
@@ -69,7 +71,7 @@ export async function getExtractionForStudy(studyId: string): Promise<Extraction
   if (sourceError) throw sourceError
   const { data: signed, error: signedError } = await supabase.storage.from('clinical-documents').createSignedUrl(source.storage_path, 900)
   if (signedError) throw signedError
-  return { id: job.id, documentId: job.source_document_id, studyIds: (sections ?? []).map((item) => String(item.study_id)), status: job.status, intakeKind: job.intake_kind, extractorVersion: job.extractor_version, patientMatchStatus: job.patient_match_status as PatientMatchStatus, mismatchFields: job.mismatch_field_codes ?? [], pages: (pages ?? []).map((row) => fromPage(row as Record<string, unknown>)), fields: (fields ?? []).map((row) => fromField(row as Record<string, unknown>)), sourceFilename: source.original_filename, mimeType: source.mime_type, documentUrl: signed.signedUrl, sectionStudyId: studyId, sectionPageNumbers: section.page_numbers }
+  return { id: job.id, documentId: job.source_document_id, studyIds: (sections ?? []).map((item) => String(item.study_id)), status: job.status, intakeKind: job.intake_kind, extractorVersion: job.extractor_version, patientMatchStatus: job.patient_match_status as PatientMatchStatus, mismatchFields: job.mismatch_field_codes ?? [], pages: (pages ?? []).map((row) => fromPage(row as Record<string, unknown>)), fields: (fields ?? []).map((row) => fromField(row as Record<string, unknown>)), sourceFilename: source.original_filename, mimeType: source.mime_type, documentUrl: signed.signedUrl, sectionStudyId: studyId, sectionPageNumbers: section.page_numbers, professionalConclusion: String(job.professional_conclusion ?? ''), rehabilitationSuggestion: String(job.rehabilitation_suggestion ?? '') }
 }
 
 function updateDemo(jobId: string, updater: (record: ExtractionReviewRecord) => ExtractionReviewRecord) {
@@ -77,13 +79,33 @@ function updateDemo(jobId: string, updater: (record: ExtractionReviewRecord) => 
 }
 
 export async function saveExtractionReview(draft: ExtractionReviewRecord) {
-  if (!isSupabaseConfigured || !supabase) { updateDemo(draft.id, (record) => ({ ...record, pages: draft.pages, fields: draft.fields, patientMatchStatus: draft.patientMatchStatus })); return }
+  if (!isSupabaseConfigured || !supabase) { updateDemo(draft.id, (record) => ({ ...record, pages: draft.pages, fields: draft.fields, patientMatchStatus: draft.patientMatchStatus, professionalConclusion: draft.professionalConclusion, rehabilitationSuggestion: draft.rehabilitationSuggestion })); return }
   const { error } = await supabase.rpc('save_document_extraction_review', { target_job_id: draft.id, review_payload: { patient_match_status: draft.patientMatchStatus, pages: draft.pages.map(pagePayload), fields: draft.fields.map(fieldPayload) } })
+  if (error) throw error
+  const { error: reportError } = await supabase.rpc('save_document_extraction_report', { target_job_id: draft.id, target_professional_conclusion: draft.professionalConclusion, target_rehabilitation_suggestion: draft.rehabilitationSuggestion })
+  if (reportError) throw reportError
+}
+
+export async function replaceExtractionCandidates(jobId: string, draft: LocalExtractionDraft) {
+  if (!isSupabaseConfigured || !supabase) {
+    updateDemo(jobId, (record) => ({
+      ...record,
+      extractorVersion: draft.extractorVersion,
+      pages: draft.pages.map((page) => ({ ...page, text: '', lines: [] })),
+      fields: draft.fields.filter((field) => field.studyType === record.fields[0]?.studyType),
+    }))
+    return
+  }
+  const { error } = await supabase.rpc('replace_document_extraction_candidates', { target_job_id: jobId, extraction_payload: extractionPayload(draft) })
   if (error) throw error
 }
 
 export async function confirmExtraction(jobId: string) {
-  if (!isSupabaseConfigured || !supabase) { updateDemo(jobId, (record) => ({ ...record, status: 'confirmed' })); return }
+  if (!isSupabaseConfigured || !supabase) {
+    const records = readDemo().filter((record) => record.id === jobId)
+    if (records.some((record) => !record.professionalConclusion.trim() || !record.rehabilitationSuggestion.trim())) throw new Error('Completá la conclusión y la sugerencia profesional de rehabilitación.')
+    updateDemo(jobId, (record) => ({ ...record, status: 'confirmed' })); return
+  }
   const { error } = await supabase.rpc('confirm_document_extraction', { target_job_id: jobId })
   if (error) throw error
 }

@@ -1,34 +1,31 @@
 # Extracción clínica privada y revisable
 
-ONUr Beta procesa posturografías BAP, estudios vestibulares, vHIT e informes escaneados como borradores. El original se conserva sin modificaciones en el bucket privado `clinical-documents`. Ningún valor extraído pasa a `metric_values` hasta que un profesional propietario del paciente lo confirma.
+ONUr Beta utiliza OCR local para preparar un borrador de parámetros de posturografías BAP, estudios vestibulares, vHIT e informes escaneados. El archivo original queda inalterado en el bucket privado `clinical-documents`; ningún dato pasa al informe confirmado sin intervención de un profesional propietario del paciente.
 
-## Flujo profesional
+## Flujo simplificado
 
-1. Seleccionar el paciente antes del archivo.
-2. Elegir `POSTUROGRAFÍA BAP` o `ESTUDIOS VESTIBULARES, vHIT E INFORMES`.
-3. Arrastrar, pegar, seleccionar o fotografiar un PDF/JPG/JPEG/PNG/WEBP.
-4. Revisar la clasificación de cada página. Un PDF mixto conserva un solo original y crea secciones vinculadas.
-5. Revisar raw exacto, normalizado, unidad, página, región, confianza, método y versión.
-6. Completar solamente lo faltante, resolver cualquier discrepancia de identidad y confirmar cada valor presente.
-7. Guardar el borrador, confirmar la transcripción o continuar con carga completamente manual.
+1. Abrir **Cargar estudio**, seleccionar el paciente, tipo, fecha y archivo PDF/JPG/JPEG/PNG/WEBP.
+2. El navegador procesa el archivo localmente. Para BAP se amplía la imagen, se prueba contraste y orientación, y se leen tanto rótulos como valores por posición en los gráficos.
+3. Revisar solamente los **parámetros obtenidos** y corregir los que estén marcados para revisar o faltantes.
+4. Redactar la **conclusión profesional** y la **sugerencia profesional de rehabilitación** según la valoración clínica.
+5. Confirmar y generar el informe, o guardar el borrador para continuar luego.
 
-El paciente no recibe permiso durante la carga. Solo puede acceder posteriormente mediante solicitud y aprobación profesional.
+Las opciones técnicas y el descarte permanecen disponibles dentro de **Opciones avanzadas**. La interfaz no muestra pasos de normalización, confirmación individual ni clasificaciones que no sean necesarios para la revisión clínica.
 
-## Campos iniciales
+## BAP y reanálisis
 
-Posturografía: software/versión, fecha/hora/duración/estado/escala, edad consignada, límites adelante/atrás/izquierda/derecha/área, Sway X/Y, patrón Afis, Score LOS, Def. Mix Ve Som, Def. Mixto Ve Vi, índice PPPD, condiciones 1–8, compuesto, porcentaje de condiciones, organización y distribución sensorial y conclusión literal.
+La versión `onur-local-ocr-1.1` mejora la lectura de capturas y fotos de BAP: aumenta la resolución útil, usa segmentación de texto disperso, aplica una segunda lectura con contraste y prueba rotación cuando la lectura inicial no es suficiente. También reconoce paneles compactos y los puntajes de condiciones/organización sensorial por la posición de las barras.
 
-Vestibular/vHIT: fecha, institución, tipo, profesional, motivo, antecedentes, síntomas, evolución, examen, HIMP, SHIMP, resultados, ganancias por lado, simetría, sacadas, curvas/canales, VII par, fijación, supresión visual, SKEW, Head Shaking, vibracional, cancelación VOR, posicionales, marcha, sistema sacádico, seguimiento lento, sensibilidad, reflejos, conclusión, conducta y observaciones.
+Al abrir un borrador creado con una versión anterior, ONUr vuelve a analizar el original privado en el navegador y conserva las correcciones profesionales que difieran de la lectura anterior. El reprocesamiento queda auditado sin almacenar el contenido clínico en el registro de auditoría.
 
-## Límites deliberados
+## Límites y seguridad
 
-- El OCR local puede requerir corrección en fotos con perspectiva, baja resolución, tablas complejas o texto manuscrito.
-- La detección de rotación y el contraste son ayudas temporales; el original nunca se modifica.
-- No se interpretan curvas, iconos ni significados clínicos sin un código de métrica confirmado.
-- No se infieren datos ilegibles, diagnósticos, causalidad ni tratamientos.
-- Cédula y sexo no se comparan si el perfil seleccionado no conserva esos datos en forma utilizable; la coincidencia queda para confirmación profesional.
-- La revisión de imágenes y PDF resalta una región cuando PDF.js/Tesseract devuelve coordenadas confiables.
+- El OCR es una ayuda de transcripción; puede requerir corrección en fotos con perspectiva, baja resolución, tablas complejas o texto manuscrito.
+- ONUr no interpreta curvas, no diagnostica, no infiere causalidad y no recomienda tratamientos automáticamente.
+- La conclusión y la sugerencia de rehabilitación son textos obligatoriamente redactados y confirmados por el profesional responsable.
+- El paciente no participa de la carga ni recibe acceso al original durante la revisión.
+- Los documentos y valores clínicos no se imprimen en consola ni se usan como fixtures, logs o datos de staging.
 
 ## Pruebas
 
-Los fixtures de `tests/fixtures/synthetic-clinical` son totalmente sintéticos, se regeneran con `scripts/generate_synthetic_clinical_fixtures.py` y llevan una advertencia visible. Los documentos clínicos de referencia no forman parte del repositorio, build, CI ni staging.
+Los archivos en `tests/fixtures/synthetic-clinical` son exclusivamente sintéticos, se regeneran con `scripts/generate_synthetic_clinical_fixtures.py` y llevan una advertencia visible. No se incluyen documentos clínicos reales en el repositorio, la compilación, CI ni staging.

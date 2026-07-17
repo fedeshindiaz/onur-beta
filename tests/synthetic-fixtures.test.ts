@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const root = join(process.cwd(), 'tests/fixtures/synthetic-clinical')
-const names = ['bap_clear_synthetic.pdf', 'bap_perspective_synthetic.jpg', 'mixed_multipage_synthetic.pdf', 'unrecognized_synthetic.pdf', 'vestibular_report_synthetic.pdf', 'vhit_rotated_partial_synthetic.png']
+const names = ['bap_clear_synthetic.pdf', 'bap_perspective_synthetic.jpg', 'bap_screen_synthetic.png', 'mixed_multipage_synthetic.pdf', 'unrecognized_synthetic.pdf', 'vestibular_report_synthetic.pdf', 'vhit_rotated_partial_synthetic.png']
 
 describe('fixtures clínicos sintéticos', () => {
   it('incluye solo artefactos marcados como sintéticos y reproducibles', () => {

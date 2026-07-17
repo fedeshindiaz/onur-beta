@@ -1,6 +1,7 @@
 """Genera fixtures clínicos 100 % sintéticos, sin datos personales ni valor asistencial."""
 
 from pathlib import Path
+import sys
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfbase import pdfmetrics
@@ -80,9 +81,75 @@ def make_perspective_photo() -> None:
     entries = ["Adelante: 81,5 %", "Atras: 72,0 %", "Izquierda: 76,2 %", "Derecha: 78,1 %", "Area: 11,8 cm2", "Condicion 1: 90 %", "Condicion 2: 84 %", "Compuesto: 79 %", "No usar clinicamente"]
     for index, value in enumerate(entries):
         draw.text((90, 220 + index * 105), value, fill=(25, 42, 45), font=font)
-    perspective = source.transform((1300, 1650), Image.Transform.QUAD, (70, 90, 1130, 0, 1190, 1530, 0, 1600), resample=Image.Resampling.BICUBIC)
+    # Pillow espera las esquinas en orden superior-izquierda, inferior-izquierda,
+    # inferior-derecha y superior-derecha.
+    perspective = source.transform((1300, 1650), Image.Transform.QUAD, (70, 90, 0, 1600, 1190, 1530, 1130, 0), resample=Image.Resampling.BICUBIC)
     perspective = perspective.filter(ImageFilter.GaussianBlur(radius=0.35))
     perspective.save(TARGET / "bap_perspective_synthetic.jpg", quality=88)
+
+
+def make_bap_screen() -> None:
+    image = Image.new("RGB", (1600, 900), (238, 242, 241))
+    draw = ImageDraw.Draw(image)
+    font = ImageFont.truetype(str(REPORTLAB_FONTS / "Vera.ttf"), 22)
+    small = ImageFont.truetype(str(REPORTLAB_FONTS / "Vera.ttf"), 18)
+    bold = ImageFont.truetype(str(REPORTLAB_FONTS / "VeraBd.ttf"), 22)
+
+    draw.rectangle((0, 0, 1600, 52), fill=(245, 247, 247))
+    draw.text((18, 14), "Posturografo V2.3.2 · BAP · DOCUMENTO SINTETICO SIN DATOS PERSONALES", fill=(22, 55, 60), font=small)
+    draw.rectangle((18, 72, 395, 750), fill=(65, 169, 192))
+    draw.text((45, 92), "BAP POSTUROGRAFIA", fill="white", font=bold)
+    entries = [
+        "Adel = -07,73   Atras = 04,31",
+        "Izqui = -03,37  Derech = 03,02",
+        "Area = 60,02 cm2   Escala = X10",
+        "Sway X = 3 deg     Sway Y = 4 deg",
+        "Patron Afis: 27,5 %",
+        "Score LOS: 100 %",
+        "Def Mix Ve Som: 49,6 %",
+        "Def Mixto Ve Vi: 44,9 %",
+        "Indice PPPD: ∞",
+    ]
+    for index, value in enumerate(entries):
+        y = 165 + index * 55
+        draw.rectangle((34, y - 8, 379, y + 38), fill=(108, 195, 214), outline=(26, 102, 120), width=2)
+        draw.text((46, y), value, fill=(12, 47, 55), font=small)
+
+    draw.rectangle((420, 72, 1045, 750), fill="white", outline=(174, 194, 192), width=2)
+    draw.text((620, 108), "ESTABILOGRAMA", fill=(22, 55, 60), font=bold)
+    for radius in range(55, 255, 38):
+        draw.ellipse((730 - radius, 405 - radius, 730 + radius, 405 + radius), outline=(115, 155, 161), width=2)
+    draw.line((480, 405, 980, 405), fill=(52, 94, 100), width=2)
+    draw.line((730, 155, 730, 655), fill=(52, 94, 100), width=2)
+    draw.line([(670, 470), (705, 390), (748, 442), (770, 340), (820, 405)], fill=(216, 66, 66), width=5)
+
+    chart_left, chart_top, chart_right, chart_bottom = 1080, 90, 1575, 455
+    draw.rectangle((chart_left, chart_top, chart_right, chart_bottom), fill=(91, 184, 210), outline=(44, 116, 137), width=2)
+    draw.text((1160, 105), "PORCENTAJE DE CONDICIONES", fill=(10, 53, 61), font=small)
+    condition_values = [90, 99, 98, 82, 79, 27, 81]
+    for index, value in enumerate(condition_values):
+        x = 1125 + index * 63
+        bar_height = value * 2.5
+        draw.rectangle((x, 410 - bar_height, x + 34, 410), fill=(115, 211, 107))
+        draw.text((x + 3, 382 - bar_height), str(value), fill=(7, 50, 57), font=small)
+        draw.text((x + 9, 420), str(index + 1) if index < 6 else "Com", fill=(7, 50, 57), font=small)
+
+    sensory_top, sensory_bottom = 500, 835
+    draw.rectangle((chart_left, sensory_top, chart_right, sensory_bottom), fill=(91, 184, 210), outline=(44, 116, 137), width=2)
+    draw.text((1150, 514), "TEST DE ORGANIZACION SENSORIAL", fill=(10, 53, 61), font=small)
+    sensory_values = [100, 82, 80, 70]
+    sensory_labels = ["Som.", "Visual", "Vest.", "Pref. visual"]
+    for index, value in enumerate(sensory_values):
+        x = 1125 + index * 105
+        bar_height = value * 2.15
+        draw.rectangle((x, 790 - bar_height, x + 55, 790), fill=(115, 211, 107))
+        draw.text((x + 8, 762 - bar_height), str(value), fill=(7, 50, 57), font=small)
+        draw.text((x, 800), sensory_labels[index], fill=(7, 50, 57), font=small)
+
+    draw.rectangle((420, 780, 1045, 850), fill="white", outline=(174, 194, 192), width=2)
+    draw.text((450, 798), "Fecha: 17/07/2026    Edad: 76    Estado: Finalizada", fill=(22, 55, 60), font=font)
+    draw.text((24, 862), "DOCUMENTO SINTETICO · NO USAR CLINICAMENTE", fill=(166, 33, 46), font=bold)
+    image.save(TARGET / "bap_screen_synthetic.png")
 
 
 def make_rotated_vhit() -> None:
@@ -109,9 +176,15 @@ def unrecognized_page(pdf: canvas.Canvas) -> None:
     lines(pdf, y, ["ALFA 123", "BETA XYZ", "Contenido deliberadamente insuficiente para clasificar."])
 
 
-make_pdf("bap_clear_synthetic.pdf", [bap_page])
-make_pdf("vestibular_report_synthetic.pdf", [vestibular_page])
-make_pdf("mixed_multipage_synthetic.pdf", [vestibular_page, bap_page, referral_page])
-make_pdf("unrecognized_synthetic.pdf", [unrecognized_page])
-make_perspective_photo()
-make_rotated_vhit()
+if __name__ == "__main__":
+    if "--bap-images-only" in sys.argv:
+        make_perspective_photo()
+        make_bap_screen()
+    else:
+        make_pdf("bap_clear_synthetic.pdf", [bap_page])
+        make_pdf("vestibular_report_synthetic.pdf", [vestibular_page])
+        make_pdf("mixed_multipage_synthetic.pdf", [vestibular_page, bap_page, referral_page])
+        make_pdf("unrecognized_synthetic.pdf", [unrecognized_page])
+        make_perspective_photo()
+        make_bap_screen()
+        make_rotated_vhit()
