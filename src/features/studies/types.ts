@@ -1,7 +1,7 @@
 import type { QualityStatus, SuggestionStatus } from '../../types/domain'
 
 export type StudyType = 'posturography' | 'vhit'
-export type MetricValueKind = 'numeric' | 'categorical' | 'boolean'
+export type MetricValueKind = 'numeric' | 'categorical' | 'boolean' | 'text'
 export type MetricSide = 'left' | 'right' | 'bilateral' | 'unknown' | ''
 
 export interface MetricDefinition {

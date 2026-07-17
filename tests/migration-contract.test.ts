@@ -7,6 +7,8 @@ const questionnaireMigration = readFileSync(join(process.cwd(), 'supabase/migrat
 const documentRequestMigration = readFileSync(join(process.cwd(), 'supabase/migrations/202607160011_document_access_requests.sql'), 'utf8')
 const studyFinalizationMigration = readFileSync(join(process.cwd(), 'supabase/migrations/202607160012_finalize_clinical_studies.sql'), 'utf8')
 const authProfileMigration = readFileSync(join(process.cwd(), 'supabase/migrations/202607170001_sync_auth_profile_metadata.sql'), 'utf8')
+const extractionMigration = readFileSync(join(process.cwd(), 'supabase/migrations/202607170004_private_clinical_extraction.sql'), 'utf8')
+const extractionHardeningMigration = readFileSync(join(process.cwd(), 'supabase/migrations/202607170005_harden_extraction_review.sql'), 'utf8')
 
 describe('contrato SQL de importación', () => {
   it('protege importaciones con RLS y propiedad del paciente', () => {
@@ -101,5 +103,47 @@ describe('contrato SQL de perfiles de Auth', () => {
   it('reconcilia perfiles existentes sin confiar en metadatos editables por el usuario', () => {
     expect(authProfileMigration).toContain('from auth.users auth_user')
     expect(authProfileMigration).not.toContain("raw_user_meta_data ->> 'role'")
+  })
+})
+
+describe('contrato SQL de extracción clínica privada', () => {
+  it('protege borradores, páginas, secciones y campos con RLS y propiedad profesional', () => {
+    expect(extractionMigration.match(/enable row level security/g)).toHaveLength(4)
+    expect(extractionMigration).toContain('public.owns_patient(patient_id)')
+    expect(extractionMigration).toContain('public.is_professional()')
+  })
+
+  it('separa borrador de métricas confirmadas y bloquea revisiones prematuras', () => {
+    expect(extractionMigration).toContain('document_extraction_fields')
+    expect(extractionMigration).toContain('clinical_studies_require_extraction_confirmation')
+    expect(extractionMigration).toContain("job.status not in ('confirmed', 'manual')")
+    expect(extractionMigration).toContain('Hay campos obligatorios faltantes o sin confirmar.')
+  })
+
+  it('requiere propiedad para crear, confirmar, descartar y pasar a manual', () => {
+    for (const rpc of ['create_document_extraction_draft', 'save_document_extraction_review', 'confirm_document_extraction', 'mark_document_extraction_manual', 'discard_document_extraction']) {
+      expect(extractionMigration).toContain(`revoke all on function public.${rpc}`)
+    }
+  })
+
+  it('audita sin incluir raw_value, normalized_value ni professional_value en metadata', () => {
+    const auditStatements = extractionMigration.match(/insert into public\.audit_events[\s\S]*?;/g) ?? []
+    expect(auditStatements.length).toBeGreaterThanOrEqual(5)
+    for (const statement of auditStatements) {
+      expect(statement).not.toContain('raw_value')
+      expect(statement).not.toContain('professional_value')
+    }
+  })
+
+  it('no concede lectura de extracción al rol paciente', () => {
+    const grants = extractionMigration.match(/grant .*document_extraction.*;/g) ?? []
+    expect(grants.every((grant) => grant.includes('authenticated'))).toBe(true)
+    expect(extractionMigration).not.toContain('extraction_fields_patient')
+  })
+
+  it('solo resuelve discrepancias por confirmación profesional y sincroniza páginas corregidas', () => {
+    expect(extractionHardeningMigration).toContain("new.patient_match_status not in ('mismatch', 'confirmed_by_professional')")
+    expect(extractionHardeningMigration).toContain('extraction_jobs_protect_patient_match')
+    expect(extractionHardeningMigration).toContain('extraction_pages_sync_sections')
   })
 })
