@@ -6,9 +6,8 @@ set -euo pipefail
 : "${SUPABASE_DB_PASSWORD:?Falta SUPABASE_DB_PASSWORD}"
 : "${PATIENT_AUTH_PEPPER:?Falta PATIENT_AUTH_PEPPER}"
 
-export HOME="${SUPABASE_CLI_HOME:-/tmp/onur-supabase-home}"
 export NPM_CONFIG_CACHE="${ONUR_NPM_CACHE:-/tmp/onur-npm-cache}"
-mkdir -p "$HOME" "$NPM_CONFIG_CACHE"
+mkdir -p "$NPM_CONFIG_CACHE"
 
 dry_run="${1:-}"
 

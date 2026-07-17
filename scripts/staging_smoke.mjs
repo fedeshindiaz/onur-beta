@@ -13,7 +13,7 @@ const professionalPassword=`Onur!${crypto.randomUUID()}aA1`
 const username=`staging${token.replace(/\D/g,'').slice(-10)}${crypto.randomUUID().replace(/-/g,'').slice(0,6)}`.slice(0,38)
 const temporaryCi='45678901'
 const pin='2468'
-const created={professionalUserId:'',patientUserId:'',patientId:'',otherPatientId:'',storagePath:''}
+const created={professionalUserId:'',foreignProfessionalUserId:'',patientUserId:'',patientId:'',otherPatientId:'',storagePath:''}
 
 function assert(condition,message){if(!condition)throw new Error(message)}
 function assertNoError(result,label){if(result.error)throw new Error(`${label}: ${result.error.message}`);return result.data}
@@ -43,9 +43,10 @@ async function cleanup(){
     await attempt('planes de sesión',()=>admin.from('session_plans').delete().eq('professional_id',created.professionalUserId))
     await attempt('plantillas de ejercicio',()=>admin.from('exercise_templates').delete().eq('professional_id',created.professionalUserId))
   }
-  const actorIds=[created.patientUserId,created.professionalUserId].filter(Boolean)
+  const actorIds=[created.patientUserId,created.professionalUserId,created.foreignProfessionalUserId].filter(Boolean)
   if(actorIds.length)await attempt('auditorías',()=>admin.from('audit_events').delete().in('actor_user_id',actorIds))
   if(created.patientUserId)await attempt('identidad paciente',()=>admin.auth.admin.deleteUser(created.patientUserId))
+  if(created.foreignProfessionalUserId)await attempt('identidad profesional aislada',()=>admin.auth.admin.deleteUser(created.foreignProfessionalUserId))
   if(created.professionalUserId)await attempt('identidad profesional',()=>admin.auth.admin.deleteUser(created.professionalUserId))
   if(failures.length)throw new Error(`La limpieza de staging falló:\n- ${failures.join('\n- ')}`)
 }
@@ -54,11 +55,16 @@ try{
   const createdProfessional=assertNoError(await admin.auth.admin.createUser({email:professionalEmail,password:professionalPassword,email_confirm:true,app_metadata:{role:'professional'},user_metadata:{display_name:'ONUr Staging Test'}}),'crear profesional')
   created.professionalUserId=createdProfessional.user.id
   const professional=client();assertNoError(await professional.auth.signInWithPassword({email:professionalEmail,password:professionalPassword}),'login profesional')
+  const foreignProfessionalEmail=`onur-staging-foreign-${token}@example.invalid`
+  const foreignProfessionalPassword=`Onur!${crypto.randomUUID()}bB2`
+  const createdForeignProfessional=assertNoError(await admin.auth.admin.createUser({email:foreignProfessionalEmail,password:foreignProfessionalPassword,email_confirm:true,app_metadata:{role:'professional'},user_metadata:{display_name:'ONUr Staging Aislado'}}),'crear profesional aislado')
+  created.foreignProfessionalUserId=createdForeignProfessional.user.id
+  const foreignProfessional=client();assertNoError(await foreignProfessional.auth.signInWithPassword({email:foreignProfessionalEmail,password:foreignProfessionalPassword}),'login profesional aislado')
   log('autenticación profesional y trigger de perfil')
 
   const patient=assertNoError(await professional.from('patients').insert({professional_id:created.professionalUserId,full_name:'Paciente Ficticio Staging',birth_date:'1960-01-01',insurer:'Prueba ONUr',status:'active'}).select().single(),'crear paciente')
   created.patientId=patient.id
-  const other=assertNoError(await professional.from('patients').insert({professional_id:created.professionalUserId,full_name:'Paciente Aislado Staging',status:'active'}).select().single(),'crear segundo paciente')
+  const other=assertNoError(await foreignProfessional.from('patients').insert({professional_id:created.foreignProfessionalUserId,full_name:'Paciente Aislado Staging',status:'active'}).select().single(),'crear segundo paciente')
   created.otherPatientId=other.id
 
   const accountResult=await professional.functions.invoke('create-patient-account',{body:{patient_id:created.patientId,username,temporary_ci:temporaryCi}})
@@ -124,6 +130,47 @@ try{
   assert(execution.active_seconds===42&&execution.initial_discomfort===2&&execution.final_discomfort===3&&execution.perceived_difficulty===2,'El auto-reporte no quedó guardado correctamente.')
   log('confirmación de uso, inicio y cierre transaccional de sesión')
 
+  const inPersonPlan=assertNoError(await professional.from('session_plans').insert({professional_id:created.professionalUserId,title:'Sesión presencial ficticia',instructions:'Supervisión ficticia de staging',plan_definition:{mode:'in_person',exercises:[]}}).select().single(),'crear plan presencial')
+  const inPersonAssignment=assertNoError(await professional.from('session_assignments').insert({patient_id:created.patientId,treatment_cycle_id:cycle.id,session_plan_id:inPersonPlan.id,available_from:new Date(Date.now()-60000).toISOString(),status:'assigned',assigned_by:created.professionalUserId}).select().single(),'asignar sesión presencial')
+  const hiddenInPerson=assertNoError(await patientClient.from('session_assignments').select('id').eq('id',inPersonAssignment.id),'ocultar presencial al paciente')
+  assert(hiddenInPerson.length===0,'El portal domiciliario pudo consultar una asignación presencial pendiente.')
+  const patientHomeStartOnInPerson=await patientClient.rpc('start_session_assignment',{target_assignment_id:inPersonAssignment.id})
+  assert(patientHomeStartOnInPerson.error,'La función domiciliaria permitió iniciar una asignación presencial.')
+  const patientSupervisedStart=await patientClient.rpc('start_supervised_in_person_session',{target_assignment_id:inPersonAssignment.id,initial_discomfort_input:2})
+  assert(patientSupervisedStart.error,'El paciente pudo invocar el inicio presencial supervisado.')
+  const foreignStart=await foreignProfessional.rpc('start_supervised_in_person_session',{target_assignment_id:inPersonAssignment.id,initial_discomfort_input:2})
+  assert(foreignStart.error,'Un profesional ajeno pudo iniciar la sesión presencial.')
+
+  const firstSupervisedExecutionId=assertNoError(await professional.rpc('start_supervised_in_person_session',{target_assignment_id:inPersonAssignment.id,initial_discomfort_input:2}),'iniciar presencial supervisada')
+  const restartedSupervisedExecutionId=assertNoError(await professional.rpc('start_supervised_in_person_session',{target_assignment_id:inPersonAssignment.id,initial_discomfort_input:4}),'reiniciar presencial desde el principio')
+  assert(firstSupervisedExecutionId===restartedSupervisedExecutionId,'El reinicio creó una segunda ejecución abierta.')
+  const openExecutions=assertNoError(await professional.from('session_executions').select('id,active_seconds,initial_discomfort,event_log,execution_mode,supervised,operated_by').eq('assignment_id',inPersonAssignment.id).is('finished_at',null),'leer ejecución presencial abierta')
+  assert(openExecutions.length===1,'No existe exactamente una ejecución presencial abierta.')
+  assert(openExecutions[0].active_seconds===0&&openExecutions[0].initial_discomfort===4,'El reinicio no volvió al principio o no actualizó el malestar inicial.')
+  assert(openExecutions[0].event_log?.[0]?.type==='restarted_from_beginning','El reinicio no quedó identificado en el registro de eventos.')
+  assert(openExecutions[0].execution_mode==='in_person'&&openExecutions[0].supervised===true&&openExecutions[0].operated_by===created.professionalUserId,'La ejecución no identifica modo, supervisión u operador.')
+
+  const finishedSupervisedExecutionId=assertNoError(await professional.rpc('complete_supervised_in_person_session',{target_assignment_id:inPersonAssignment.id,active_seconds_input:37,skipped_count_input:1,final_discomfort_input:3,perceived_difficulty_input:2,patient_comment_input:'Comentario ficticio del paciente',professional_observation_input:'Observación profesional ficticia',event_log_input:[{type:'finished',skipped_exercises:1}]}),'finalizar presencial supervisada')
+  assert(finishedSupervisedExecutionId===firstSupervisedExecutionId,'El cierre no actualizó la ejecución presencial abierta.')
+  const supervisedExecution=assertNoError(await professional.from('session_executions').select('status,active_seconds,initial_discomfort,final_discomfort,perceived_difficulty,patient_comment,professional_observation,execution_mode,supervised,operated_by').eq('id',finishedSupervisedExecutionId).single(),'leer cierre presencial')
+  assert(supervisedExecution.status==='partial'&&supervisedExecution.active_seconds===37,'La omisión no dejó el cierre presencial como parcial.')
+  assert(supervisedExecution.initial_discomfort===4&&supervisedExecution.final_discomfort===3&&supervisedExecution.perceived_difficulty===2,'Las escalas presenciales no quedaron guardadas.')
+  assert(supervisedExecution.patient_comment==='Comentario ficticio del paciente'&&supervisedExecution.professional_observation==='Observación profesional ficticia','Los comentarios del cierre presencial no quedaron guardados.')
+  const supervisedAssignmentStatus=assertNoError(await professional.from('session_assignments').select('status').eq('id',inPersonAssignment.id).single(),'leer estado presencial')
+  assert(supervisedAssignmentStatus.status==='partial','La asignación presencial no reflejó la omisión.')
+
+  const duplicatedAssignmentId=assertNoError(await professional.rpc('duplicate_in_person_assignment_as_home',{target_assignment_id:inPersonAssignment.id}),'duplicar presencial como domiciliaria')
+  assert(duplicatedAssignmentId!==inPersonAssignment.id,'La duplicación reutilizó la asignación presencial original.')
+  const duplicatedAssignment=assertNoError(await professional.from('session_assignments').select('id,status,session_plan_id,session_plans(plan_definition)').eq('id',duplicatedAssignmentId).single(),'leer duplicación domiciliaria')
+  assert(duplicatedAssignment.status==='assigned'&&duplicatedAssignment.session_plans?.plan_definition?.mode==='home','La duplicación no creó una asignación domiciliaria independiente.')
+  const duplicatedVisibleAtHome=assertNoError(await patientClient.from('session_assignments').select('id').eq('id',duplicatedAssignmentId),'consultar duplicación domiciliaria')
+  assert(duplicatedVisibleAtHome.length===1,'La asignación domiciliaria duplicada no quedó disponible para el paciente.')
+
+  const supervisedAudits=assertNoError(await admin.from('audit_events').select('actor_user_id,action,metadata').eq('entity_id',inPersonAssignment.id).in('action',['supervised_in_person_session_started','supervised_in_person_session_restarted','supervised_in_person_session_finished']),'leer auditoría presencial')
+  assert(supervisedAudits.length===3,'Faltan eventos de inicio, reinicio o cierre presencial.')
+  for(const row of supervisedAudits)assert(row.actor_user_id===created.professionalUserId&&row.metadata?.mode==='in_person'&&row.metadata?.supervised===true&&row.metadata?.operated_by===created.professionalUserId,'La auditoría presencial no identifica supervisión y operador.')
+  log('permisos, flujo presencial, reinicio, omisión, duplicación y auditoría')
+
   const disable=await professional.functions.invoke('manage-patient-account',{body:{patient_id:created.patientId,action:'disable'}});assertNoError(disable,'desactivar cuenta')
   const afterDisable=assertNoError(await patientClient.from('patients').select('id'),'sesión revocada')
   assert(afterDisable.length===0,'Una sesión abierta conservó acceso tras desactivar la cuenta.')
@@ -131,7 +178,7 @@ try{
 
   const auditRows=assertNoError(await admin.from('audit_events').select('action').in('actor_user_id',[created.professionalUserId,created.patientUserId]),'leer auditoría')
   const audited=auditRows.map(row=>row.action)
-  for(const action of ['patient_account_created','patient_pin_changed','document_access_requested','document_access_approved','document_viewed','document_downloaded','clinical_study_finalized','patient_acknowledgement_accepted','session_started','session_finished','patient_account_disable'])assert(audited.includes(action),`Falta auditoría ${action}.`)
+  for(const action of ['patient_account_created','patient_pin_changed','document_access_requested','document_access_approved','document_viewed','document_downloaded','clinical_study_finalized','patient_acknowledgement_accepted','session_started','session_finished','supervised_in_person_session_started','supervised_in_person_session_restarted','supervised_in_person_session_finished','session_assignment_duplicated_as_home','patient_account_disable'])assert(audited.includes(action),`Falta auditoría ${action}.`)
   log('eventos críticos de auditoría')
   process.stdout.write('\nSmoke test de staging completado correctamente.\n')
 }finally{await cleanup()}

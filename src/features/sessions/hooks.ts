@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { completeSessionAssignment, createSessionAssignment, createTreatmentCycle, getCurrentPatientAssignment, listProfessionalAssignments, listSessionAssignments, listTreatmentCycles, startSessionAssignment, type SessionAssignmentRecord, type SessionCompletionInput } from './repository'
+import { completeSessionAssignment, completeSupervisedInPersonSession, createSessionAssignment, createTreatmentCycle, duplicateInPersonAssignmentAsHome, getCurrentPatientAssignment, listProfessionalAssignments, listSessionAssignments, listTreatmentCycles, startSessionAssignment, startSupervisedInPersonSession, type SessionAssignmentRecord, type SessionCompletionInput, type SupervisedSessionCompletionInput } from './repository'
 import { flushPendingSessionCompletions, isLikelyNetworkFailure, queueSessionCompletion } from './offlineQueue'
 import { isSupabaseConfigured } from '../../lib/supabase'
 
@@ -13,6 +13,9 @@ export function useCurrentPatientAssignment(){return useQuery({queryKey:sessionK
 export function useProfessionalAssignments(){return useQuery({queryKey:sessionKeys.all,queryFn:listProfessionalAssignments})}
 export function useCompleteSession(){const client=useQueryClient();return useMutation({mutationFn:async(input:SessionCompletionInput)=>{if(isSupabaseConfigured&&!navigator.onLine){queueSessionCompletion(input);return{queued:true}}try{await completeSessionAssignment(input);return{queued:false}}catch(error){if(isSupabaseConfigured&&isLikelyNetworkFailure(error)){queueSessionCompletion(input);return{queued:true}}throw error}},onSuccess:()=>client.invalidateQueries({queryKey:sessionKeys.current})})}
 export function useStartSession(){return useMutation({mutationFn:(assignment:SessionAssignmentRecord)=>startSessionAssignment(assignment)})}
+export function useStartSupervisedInPersonSession(patientId:string){const client=useQueryClient();return useMutation({mutationFn:({assignment,initialDiscomfort}:{assignment:SessionAssignmentRecord;initialDiscomfort:number})=>startSupervisedInPersonSession(assignment,initialDiscomfort),onSuccess:async()=>{await client.invalidateQueries({queryKey:sessionKeys.assignments(patientId)});await client.invalidateQueries({queryKey:sessionKeys.all})}})}
+export function useCompleteSupervisedInPersonSession(patientId:string){const client=useQueryClient();return useMutation({mutationFn:(input:SupervisedSessionCompletionInput)=>completeSupervisedInPersonSession(input),onSuccess:async()=>{await client.invalidateQueries({queryKey:sessionKeys.assignments(patientId)});await client.invalidateQueries({queryKey:sessionKeys.all})}})}
+export function useDuplicateInPersonAssignment(patientId:string){const client=useQueryClient();return useMutation({mutationFn:(assignment:SessionAssignmentRecord)=>duplicateInPersonAssignmentAsHome(assignment),onSuccess:async()=>{await client.invalidateQueries({queryKey:sessionKeys.assignments(patientId)});await client.invalidateQueries({queryKey:sessionKeys.all})}})}
 
 export function usePendingSessionSync(){
   const client=useQueryClient()
