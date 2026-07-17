@@ -6,6 +6,7 @@ const migration = readFileSync(join(process.cwd(), 'supabase/migrations/20260716
 const questionnaireMigration = readFileSync(join(process.cwd(), 'supabase/migrations/202607160010_perception_questionnaire_v2.sql'), 'utf8')
 const documentRequestMigration = readFileSync(join(process.cwd(), 'supabase/migrations/202607160011_document_access_requests.sql'), 'utf8')
 const studyFinalizationMigration = readFileSync(join(process.cwd(), 'supabase/migrations/202607160012_finalize_clinical_studies.sql'), 'utf8')
+const authProfileMigration = readFileSync(join(process.cwd(), 'supabase/migrations/202607170001_sync_auth_profile_metadata.sql'), 'utf8')
 
 describe('contrato SQL de importación', () => {
   it('protege importaciones con RLS y propiedad del paciente', () => {
@@ -87,5 +88,18 @@ describe('contrato SQL de finalización de estudios', () => {
     expect(studyFinalizationMigration).toContain('public.owns_patient(study.patient_id)')
     expect(studyFinalizationMigration).toContain('public.is_professional()')
     expect(studyFinalizationMigration).toContain('revoke all on function public.finalize_clinical_study(uuid) from public')
+  })
+})
+
+describe('contrato SQL de perfiles de Auth', () => {
+  it('sincroniza el rol cuando Supabase actualiza app_metadata después del alta', () => {
+    expect(authProfileMigration).toContain('after insert or update of raw_app_meta_data, raw_user_meta_data')
+    expect(authProfileMigration).toContain('on conflict (id) do update')
+    expect(authProfileMigration).toContain("new.raw_app_meta_data ->> 'role' = 'professional'")
+  })
+
+  it('reconcilia perfiles existentes sin confiar en metadatos editables por el usuario', () => {
+    expect(authProfileMigration).toContain('from auth.users auth_user')
+    expect(authProfileMigration).not.toContain("raw_user_meta_data ->> 'role'")
   })
 })
