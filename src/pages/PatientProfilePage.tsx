@@ -1,9 +1,10 @@
-import { CalendarDays, ChevronLeft, FileImage, FileText, KeyRound, Pencil, PlayCircle, Plus } from 'lucide-react'
+import { CalendarDays, ChevronLeft, Copy, FileImage, FileText, KeyRound, Pencil, PlayCircle, Plus } from 'lucide-react'
+import { useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { PageHeader } from '../components/PageHeader'
 import { StatusBadge } from '../components/StatusBadge'
 import { usePatient } from '../features/patients/hooks'
-import { useSessionAssignments, useTreatmentCycles } from '../features/sessions/hooks'
+import { useDuplicateInPersonAssignment, useSessionAssignments, useTreatmentCycles } from '../features/sessions/hooks'
 import { sessionDurationSeconds } from '../features/sessions/repository'
 import { PatientDocumentsPanel } from '../features/documents/PatientDocumentsPanel'
 import { PatientAssessmentsPanel } from '../features/assessments/PatientAssessmentsPanel'
@@ -14,6 +15,9 @@ export function PatientProfilePage() {
   const { data: patient, isPending } = usePatient(patientId ?? '')
   const { data: cycles = [] } = useTreatmentCycles(patientId ?? '')
   const { data: assignments = [] } = useSessionAssignments(patientId ?? '')
+  const duplicateAssignment = useDuplicateInPersonAssignment(patientId ?? '')
+  const [actionNotice, setActionNotice] = useState('')
+  const [actionError, setActionError] = useState('')
   const activeCycle = cycles.find((cycle) => cycle.status === 'active')
   const activeAssignment = assignments.find((assignment) => assignment.status === 'assigned' || assignment.status === 'started')
 
@@ -23,9 +27,22 @@ export function PatientProfilePage() {
     return <p className="text-sm text-[#60777d]">Paciente no encontrado.</p>
   }
 
+  const duplicateAsHome = async (assignment: (typeof assignments)[number]) => {
+    try {
+      setActionError('')
+      await duplicateAssignment.mutateAsync(assignment)
+      setActionNotice('Se creó una asignación domiciliaria separada.')
+    } catch {
+      setActionNotice('')
+      setActionError('No fue posible duplicar la asignación como domiciliaria.')
+    }
+  }
+
   return (
     <div className="space-y-7">
       {(location.state as {notice?:string}|null)?.notice && <p className="rounded-2xl border border-[#bfe1db] bg-[#e8f5f2] px-4 py-3 text-sm font-bold text-[#08746e]">{(location.state as {notice:string}).notice}</p>}
+      {actionNotice && <p className="rounded-2xl border border-[#bfe1db] bg-[#e8f5f2] px-4 py-3 text-sm font-bold text-[#08746e]">{actionNotice}</p>}
+      {actionError && <p role="alert" className="rounded-2xl bg-[#fceced] px-4 py-3 text-sm font-bold text-[#a94952]">{actionError}</p>}
       <Link to="/app/pacientes" className="inline-flex items-center gap-2 text-xs font-black text-[#0b7a75]">
         <ChevronLeft size={16} /> Volver a pacientes
       </Link>
@@ -81,7 +98,7 @@ export function PatientProfilePage() {
           </article>
           <article className="rounded-3xl border border-[#dce7e5] bg-white p-6 sm:col-span-2">
             <div className="flex items-center justify-between gap-4"><h2 className="text-lg font-black text-[#123238]">Sesiones asignadas</h2><Link to={`/app/pacientes/${patient.id}/sesiones/nueva`} className="text-xs font-black text-[#0b7a75]">Nueva sesión</Link></div>
-            <div className="mt-5 divide-y divide-[#e8efed]">{assignments.length===0?<p className="py-4 text-sm text-[#71878c]">Todavía no hay sesiones.</p>:assignments.slice(0,5).map(assignment=><div key={assignment.id} className="flex items-center justify-between gap-4 py-4"><div><p className="text-sm font-black text-[#29474d]">{assignment.title}</p><p className="mt-1 text-xs text-[#71878c]">{assignment.mode==='home'?'Domiciliaria':'Presencial'} · {assignment.exercises.length} ejercicios · desde {assignment.availableFrom.slice(0,10)}</p></div><StatusBadge status={assignment.status}/></div>)}</div>
+            <div className="mt-5 divide-y divide-[#e8efed]">{assignments.length===0?<p className="py-4 text-sm text-[#71878c]">Todavía no hay sesiones.</p>:assignments.map(assignment=><div key={assignment.id} className="flex flex-col gap-4 py-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-black text-[#29474d]">{assignment.title}</p><p className="mt-1 text-xs text-[#71878c]">{assignment.mode==='home'?'Domiciliaria':'Presencial'} · {assignment.exercises.length} ejercicios · desde {assignment.availableFrom.slice(0,10)}</p></div><div className="flex flex-wrap items-center gap-2"><StatusBadge status={assignment.status}/>{assignment.mode==='in_person'&&['assigned','started'].includes(assignment.status)&&<Link to={`/app/pacientes/${patient.id}/sesiones/${assignment.id}/presencial`} className="inline-flex items-center gap-2 rounded-xl bg-[#0b7a75] px-3 py-2 text-xs font-black text-white"><PlayCircle size={15}/>{assignment.status==='started'?'Reanudar desde el principio':'Comenzar sesión presencial'}</Link>}{assignment.mode==='in_person'&&assignment.status!=='revoked'&&<button type="button" disabled={duplicateAssignment.isPending} onClick={()=>void duplicateAsHome(assignment)} className="inline-flex items-center gap-2 rounded-xl border border-[#cfddda] bg-white px-3 py-2 text-xs font-black text-[#29474d] disabled:opacity-60"><Copy size={14}/> {duplicateAssignment.isPending?'Duplicando…':'Duplicar como domiciliaria'}</button>}</div></div>)}</div>
           </article>
           <PatientDocumentsPanel patientId={patient.id}/>
           <PatientAssessmentsPanel patientId={patient.id} cycleId={activeCycle?.id??''}/>
