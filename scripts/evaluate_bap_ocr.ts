@@ -70,7 +70,12 @@ export async function evaluateBapOcrCorpus() {
   const manifest = JSON.parse(await readFile(resolve(fixtureRoot, 'bap_ocr_corpus_synthetic.json'), 'utf8')) as CorpusManifest
   if (!manifest.synthetic || manifest.clinical_use) throw new Error('El benchmark solo admite un corpus sintético sin uso clínico.')
 
-  const worker = await createWorker(['spa', 'eng'], OEM.LSTM_ONLY, { langPath: resolve('public/ocr/lang') })
+  const worker = await createWorker(['spa', 'eng'], OEM.LSTM_ONLY, {
+    langPath: resolve('public/ocr/lang'),
+    // Vitest puede convertir la ruta por defecto en una URL localhost al
+    // ejecutar en Linux. Node Worker exige una ruta real del sistema.
+    workerPath: resolve('node_modules/tesseract.js/src/worker-script/node/index.js'),
+  })
   await worker.setParameters({ tessedit_pageseg_mode: PSM.SPARSE_TEXT, preserve_interword_spaces: '1', user_defined_dpi: '300' })
   let correct = 0
   let total = 0
