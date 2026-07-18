@@ -2,7 +2,7 @@ import { parseLocaleNumber } from '../studies/normalization'
 import { posturographyFieldDefinitions, vestibularFieldDefinitions } from './catalog'
 import type { ExtractedField, ExtractedPage, ExtractionFieldDefinition, IntakeKind, PageClassification, PatientMatchStatus, SourceRegion } from './types'
 
-export const EXTRACTOR_VERSION = 'onur-local-ocr-1.1'
+export const EXTRACTOR_VERSION = 'onur-local-ocr-1.2'
 
 function fold(value: string) {
   return value.toLocaleLowerCase('es-UY').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -43,8 +43,8 @@ function lineValue(text: string, alias: string) {
 
 const compactValueCodes = new Set([
   'study_date', 'study_time', 'duration', 'reported_age', 'los_forward', 'los_backward', 'los_left', 'los_right',
-  'los_area', 'sway_x', 'sway_y', 'afis_pattern', 'los_score', 'mix_ve_som', 'mix_ve_vi', 'pppd_index',
-  'composite_score', 'condition_percentage', 'sensory_somatosensory', 'sensory_visual', 'sensory_vestibular',
+  'los_area', 'sway_per_second_x', 'sway_per_second_y', 'sway_per_minute_x', 'sway_per_minute_y', 'afis_pattern', 'los_score', 'mix_ve_som', 'mix_ve_vi', 'pppd_index',
+  'composite_score', 'sensory_somatosensory', 'sensory_visual', 'sensory_vestibular',
   'visual_preference', 'gain_right', 'gain_left', 'symmetry', 'saccadic_velocity',
 ])
 
@@ -123,12 +123,14 @@ function positionalBapValue(definition: ExtractionFieldDefinition, page: Extract
   if (conditionIndex) {
     // En los informes BAP los valores se ubican arriba de las barras; las
     // condiciones con mejor puntaje quedan muy cerca del encabezado del gráfico.
-    const values = valuesByHorizontalPosition(page, { x: .67, y: .10, width: .31, height: .42 })
+    // El eje vertical está a la izquierda de x=.70; excluirlo evita contar
+    // sus marcas 100/80/60 como si fueran condiciones.
+    const values = valuesByHorizontalPosition(page, { x: .70, y: .10, width: .29, height: .42 })
     const candidate = values[Number(conditionIndex) - 1]
     if (candidate) return { value: candidate.raw, confidence: Math.min(candidate.confidence, .72), region: candidate.region }
   }
   if (definition.code === 'composite_score') {
-    const values = valuesByHorizontalPosition(page, { x: .67, y: .10, width: .31, height: .42 })
+    const values = valuesByHorizontalPosition(page, { x: .70, y: .10, width: .29, height: .42 })
     const candidate = values[6]
     if (candidate) return { value: candidate.raw, confidence: Math.min(candidate.confidence, .72), region: candidate.region }
   }
@@ -136,14 +138,29 @@ function positionalBapValue(definition: ExtractionFieldDefinition, page: Extract
   const sensoryCodes = ['sensory_somatosensory', 'sensory_visual', 'sensory_vestibular', 'visual_preference']
   const sensoryIndex = sensoryCodes.indexOf(definition.code)
   if (sensoryIndex >= 0) {
-    const values = valuesByHorizontalPosition(page, { x: .67, y: .56, width: .31, height: .34 })
+    const values = valuesByHorizontalPosition(page, { x: .70, y: .56, width: .29, height: .34 })
     const candidate = values[sensoryIndex]
     if (candidate) return { value: candidate.raw, confidence: Math.min(candidate.confidence, .68), region: candidate.region }
   }
   return null
 }
 
+function hasBapChartLayout(page: ExtractedPage) {
+  const text = fold(page.text)
+  // La aplicación BAP 2.32 imprime "PORCENT. DE CONDICIONES". El OCR puede
+  // expandirlo a "porcentaje" o preservar la abreviatura, por lo que ambos
+  // formatos son evidencia válida del panel de barras.
+  return /\bporcent(?:aje)?\.?\s+(?:de\s+)?condiciones\b/.test(text) && text.includes('organizacion sensorial')
+}
+
 function findDefinitionValue(definition: ExtractionFieldDefinition, page: ExtractedPage): LocatedValue | null {
+  const isBapGraphValue = /^condition_[1-6]$/.test(definition.code) || definition.code === 'composite_score' || ['sensory_somatosensory', 'sensory_visual', 'sensory_vestibular', 'visual_preference'].includes(definition.code)
+  // Sólo se aplican coordenadas de las barras si el OCR reconoce ambos paneles
+  // BAP. Esto evita que un documento de texto con "Condición 1" se lea como gráfico.
+  if (isBapGraphValue && hasBapChartLayout(page)) {
+    const positional = positionalBapValue(definition, page)
+    if (positional) return positional
+  }
   for (const line of page.lines) {
     for (const alias of definition.aliases) {
       const value = lineValue(line.text, alias)
