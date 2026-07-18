@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 import { describe, it } from 'vitest'
 import { evaluateBapOcrCorpus } from './evaluate_bap_ocr'
 
