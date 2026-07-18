@@ -1,6 +1,7 @@
 import { createWorker, OEM, PSM } from 'tesseract.js'
 import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+import { bapRecognitionRegions, binarizeBapDarkText } from './bapOcrProfile'
 import { classifyPage, comparePatientIdentity, EXTRACTOR_VERSION, extractFields, type PatientIdentityForMatch } from './extractor'
 import type { ExtractedPage, ExtractionProgress, IntakeKind, LocalExtractionDraft, OcrLine } from './types'
 
@@ -70,12 +71,45 @@ function recognitionScore(text: string, confidence: number) {
   return signals.filter((signal) => source.includes(signal)).length * 500 + Math.min(300, source.replace(/\s/g, '').length) + confidence
 }
 
-function resultLines(result: Awaited<ReturnType<Awaited<ReturnType<typeof createWorker>>['recognize']>>, canvas: HTMLCanvasElement) {
+function resultLines(
+  result: Awaited<ReturnType<Awaited<ReturnType<typeof createWorker>>['recognize']>>,
+  canvas: HTMLCanvasElement,
+  target: { x: number; y: number; width: number; height: number } = { x: 0, y: 0, width: 1, height: 1 },
+) {
   const lines: OcrLine[] = []
   for (const block of result.data.blocks ?? []) for (const paragraph of block.paragraphs) for (const line of paragraph.lines) {
-    lines.push({ text: line.text.trim(), confidence: line.confidence, region: { x: line.bbox.x0 / canvas.width, y: line.bbox.y0 / canvas.height, width: (line.bbox.x1 - line.bbox.x0) / canvas.width, height: (line.bbox.y1 - line.bbox.y0) / canvas.height } })
+    lines.push({
+      text: line.text.trim(),
+      confidence: line.confidence,
+      region: {
+        x: target.x + line.bbox.x0 / canvas.width * target.width,
+        y: target.y + line.bbox.y0 / canvas.height * target.height,
+        width: (line.bbox.x1 - line.bbox.x0) / canvas.width * target.width,
+        height: (line.bbox.y1 - line.bbox.y0) / canvas.height * target.height,
+      },
+    })
   }
   return lines.filter((line) => line.text)
+}
+
+function darkTextRegion(source: HTMLCanvasElement, region: { x: number; y: number; width: number; height: number }, threshold = 145) {
+  const sourceX = Math.round(source.width * region.x)
+  const sourceY = Math.round(source.height * region.y)
+  const sourceWidth = Math.max(1, Math.round(source.width * region.width))
+  const sourceHeight = Math.max(1, Math.round(source.height * region.height))
+  const scale = Math.min(3, 2600 / Math.max(sourceWidth, sourceHeight))
+  const target = document.createElement('canvas')
+  target.width = Math.max(1, Math.round(sourceWidth * scale))
+  target.height = Math.max(1, Math.round(sourceHeight * scale))
+  const context = target.getContext('2d', { willReadFrequently: true })
+  if (!context) throw new Error('El navegador no permite preparar las regiones BAP.')
+  context.imageSmoothingEnabled = true
+  context.imageSmoothingQuality = 'high'
+  context.drawImage(source, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, target.width, target.height)
+  const image = context.getImageData(0, 0, target.width, target.height)
+  binarizeBapDarkText(image.data, threshold)
+  context.putImageData(image, 0, 0)
+  return target
 }
 
 function mergeOcrLines(groups: OcrLine[][]) {
@@ -107,10 +141,30 @@ async function recognizeCanvas(canvas: HTMLCanvasElement, intakeKind: IntakeKind
     }
     const selected = candidates.sort((a, b) => recognitionScore(b.result.data.text, b.result.data.confidence) - recognitionScore(a.result.data.text, a.result.data.confidence))[0]
     const results = [selected.result]
+    const lineGroups = [resultLines(selected.result, selected.canvas)]
     if (intakeKind === 'posturography_bap' || selected.result.data.confidence < 72) {
-      results.push(await worker.recognize(improveContrast(selected.canvas), { rotateAuto: false }, { text: true, blocks: true }))
+      const contrasted = improveContrast(selected.canvas)
+      const contrastedResult = await worker.recognize(contrasted, { rotateAuto: false }, { text: true, blocks: true })
+      results.push(contrastedResult)
+      lineGroups.push(resultLines(contrastedResult, contrasted))
     }
-    const lines = mergeOcrLines(results.map((result) => resultLines(result, selected.canvas)))
+    if (intakeKind === 'posturography_bap') {
+      // Un OCR de página completa suele perder los valores impresos sobre las
+      // barras de color. Las regiones en blanco y negro los vuelven legibles y
+      // conservan sus coordenadas respecto del documento original.
+      for (const [regionIndex, region] of bapRecognitionRegions.entries()) {
+        // El gráfico se lee con dos umbrales: uno conserva dígitos borrosos y
+        // el otro recupera texto de capturas con contraste bajo.
+        const thresholds = regionIndex === 1 ? [128, 145] : [145]
+        for (const threshold of thresholds) {
+          const prepared = darkTextRegion(selected.canvas, region, threshold)
+          const regionResult = await worker.recognize(prepared, { rotateAuto: false }, { text: true, blocks: true })
+          results.push(regionResult)
+          lineGroups.push(resultLines(regionResult, prepared, region))
+        }
+      }
+    }
+    const lines = mergeOcrLines(lineGroups)
     return {
       text: lines.map((line) => line.text).join('\n'),
       confidence: Math.max(...results.map((result) => result.data.confidence)),

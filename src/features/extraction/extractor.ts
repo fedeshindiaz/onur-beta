@@ -2,14 +2,14 @@ import { parseLocaleNumber } from '../studies/normalization'
 import { posturographyFieldDefinitions, vestibularFieldDefinitions } from './catalog'
 import type { ExtractedField, ExtractedPage, ExtractionFieldDefinition, IntakeKind, PageClassification, PatientMatchStatus, SourceRegion } from './types'
 
-export const EXTRACTOR_VERSION = 'onur-local-ocr-1.2'
+export const EXTRACTOR_VERSION = 'onur-local-ocr-1.3'
 
 function fold(value: string) {
   return value.toLocaleLowerCase('es-UY').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 }
 
 const pageSignals: Array<{ type: PageClassification; words: string[] }> = [
-  { type: 'posturography', words: ['posturograf', 'bap', 'limite de estabilidad', 'organizacion sensorial', 'sway', 'score los'] },
+  { type: 'posturography', words: ['posturograf', 'bap', 'estabilograma', 'estabiloquinesigrama', 'limite de estabilidad', 'organizacion sensorial', 'porcent. de condiciones', 'patron afis', 'sway', 'score los'] },
   { type: 'vhit_graph', words: ['head impulse', 'vhit', 'himp', 'shimp', 'gain', 'ganancia', 'saccade', 'sacada', 'oculomotor'] },
   { type: 'vestibular_report', words: ['otoneurolog', 'vestibular', 'nistag', 'supresion visual', 'head shaking', 'pruebas posicionales', 'en suma'] },
   { type: 'referral', words: ['orden medica', 'derivacion', 'solicito', 'motivo de derivacion'] },
@@ -105,7 +105,47 @@ function valuesByHorizontalPosition(page: ExtractedPage, bounds: SourceRegion) {
     if (column) column.push(candidate)
     else columns.push([candidate])
   }
-  return columns.map((items) => items.sort((a, b) => a.region.y - b.region.y)[0]).sort((a, b) => a.region.x - b.region.x)
+  return columns.map((items) => {
+    const top = Math.min(...items.map((item) => item.region.y))
+    // Dos pasadas pueden devolver "7" y "73" para la misma etiqueta. Dentro
+    // de la misma banda visual se conserva la lectura más completa y confiable;
+    // los números del eje, que están bastante más abajo, siguen excluidos.
+    return items
+      .filter((item) => item.region.y - top < .018)
+      .sort((a, b) => b.raw.replace(/\D/g, '').length - a.raw.replace(/\D/g, '').length || b.confidence - a.confidence)[0]
+  }).sort((a, b) => a.region.x - b.region.x)
+}
+
+function bapAnchor(page: ExtractedPage, kind: 'conditions' | 'sensory') {
+  return page.lines.find((line) => {
+    const text = fold(line.text)
+    return kind === 'conditions'
+      ? /(?:porcent|porc).*(?:condi|condl)/.test(text) || /(?:condi|condl).*(?:porcent|porc)/.test(text)
+      : /organi[sz].*sensor/.test(text) || /sensor.*organi[sz]/.test(text)
+  })
+}
+
+function bapGraphBounds(page: ExtractedPage, kind: 'conditions' | 'sensory'): SourceRegion {
+  const conditions = bapAnchor(page, 'conditions')
+  const sensory = bapAnchor(page, 'sensory')
+  if (kind === 'conditions' && conditions) {
+    const bottom = sensory ? sensory.region.y - .008 : Math.min(.61, conditions.region.y + .34)
+    return {
+      x: Math.max(.62, conditions.region.x - .07),
+      y: Math.max(.08, conditions.region.y + conditions.region.height * .7),
+      width: 1 - Math.max(.62, conditions.region.x - .07),
+      height: Math.max(.12, bottom - (conditions.region.y + conditions.region.height * .7)),
+    }
+  }
+  if (kind === 'sensory' && sensory) {
+    const x = Math.max(.62, sensory.region.x - .07)
+    const y = sensory.region.y + sensory.region.height * .7
+    return { x, y, width: 1 - x, height: Math.max(.12, .94 - y) }
+  }
+  // Respaldo para capturas BAP 2.32 donde el encabezado quedó ilegible.
+  return kind === 'conditions'
+    ? { x: .68, y: .11, width: .32, height: .48 }
+    : { x: .68, y: .55, width: .32, height: .39 }
 }
 
 function positionalBapValue(definition: ExtractionFieldDefinition, page: ExtractedPage): LocatedValue | null {
@@ -125,12 +165,12 @@ function positionalBapValue(definition: ExtractionFieldDefinition, page: Extract
     // condiciones con mejor puntaje quedan muy cerca del encabezado del gráfico.
     // El eje vertical está a la izquierda de x=.70; excluirlo evita contar
     // sus marcas 100/80/60 como si fueran condiciones.
-    const values = valuesByHorizontalPosition(page, { x: .70, y: .10, width: .29, height: .42 })
+    const values = valuesByHorizontalPosition(page, bapGraphBounds(page, 'conditions'))
     const candidate = values[Number(conditionIndex) - 1]
     if (candidate) return { value: candidate.raw, confidence: Math.min(candidate.confidence, .72), region: candidate.region }
   }
   if (definition.code === 'composite_score') {
-    const values = valuesByHorizontalPosition(page, { x: .70, y: .10, width: .29, height: .42 })
+    const values = valuesByHorizontalPosition(page, bapGraphBounds(page, 'conditions'))
     const candidate = values[6]
     if (candidate) return { value: candidate.raw, confidence: Math.min(candidate.confidence, .72), region: candidate.region }
   }
@@ -138,7 +178,7 @@ function positionalBapValue(definition: ExtractionFieldDefinition, page: Extract
   const sensoryCodes = ['sensory_somatosensory', 'sensory_visual', 'sensory_vestibular', 'visual_preference']
   const sensoryIndex = sensoryCodes.indexOf(definition.code)
   if (sensoryIndex >= 0) {
-    const values = valuesByHorizontalPosition(page, { x: .70, y: .56, width: .29, height: .34 })
+    const values = valuesByHorizontalPosition(page, bapGraphBounds(page, 'sensory'))
     const candidate = values[sensoryIndex]
     if (candidate) return { value: candidate.raw, confidence: Math.min(candidate.confidence, .68), region: candidate.region }
   }
@@ -150,7 +190,9 @@ function hasBapChartLayout(page: ExtractedPage) {
   // La aplicación BAP 2.32 imprime "PORCENT. DE CONDICIONES". El OCR puede
   // expandirlo a "porcentaje" o preservar la abreviatura, por lo que ambos
   // formatos son evidencia válida del panel de barras.
-  return /\bporcent(?:aje)?\.?\s+(?:de\s+)?condiciones\b/.test(text) && text.includes('organizacion sensorial')
+  const hasConditions = Boolean(bapAnchor(page, 'conditions')) || /\bporcent(?:aje)?\.?\s+(?:de\s+)?condiciones\b/.test(text)
+  const hasSensory = Boolean(bapAnchor(page, 'sensory')) || /organi[sz]acion\s+sensorial/.test(text)
+  return hasConditions && hasSensory
 }
 
 function findDefinitionValue(definition: ExtractionFieldDefinition, page: ExtractedPage): LocatedValue | null {

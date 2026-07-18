@@ -1,8 +1,9 @@
 """Genera fixtures clínicos 100 % sintéticos, sin datos personales ni valor asistencial."""
 
 from pathlib import Path
+import json
 import sys
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -88,7 +89,13 @@ def make_perspective_photo() -> None:
     perspective.save(TARGET / "bap_perspective_synthetic.jpg", quality=88)
 
 
-def make_bap_screen() -> None:
+def make_bap_screen(
+    name: str = "bap_screen_synthetic.png",
+    condition_values: list[int] | None = None,
+    sensory_values: list[int] | None = None,
+) -> None:
+    condition_values = condition_values or [90, 99, 98, 82, 79, 27, 81]
+    sensory_values = sensory_values or [100, 82, 80, 70]
     image = Image.new("RGB", (1600, 900), (238, 242, 241))
     draw = ImageDraw.Draw(image)
     font = ImageFont.truetype(str(REPORTLAB_FONTS / "Vera.ttf"), 22)
@@ -126,7 +133,6 @@ def make_bap_screen() -> None:
     chart_left, chart_top, chart_right, chart_bottom = 1080, 90, 1575, 455
     draw.rectangle((chart_left, chart_top, chart_right, chart_bottom), fill=(91, 184, 210), outline=(44, 116, 137), width=2)
     draw.text((1160, 105), "PORCENTAJE DE CONDICIONES", fill=(10, 53, 61), font=small)
-    condition_values = [90, 99, 98, 82, 79, 27, 81]
     for index, value in enumerate(condition_values):
         x = 1125 + index * 63
         bar_height = value * 2.5
@@ -137,7 +143,6 @@ def make_bap_screen() -> None:
     sensory_top, sensory_bottom = 500, 835
     draw.rectangle((chart_left, sensory_top, chart_right, sensory_bottom), fill=(91, 184, 210), outline=(44, 116, 137), width=2)
     draw.text((1150, 514), "TEST DE ORGANIZACION SENSORIAL", fill=(10, 53, 61), font=small)
-    sensory_values = [100, 82, 80, 70]
     sensory_labels = ["Som.", "Visual", "Vest.", "Pref. visual"]
     for index, value in enumerate(sensory_values):
         x = 1125 + index * 105
@@ -149,7 +154,67 @@ def make_bap_screen() -> None:
     draw.rectangle((420, 780, 1045, 850), fill="white", outline=(174, 194, 192), width=2)
     draw.text((450, 798), "Fecha: 17/07/2026    Edad: 76    Estado: Finalizada", fill=(22, 55, 60), font=font)
     draw.text((24, 862), "DOCUMENTO SINTETICO · NO USAR CLINICAMENTE", fill=(166, 33, 46), font=bold)
-    image.save(TARGET / "bap_screen_synthetic.png")
+    image.save(TARGET / name)
+
+
+def chart_expectations(condition_values: list[int], sensory_values: list[int]) -> dict[str, str]:
+    return {
+        **{f"condition_{index + 1}": str(value) for index, value in enumerate(condition_values[:6])},
+        "composite_score": str(condition_values[6]),
+        "sensory_somatosensory": str(sensory_values[0]),
+        "sensory_visual": str(sensory_values[1]),
+        "sensory_vestibular": str(sensory_values[2]),
+        "visual_preference": str(sensory_values[3]),
+    }
+
+
+def make_bap_ocr_corpus() -> None:
+    """Crea un corpus BAP variado, reproducible y totalmente sintético."""
+    cases = [
+        ("bap_screen_synthetic.png", [90, 99, 98, 82, 79, 27, 81], [100, 82, 80, 70]),
+        ("bap_screen_clean_a_synthetic.png", [93, 88, 76, 61, 54, 32, 68], [94, 73, 58, 79]),
+        ("bap_screen_clean_b_synthetic.png", [99, 97, 95, 83, 80, 28, 82], [98, 86, 74, 91]),
+        ("bap_screen_low_scores_synthetic.png", [72, 68, 55, 49, 34, 21, 50], [89, 62, 47, 66]),
+    ]
+    manifest: list[dict[str, object]] = []
+    for name, conditions, sensory in cases:
+        make_bap_screen(name, conditions, sensory)
+        manifest.append({"file": name, "variant": "clean", "expected": chart_expectations(conditions, sensory)})
+
+    source_name, source_conditions, source_sensory = cases[1]
+    source = Image.open(TARGET / source_name).convert("RGB")
+    derived: list[tuple[str, str, Image.Image]] = [
+        ("bap_screen_small_synthetic.jpg", "small-jpeg", source.resize((960, 540), Image.Resampling.LANCZOS)),
+        ("bap_screen_low_contrast_synthetic.jpg", "low-contrast", ImageEnhance.Contrast(source).enhance(0.62).filter(ImageFilter.GaussianBlur(0.35))),
+        ("bap_screen_blurred_synthetic.png", "slight-blur", source.filter(ImageFilter.GaussianBlur(0.8))),
+    ]
+    for name, variant, image in derived:
+        if name.endswith(".jpg"):
+            image.save(TARGET / name, quality=58)
+        else:
+            image.save(TARGET / name)
+        manifest.append({"file": name, "variant": variant, "expected": chart_expectations(source_conditions, source_sensory)})
+
+    # La interfaz real suele verse más alta e incluye un panel circular sobre
+    # las barras. Estos números señuelo comprueban que no se confundan con C1-C6.
+    tall = Image.new("RGB", (1600, 1100), (226, 220, 222))
+    tall.paste(Image.open(TARGET / cases[2][0]).convert("RGB"), (0, 180))
+    tall_draw = ImageDraw.Draw(tall)
+    tall_font = ImageFont.truetype(str(REPORTLAB_FONTS / "VeraBd.ttf"), 20)
+    tall_draw.text((1330, 45), "38 %", fill=(20, 55, 60), font=tall_font)
+    tall_draw.text((1330, 82), "31 %", fill=(20, 55, 60), font=tall_font)
+    tall_draw.text((1330, 119), "30 %", fill=(20, 55, 60), font=tall_font)
+    tall_name = "bap_screen_tall_synthetic.png"
+    tall.save(TARGET / tall_name)
+    manifest.append({"file": tall_name, "variant": "tall-with-distractors", "expected": chart_expectations(cases[2][1], cases[2][2])})
+    tall_jpeg_name = "bap_screen_tall_compressed_synthetic.jpg"
+    tall.save(TARGET / tall_jpeg_name, quality=60)
+    manifest.append({"file": tall_jpeg_name, "variant": "tall-compressed", "expected": chart_expectations(cases[2][1], cases[2][2])})
+
+    (TARGET / "bap_ocr_corpus_synthetic.json").write_text(
+        json.dumps({"synthetic": True, "clinical_use": False, "cases": manifest}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 
 
 def make_rotated_vhit() -> None:
@@ -179,12 +244,12 @@ def unrecognized_page(pdf: canvas.Canvas) -> None:
 if __name__ == "__main__":
     if "--bap-images-only" in sys.argv:
         make_perspective_photo()
-        make_bap_screen()
+        make_bap_ocr_corpus()
     else:
         make_pdf("bap_clear_synthetic.pdf", [bap_page])
         make_pdf("vestibular_report_synthetic.pdf", [vestibular_page])
         make_pdf("mixed_multipage_synthetic.pdf", [vestibular_page, bap_page, referral_page])
         make_pdf("unrecognized_synthetic.pdf", [unrecognized_page])
         make_perspective_photo()
-        make_bap_screen()
+        make_bap_ocr_corpus()
         make_rotated_vhit()
