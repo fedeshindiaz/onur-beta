@@ -14,9 +14,15 @@ Las opciones técnicas y el descarte permanecen disponibles dentro de **Opciones
 
 ## BAP y reanálisis
 
-La versión `onur-local-ocr-1.1` mejora la lectura de capturas y fotos de BAP: aumenta la resolución útil, usa segmentación de texto disperso, aplica una segunda lectura con contraste y prueba rotación cuando la lectura inicial no es suficiente. También reconoce paneles compactos y los puntajes de condiciones/organización sensorial por la posición de las barras.
+La versión `onur-local-ocr-1.3` usa varias lecturas complementarias: página completa, contraste general y regiones específicas del panel izquierdo, gráficos y pie. En los gráficos realiza dos binarizaciones para recuperar dígitos impresos sobre fondos celestes, verdes, grises o degradados. Los encabezados de condiciones y organización sensorial se usan como anclas; de ese modo, los porcentajes del gráfico circular o los números de los ejes no se confunden con C1-C6.
 
 Al abrir un borrador creado con una versión anterior, ONUr vuelve a analizar el original privado en el navegador y conserva las correcciones profesionales que difieran de la lectura anterior. El reprocesamiento queda auditado sin almacenar el contenido clínico en el registro de auditoría.
+
+## Corpus y medición de precisión
+
+El corpus reproducible `bap_ocr_corpus_synthetic.json` incluye capturas limpias, pequeñas, comprimidas, borrosas, de bajo contraste y con números señuelo. Cada archivo declara once resultados esperados: seis condiciones, compuesto y cuatro índices de organización sensorial. Ninguna muestra contiene datos personales ni procede de una historia clínica.
+
+Ejecutar `npm run ocr:benchmark` para medir el reconocimiento real con Tesseract y el mismo perfil de regiones que usa el navegador. La prueba falla si la precisión campo por campo baja de 95 %. Este umbral es técnico y no certifica interpretabilidad clínica.
 
 ## Límites y seguridad
 
@@ -29,3 +35,5 @@ Al abrir un borrador creado con una versión anterior, ONUr vuelve a analizar el
 ## Pruebas
 
 Los archivos en `tests/fixtures/synthetic-clinical` son exclusivamente sintéticos, se regeneran con `scripts/generate_synthetic_clinical_fixtures.py` y llevan una advertencia visible. No se incluyen documentos clínicos reales en el repositorio, la compilación, CI ni staging.
+
+El benchmark ampliado cubre varias degradaciones del mismo diseño BAP, pero una plantilla nueva, un recorte severo o una fotografía con reflejos todavía puede requerir corrección manual y un nuevo caso sintético equivalente.

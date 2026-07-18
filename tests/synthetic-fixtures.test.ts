@@ -16,4 +16,21 @@ describe('fixtures clínicos sintéticos', () => {
     expect(generator).toContain('DOCUMENTO SINTÉTICO')
     expect(generator).toContain('SIN DATOS PERSONALES')
   })
+
+  it('mantiene un corpus OCR BAP variado y sin datos clínicos', () => {
+    const manifest = JSON.parse(readFileSync(join(root, 'bap_ocr_corpus_synthetic.json'), 'utf8')) as {
+      synthetic: boolean
+      clinical_use: boolean
+      cases: Array<{ file: string; variant: string; expected: Record<string, string> }>
+    }
+    expect(manifest.synthetic).toBe(true)
+    expect(manifest.clinical_use).toBe(false)
+    expect(manifest.cases.length).toBeGreaterThanOrEqual(9)
+    expect(new Set(manifest.cases.map((item) => item.variant)).size).toBeGreaterThanOrEqual(6)
+    for (const fixture of manifest.cases) {
+      expect(fixture.file).toContain('synthetic')
+      expect(existsSync(join(root, fixture.file))).toBe(true)
+      expect(Object.keys(fixture.expected)).toHaveLength(11)
+    }
+  })
 })

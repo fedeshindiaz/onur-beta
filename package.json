@@ -13,6 +13,7 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run",
+    "ocr:benchmark": "vitest run scripts/evaluate_bap_ocr.test.ts --environment node --reporter verbose",
     "typecheck": "tsc -b --pretty false",
     "staging:dry-run": "bash scripts/deploy_staging.sh --dry-run",
     "staging:deploy": "bash scripts/deploy_staging.sh",

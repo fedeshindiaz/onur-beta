@@ -1,0 +1,159 @@
+{
+  "synthetic": true,
+  "clinical_use": false,
+  "cases": [
+    {
+      "file": "bap_screen_synthetic.png",
+      "variant": "clean",
+      "expected": {
+        "condition_1": "90",
+        "condition_2": "99",
+        "condition_3": "98",
+        "condition_4": "82",
+        "condition_5": "79",
+        "condition_6": "27",
+        "composite_score": "81",
+        "sensory_somatosensory": "100",
+        "sensory_visual": "82",
+        "sensory_vestibular": "80",
+        "visual_preference": "70"
+      }
+    },
+    {
+      "file": "bap_screen_clean_a_synthetic.png",
+      "variant": "clean",
+      "expected": {
+        "condition_1": "93",
+        "condition_2": "88",
+        "condition_3": "76",
+        "condition_4": "61",
+        "condition_5": "54",
+        "condition_6": "32",
+        "composite_score": "68",
+        "sensory_somatosensory": "94",
+        "sensory_visual": "73",
+        "sensory_vestibular": "58",
+        "visual_preference": "79"
+      }
+    },
+    {
+      "file": "bap_screen_clean_b_synthetic.png",
+      "variant": "clean",
+      "expected": {
+        "condition_1": "99",
+        "condition_2": "97",
+        "condition_3": "95",
+        "condition_4": "83",
+        "condition_5": "80",
+        "condition_6": "28",
+        "composite_score": "82",
+        "sensory_somatosensory": "98",
+        "sensory_visual": "86",
+        "sensory_vestibular": "74",
+        "visual_preference": "91"
+      }
+    },
+    {
+      "file": "bap_screen_low_scores_synthetic.png",
+      "variant": "clean",
+      "expected": {
+        "condition_1": "72",
+        "condition_2": "68",
+        "condition_3": "55",
+        "condition_4": "49",
+        "condition_5": "34",
+        "condition_6": "21",
+        "composite_score": "50",
+        "sensory_somatosensory": "89",
+        "sensory_visual": "62",
+        "sensory_vestibular": "47",
+        "visual_preference": "66"
+      }
+    },
+    {
+      "file": "bap_screen_small_synthetic.jpg",
+      "variant": "small-jpeg",
+      "expected": {
+        "condition_1": "93",
+        "condition_2": "88",
+        "condition_3": "76",
+        "condition_4": "61",
+        "condition_5": "54",
+        "condition_6": "32",
+        "composite_score": "68",
+        "sensory_somatosensory": "94",
+        "sensory_visual": "73",
+        "sensory_vestibular": "58",
+        "visual_preference": "79"
+      }
+    },
+    {
+      "file": "bap_screen_low_contrast_synthetic.jpg",
+      "variant": "low-contrast",
+      "expected": {
+        "condition_1": "93",
+        "condition_2": "88",
+        "condition_3": "76",
+        "condition_4": "61",
+        "condition_5": "54",
+        "condition_6": "32",
+        "composite_score": "68",
+        "sensory_somatosensory": "94",
+        "sensory_visual": "73",
+        "sensory_vestibular": "58",
+        "visual_preference": "79"
+      }
+    },
+    {
+      "file": "bap_screen_blurred_synthetic.png",
+      "variant": "slight-blur",
+      "expected": {
+        "condition_1": "93",
+        "condition_2": "88",
+        "condition_3": "76",
+        "condition_4": "61",
+        "condition_5": "54",
+        "condition_6": "32",
+        "composite_score": "68",
+        "sensory_somatosensory": "94",
+        "sensory_visual": "73",
+        "sensory_vestibular": "58",
+        "visual_preference": "79"
+      }
+    },
+    {
+      "file": "bap_screen_tall_synthetic.png",
+      "variant": "tall-with-distractors",
+      "expected": {
+        "condition_1": "99",
+        "condition_2": "97",
+        "condition_3": "95",
+        "condition_4": "83",
+        "condition_5": "80",
+        "condition_6": "28",
+        "composite_score": "82",
+        "sensory_somatosensory": "98",
+        "sensory_visual": "86",
+        "sensory_vestibular": "74",
+        "visual_preference": "91"
+      }
+    },
+    {
+      "file": "bap_screen_tall_compressed_synthetic.jpg",
+      "variant": "tall-compressed",
+      "expected": {
+        "condition_1": "99",
+        "condition_2": "97",
+        "condition_3": "95",
+        "condition_4": "83",
+        "condition_5": "80",
+        "condition_6": "28",
+        "composite_score": "82",
+        "sensory_somatosensory": "98",
+        "sensory_visual": "86",
+        "sensory_vestibular": "74",
+        "visual_preference": "91"
+      }
+    }
+  ]
+}
