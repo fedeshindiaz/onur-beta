@@ -7,7 +7,7 @@ ONUr Beta utiliza OCR local para preparar un borrador de parámetros de posturog
 1. Abrir **Cargar estudio**, seleccionar el paciente, tipo, fecha y archivo PDF/JPG/JPEG/PNG/WEBP.
 2. El navegador procesa el archivo localmente. Para BAP se amplía la imagen, se prueba contraste y orientación, y se leen tanto rótulos como valores por posición en los gráficos.
 3. Revisar solamente los **parámetros obtenidos** y corregir los que estén marcados para revisar o faltantes.
-4. Redactar la **conclusión profesional** y la **sugerencia profesional de rehabilitación** según la valoración clínica.
+4. Revisar y editar el borrador automático de **conclusión** y **sugerencia de rehabilitación** según la valoración clínica.
 5. Confirmar y generar el informe, o guardar el borrador para continuar luego.
 
 Las opciones técnicas y el descarte permanecen disponibles dentro de **Opciones avanzadas**. La interfaz no muestra pasos de normalización, confirmación individual ni clasificaciones que no sean necesarios para la revisión clínica.
@@ -18,6 +18,18 @@ La versión `onur-local-ocr-1.3` usa varias lecturas complementarias: página co
 
 Al abrir un borrador creado con una versión anterior, ONUr vuelve a analizar el original privado en el navegador y conserva las correcciones profesionales que difieran de la lectura anterior. El reprocesamiento queda auditado sin almacenar el contenido clínico en el registro de auditoría.
 
+## Borrador automático de conclusión y rehabilitación
+
+Para posturografías BAP, ONUr compara los valores mostrados con referencias por edad transcriptas exclusivamente del paquete local seguro `PAQUETE_SEGURO_PARA_WORK`:
+
+- `09_TABLA_VALORES_NORMALES_BAP.xlsx`: condiciones, Composite y cocientes sensoriales;
+- `08_VALORES_REFERENCIA_BAP.xlsx`: límites superiores de indicadores de patrón;
+- `04_INTERPRETACION_BAP.md`: lenguaje funcional y posibles componentes de rehabilitación.
+
+La aplicación completa los dos textos cuando están vacíos. Si el profesional ya los editó, no los sobrescribe: el botón **Regenerar desde parámetros** solicita confirmación antes de reemplazarlos. La sección **Cómo se generó este borrador** muestra cada comparación, las advertencias por datos faltantes y las fuentes utilizadas.
+
+El motor usa únicamente los valores visibles en la pantalla de revisión. Los valores por debajo de la referencia inferior se describen como reducidos; los indicadores de patrón solo se señalan cuando superan el límite superior consignado. Sin edad válida no clasifica contra la norma. Un indicador afisiológico elevado prioriza el control de calidad y la repetición de condiciones antes de proponer objetivos.
+
 ## Corpus y medición de precisión
 
 El corpus reproducible `bap_ocr_corpus_synthetic.json` incluye capturas limpias, pequeñas, comprimidas, borrosas, de bajo contraste y con números señuelo. Cada archivo declara once resultados esperados: seis condiciones, compuesto y cuatro índices de organización sensorial. Ninguna muestra contiene datos personales ni procede de una historia clínica.
@@ -27,8 +39,9 @@ Ejecutar `npm run ocr:benchmark` para medir el reconocimiento real con Tesseract
 ## Límites y seguridad
 
 - El OCR es una ayuda de transcripción; puede requerir corrección en fotos con perspectiva, baja resolución, tablas complejas o texto manuscrito.
-- ONUr no interpreta curvas, no diagnostica, no infiere causalidad y no recomienda tratamientos automáticamente.
-- La conclusión y la sugerencia de rehabilitación son textos obligatoriamente redactados y confirmados por el profesional responsable.
+- ONUr no interpreta curvas, no diagnostica ni infiere causalidad. El borrador de rehabilitación es orientación funcional basada en reglas, no una prescripción cerrada.
+- La conclusión y la sugerencia de rehabilitación son editables y solo pasan al informe después de la confirmación del profesional responsable.
+- Las referencias locales son heterogéneas y todavía requieren validación clínica formal antes del uso asistencial con datos reales.
 - El paciente no participa de la carga ni recibe acceso al original durante la revisión.
 - Los documentos y valores clínicos no se imprimen en consola ni se usan como fixtures, logs o datos de staging.
 

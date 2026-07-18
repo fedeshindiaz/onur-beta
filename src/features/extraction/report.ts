@@ -14,8 +14,9 @@ export interface StudyExtractionReportModel {
 }
 
 /**
- * This is a literal projection of values confirmed by the professional. It
- * never derives a clinical conclusion from OCR output.
+ * This is a literal projection of values and editable text confirmed by the
+ * professional. Preliminary automatic drafts never reach this report unless
+ * the professional reviews and confirms the extraction.
  */
 export function buildStudyExtractionReport(
   extraction: ExtractionReviewRecord,
