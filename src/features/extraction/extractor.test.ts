@@ -53,11 +53,14 @@ describe('extracción literal revisable', () => {
 
   it('lee panel BAP compacto y porcentajes ubicados por columna', () => {
     const bapPage: ExtractedPage = {
-      ...page('Posturografía BAP\nPorcentaje de condiciones\nTest de organización sensorial', 'posturography'),
+      ...page('Posturografía BAP\nPorcent. de condiciones\nTest de organización sensorial', 'posturography'),
       lines: [
         { text: 'Adel = -07,73   Atrás = 04,31', confidence: 91, region: { x: .02, y: .27, width: .2, height: .03 } },
         { text: 'Izqui = -03,37   Derech = 03,02', confidence: 90, region: { x: .02, y: .31, width: .2, height: .03 } },
         { text: '17/7/2026', confidence: 96, region: { x: .61, y: .91, width: .08, height: .02 } },
+        // Las etiquetas del eje Y no son condiciones y no deben desplazar
+        // las siete lecturas BAP (C1..C6 y Compuesto).
+        ...[100, 80, 60].map((value, index) => ({ text: String(value), confidence: 88, region: { x: .685, y: .16 + index * .08, width: .02, height: .02 } })),
         // En un BAP, los puntajes altos aparecen arriba de cada barra.
         ...[90, 99, 98, 82, 79, 27, 81].map((value, index) => ({ text: String(value), confidence: 88, region: { x: .71 + index * .043, y: .14 + index * .01, width: .025, height: .02 } })),
         ...[100, 82, 80, 70].map((value, index) => ({ text: String(value), confidence: 86, region: { x: .72 + index * .07, y: .65 + index * .01, width: .03, height: .02 } })),
@@ -71,6 +74,23 @@ describe('extracción literal revisable', () => {
     expect(fields.find((field) => field.code === 'composite_score')).toMatchObject({ rawValue: '81', normalizedValue: '81' })
     expect(fields.find((field) => field.code === 'sensory_somatosensory')).toMatchObject({ rawValue: '100', normalizedValue: '100' })
     expect(fields.find((field) => field.code === 'study_date')).toMatchObject({ rawValue: '17/7/2026' })
+  })
+
+  it('conserva los cuatro valores Sway de BAP 2.3.2 sin confundir segundos con minutos', () => {
+    const fields = extractFields([page('Posturografía BAP\nSway/s X = 3 · Sway/m X = 204\nSway/s Y = 4 · Sway/m Y = 252\nPatrón Afis. = 27,5 %\nScore LOS = 100,0 %', 'posturography')], 'posturography_bap')
+
+    expect(fields.find((field) => field.code === 'sway_per_second_x')).toMatchObject({ rawValue: '3', metricCode: 'sway_per_second_x', unitCode: 'oscillations_per_second' })
+    expect(fields.find((field) => field.code === 'sway_per_second_y')).toMatchObject({ rawValue: '4', metricCode: 'sway_per_second_y', unitCode: 'oscillations_per_second' })
+    expect(fields.find((field) => field.code === 'sway_per_minute_x')).toMatchObject({ rawValue: '204', metricCode: 'sway_per_minute_x', unitCode: 'oscillations_per_minute' })
+    expect(fields.find((field) => field.code === 'sway_per_minute_y')).toMatchObject({ rawValue: '252', metricCode: 'sway_per_minute_y', unitCode: 'oscillations_per_minute' })
+    expect(fields.find((field) => field.code === 'afis_pattern')).toMatchObject({ rawValue: '27,5 %', metricCode: 'aphysiological_pattern', unitCode: 'percent' })
+    expect(fields.find((field) => field.code === 'los_score')).toMatchObject({ rawValue: '100,0 %', unitCode: 'percent' })
+  })
+
+  it('define seis condiciones BAP y no convierte los iconos 7 y 8 en condiciones', () => {
+    const fields = extractFields([page('Posturografía BAP', 'posturography')], 'posturography_bap')
+    expect(fields.filter((field) => /^condition_\d+$/.test(field.code))).toHaveLength(6)
+    expect(fields.some((field) => field.code === 'condition_7' || field.code === 'condition_8')).toBe(false)
   })
 })
 

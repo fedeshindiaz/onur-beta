@@ -55,6 +55,8 @@ try{
   const createdProfessional=assertNoError(await admin.auth.admin.createUser({email:professionalEmail,password:professionalPassword,email_confirm:true,app_metadata:{role:'professional'},user_metadata:{display_name:'ONUr Staging Test'}}),'crear profesional')
   created.professionalUserId=createdProfessional.user.id
   const professional=client();assertNoError(await professional.auth.signInWithPassword({email:professionalEmail,password:professionalPassword}),'login profesional')
+  const bapDefinitions=assertNoError(await professional.from('metric_definitions').select('code,allowed_units').in('code',['sway_per_second_x','sway_per_second_y','sway_per_minute_x','sway_per_minute_y','aphysiological_pattern']),'leer diccionario BAP 2.3.2')
+  assert(bapDefinitions.length===5&&bapDefinitions.some(item=>item.code==='sway_per_second_x'&&item.allowed_units?.includes('oscillations_per_second'))&&bapDefinitions.some(item=>item.code==='sway_per_minute_x'&&item.allowed_units?.includes('oscillations_per_minute')),'El diccionario BAP 2.3.2 no conserva las unidades de Sway.')
   const foreignProfessionalEmail=`onur-staging-foreign-${token}@example.invalid`
   const foreignProfessionalPassword=`Onur!${crypto.randomUUID()}bB2`
   const createdForeignProfessional=assertNoError(await admin.auth.admin.createUser({email:foreignProfessionalEmail,password:foreignProfessionalPassword,email_confirm:true,app_metadata:{role:'professional'},user_metadata:{display_name:'ONUr Staging Aislado'}}),'crear profesional aislado')
