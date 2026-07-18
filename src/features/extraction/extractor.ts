@@ -2,7 +2,7 @@ import { parseLocaleNumber } from '../studies/normalization'
 import { posturographyFieldDefinitions, vestibularFieldDefinitions } from './catalog'
 import type { ExtractedField, ExtractedPage, ExtractionFieldDefinition, IntakeKind, PageClassification, PatientMatchStatus, SourceRegion } from './types'
 
-export const EXTRACTOR_VERSION = 'onur-local-ocr-1.3'
+export const EXTRACTOR_VERSION = 'onur-local-ocr-1.4'
 
 function fold(value: string) {
   return value.toLocaleLowerCase('es-UY').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -73,6 +73,87 @@ function normalizedValue(raw: string) {
 }
 
 interface LocatedValue { value: string; confidence: number; region: SourceRegion | null }
+
+const multilineCodes = new Set(['clinical_exam', 'history', 'symptoms', 'referral_reason', 'conclusion', 'conduct', 'professional_observations'])
+
+function escaped(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function aliasAtStart(text: string, alias: string) {
+  return new RegExp(`^\\s*(?:\\d{1,2}[.)]\\s*)?${escaped(fold(alias))}\\b`, 'iu').test(fold(text))
+}
+
+function horizontallyOverlaps(first: SourceRegion, second: SourceRegion) {
+  return Math.min(first.x + first.width, second.x + second.width) - Math.max(first.x, second.x) > -.015
+}
+
+function withoutShortDuplicateLines(page: ExtractedPage) {
+  return page.lines.filter((line, index, lines) => !lines.some((candidate, candidateIndex) => {
+    if (candidateIndex === index || candidate.text.length <= line.text.length) return false
+    const sameBand = Math.abs((candidate.region.y + candidate.region.height / 2) - (line.region.y + line.region.height / 2)) <= Math.max(.018, candidate.region.height, line.region.height)
+    if (!sameBand || !horizontallyOverlaps(candidate.region, line.region)) return false
+    const shortText = fold(line.text).replace(/\s+/g, ' ').trim()
+    const longText = fold(candidate.text).replace(/\s+/g, ' ').trim()
+    return longText.includes(shortText) || candidate.text.length >= line.text.length * 1.45 && candidate.confidence >= line.confidence - 15
+  })).sort((a, b) => a.region.y - b.region.y || a.region.x - b.region.x)
+}
+
+function combinedRegion(lines: ExtractedPage['lines']): SourceRegion | null {
+  if (!lines.length) return null
+  const x = Math.min(...lines.map((line) => line.region.x))
+  const y = Math.min(...lines.map((line) => line.region.y))
+  const right = Math.max(...lines.map((line) => line.region.x + line.region.width))
+  const bottom = Math.max(...lines.map((line) => line.region.y + line.region.height))
+  return { x, y, width: right - x, height: bottom - y }
+}
+
+function beginsAnotherField(text: string, definition: ExtractionFieldDefinition) {
+  return vestibularFieldDefinitions.some((candidate) => candidate.code !== definition.code && candidate.aliases.some((alias) => aliasAtStart(text, alias)))
+}
+
+function multilineValue(definition: ExtractionFieldDefinition, page: ExtractedPage): LocatedValue | null {
+  if (!multilineCodes.has(definition.code)) return null
+  const lines = withoutShortDuplicateLines(page)
+  const anchorIndex = lines.findIndex((line) => definition.aliases.some((alias) => aliasAtStart(line.text, alias) || definition.code === 'clinical_exam' && fold(line.text).includes(fold(alias))))
+  if (anchorIndex < 0) return null
+  const anchor = lines[anchorIndex]
+  const alias = definition.aliases.find((candidate) => aliasAtStart(anchor.text, candidate) || definition.code === 'clinical_exam' && fold(anchor.text).includes(fold(candidate)))
+  if (!alias) return null
+  const selected = [anchor]
+  // En informes narrativos, "Se realizo examen clinico..." es una frase y no
+  // una etiqueta. Se conserva completa para no devolver solo su cola.
+  const startsWithLabel = aliasAtStart(anchor.text, alias)
+  const parts = [startsWithLabel ? lineValue(anchor.text, alias) : anchor.text.trim()].filter(Boolean)
+  let previous = anchor
+  for (const line of lines.slice(anchorIndex + 1)) {
+    const verticalGap = line.region.y - (previous.region.y + previous.region.height)
+    if (line.region.y - anchor.region.y > .16 || verticalGap > .035) break
+    if (/^\s*\d{1,2}[.)]\s+/.test(line.text) || beginsAnotherField(line.text, definition) || /^(?:prof(?:esional)?\.?|dr\.?|dra\.?|firma)\b/i.test(fold(line.text))) break
+    parts.push(line.text.trim())
+    selected.push(line)
+    previous = line
+  }
+  const value = parts.join(' ').replace(/\s+/g, ' ').trim()
+  if (!value) return null
+  return {
+    value,
+    confidence: Math.min(...selected.map((line) => line.confidence / 100)),
+    region: combinedRegion(selected),
+  }
+}
+
+function inferredDocumentType(definition: ExtractionFieldDefinition, page: ExtractedPage): LocatedValue | null {
+  if (definition.code !== 'document_type') return null
+  const labels: Partial<Record<PageClassification, string>> = {
+    vestibular_report: 'Informe vestibular / vHIT',
+    vhit_graph: 'Gr\u00e1ficos vHIT u oculomotores',
+    referral: 'Orden o derivaci\u00f3n',
+    other_clinical: 'Otro documento cl\u00ednico',
+  }
+  const value = labels[page.classification]
+  return value ? { value, confidence: Math.min(.79, page.classificationConfidence), region: null } : null
+}
 
 function numericFragments(page: ExtractedPage) {
   return page.lines.flatMap((line) => [...line.text.matchAll(/[+-]?(?:\d+(?:[.,]\d+)?|[.,]\d+)\s*%?/g)].flatMap((match) => {
@@ -203,6 +284,8 @@ function findDefinitionValue(definition: ExtractionFieldDefinition, page: Extrac
     const positional = positionalBapValue(definition, page)
     if (positional) return positional
   }
+  const block = multilineValue(definition, page)
+  if (block) return block
   for (const line of page.lines) {
     for (const alias of definition.aliases) {
       const value = lineValue(line.text, alias)
@@ -219,7 +302,7 @@ function findDefinitionValue(definition: ExtractionFieldDefinition, page: Extrac
     const value = lineValue(page.text, alias)
     if (value) return { value: compactCandidate(definition, value), confidence: page.classificationConfidence * .8, region: null }
   }
-  return positionalBapValue(definition, page)
+  return positionalBapValue(definition, page) ?? inferredDocumentType(definition, page)
 }
 
 export function extractFields(pages: ExtractedPage[], intakeKind: IntakeKind): ExtractedField[] {

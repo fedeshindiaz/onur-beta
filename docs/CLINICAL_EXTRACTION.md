@@ -45,6 +45,12 @@ Ejecutar `npm run ocr:benchmark` para medir el reconocimiento real con Tesseract
 - El paciente no participa de la carga ni recibe acceso al original durante la revisión.
 - Los documentos y valores clínicos no se imprimen en consola ni se usan como fixtures, logs o datos de staging.
 
+## Informes escaneados y OCR 1.4
+
+La version `onur-local-ocr-1.4` agrega una lectura de bloque en la zona inferior de los informes vestibulares escaneados. Esto permite recomponer `En suma` y `Conducta` cuando ocupan varios renglones y descartar fragmentos duplicados de la lectura de pagina completa. Si el tipo de documento no esta escrito literalmente, se propone desde la clasificacion de pagina y queda marcado para revision profesional.
+
+La regresion usa `vestibular_report_scanned_synthetic.jpg`, una imagen completamente ficticia con perspectiva, resumen multilinea y conducta. Ningun documento real se incorpora al corpus.
+
 ## Pruebas
 
 Los archivos en `tests/fixtures/synthetic-clinical` son exclusivamente sintéticos, se regeneran con `scripts/generate_synthetic_clinical_fixtures.py` y llevan una advertencia visible. No se incluyen documentos clínicos reales en el repositorio, la compilación, CI ni staging.

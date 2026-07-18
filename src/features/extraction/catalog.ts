@@ -34,7 +34,7 @@ const posturography: ExtractionFieldDefinition[] = [
 const vestibular: ExtractionFieldDefinition[] = [
   { code: 'study_date', label: 'Fecha del estudio', group: 'Documento', studyType: 'vhit', required: true, aliases: ['fecha del estudio', 'fecha'] },
   { code: 'institution', label: 'Institución de origen', group: 'Documento', studyType: 'vhit', metricCode: 'institution_text', aliases: ['institucion', 'centro', 'clinica'] },
-  { code: 'document_type', label: 'Tipo de documento', group: 'Documento', studyType: 'vhit', required: true, metricCode: 'document_type_text', aliases: ['tipo de documento', 'estudio'] },
+  { code: 'document_type', label: 'Tipo de documento', group: 'Documento', studyType: 'vhit', required: true, metricCode: 'document_type_text', aliases: ['tipo de documento'] },
   { code: 'professional', label: 'Profesional solicitante o informante', group: 'Documento', studyType: 'vhit', metricCode: 'professional_text', aliases: ['profesional', 'solicitante', 'informante'] },
   { code: 'referral_reason', label: 'Motivo de derivación', group: 'Antecedentes', studyType: 'vhit', metricCode: 'referral_reason_text', aliases: ['motivo de derivacion', 'motivo'] },
   { code: 'history', label: 'Antecedentes consignados', group: 'Antecedentes', studyType: 'vhit', metricCode: 'history_text', aliases: ['antecedentes'] },

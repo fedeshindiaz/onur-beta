@@ -231,6 +231,42 @@ def make_rotated_vhit() -> None:
     image.rotate(90, expand=True, fillcolor="white").save(TARGET / "vhit_rotated_partial_synthetic.png")
 
 
+def make_scanned_vestibular_report() -> None:
+    image = Image.new("RGB", (1400, 2000), (230, 234, 233))
+    draw = ImageDraw.Draw(image)
+    regular = ImageFont.truetype(str(REPORTLAB_FONTS / "Vera.ttf"), 25)
+    bold = ImageFont.truetype(str(REPORTLAB_FONTS / "VeraBd.ttf"), 26)
+    small = ImageFont.truetype(str(REPORTLAB_FONTS / "Vera.ttf"), 21)
+    draw.polygon([(105, 70), (1305, 92), (1270, 1915), (85, 1880)], fill="white")
+    draw.text((165, 145), "INFORME VESTIBULAR SINTETICO", fill=(22, 55, 60), font=bold)
+    draw.text((165, 205), "DOCUMENTO SINTETICO - SIN DATOS PERSONALES - NO USAR CLINICAMENTE", fill=(170, 36, 46), font=small)
+    body = [
+        "Fecha del estudio: 17/07/2026    Paciente: PACIENTE FICTICIO",
+        "Se realizo examen clinico e instrumentado vestibular.",
+        "1. HIMP: resultado sintetico.",
+        "2. VII par: normal.",
+        "3. Sistema de fijacion: normal.",
+        "4. Supresion visual: normal.",
+        "5. SKEW: negativo.",
+        "6. Head Shaking Test: negativo.",
+        "7. Pruebas posicionales: no registrado.",
+        "8. Marcha: resultado sintetico.",
+    ]
+    for index, value in enumerate(body):
+        draw.text((165, 340 + index * 65), value, fill=(28, 38, 40), font=regular)
+    summary = [
+        "En suma: Hallazgo vestibular sintetico para verificar la lectura",
+        "completa de un resumen distribuido en mas de un renglon, sin",
+        "informacion perteneciente a una persona real.",
+        "Conducta: Reevaluacion sintetica y plan ficticio supervisado.",
+    ]
+    for index, value in enumerate(summary):
+        draw.text((165, 1285 + index * 58), value, fill=(25, 35, 37), font=regular if index else bold)
+    draw.text((490, 1640), "Prof. PRUEBA SINTETICA", fill=(35, 48, 50), font=small)
+    image = image.filter(ImageFilter.GaussianBlur(radius=0.25))
+    image.save(TARGET / "vestibular_report_scanned_synthetic.jpg", quality=82)
+
+
 def referral_page(pdf: canvas.Canvas) -> None:
     y = header(pdf, "ORDEN / DERIVACIÓN - CASO DE PRUEBA")
     lines(pdf, y, ["Orden médica: evaluación vestibular", "Motivo de derivación: texto sintético", "Sin datos personales."])
@@ -245,6 +281,8 @@ if __name__ == "__main__":
     if "--bap-images-only" in sys.argv:
         make_perspective_photo()
         make_bap_ocr_corpus()
+    elif "--report-image-only" in sys.argv:
+        make_scanned_vestibular_report()
     else:
         make_pdf("bap_clear_synthetic.pdf", [bap_page])
         make_pdf("vestibular_report_synthetic.pdf", [vestibular_page])
@@ -253,3 +291,4 @@ if __name__ == "__main__":
         make_perspective_photo()
         make_bap_ocr_corpus()
         make_rotated_vhit()
+        make_scanned_vestibular_report()

@@ -51,6 +51,40 @@ describe('extracción literal revisable', () => {
     expect(fields.find((field) => field.code === 'conclusion')).toMatchObject({ rawValue: '', required: true, status: 'unrecognized' })
   })
 
+  it('recompone En suma y Conducta multilinea y propone el tipo documental sin inventar contenido', () => {
+    const reportPage: ExtractedPage = {
+      ...page('Informe vestibular sintetico\nFecha del estudio: 17/07/2026\nEn suma\nConducta', 'vestibular_report', .92),
+      lines: [
+        { text: 'En suma: Hallazgo ves', confidence: 72, region: { x: .12, y: .68, width: .19, height: .018 } },
+        { text: 'En suma: Hallazgo vestibular sintetico para probar la lectura', confidence: 91, region: { x: .12, y: .681, width: .62, height: .019 } },
+        { text: 'de un bloque de varias lineas sin datos de una persona real.', confidence: 90, region: { x: .12, y: .708, width: .58, height: .019 } },
+        { text: 'Conducta: Reevaluacion sintetica y plan ficticio.', confidence: 93, region: { x: .12, y: .747, width: .48, height: .019 } },
+        { text: 'Prof. PRUEBA SINTETICA', confidence: 95, region: { x: .33, y: .79, width: .26, height: .018 } },
+      ],
+    }
+    const fields = extractFields([reportPage], 'vestibular_and_reports')
+
+    expect(fields.find((field) => field.code === 'conclusion')).toMatchObject({
+      rawValue: 'Hallazgo vestibular sintetico para probar la lectura de un bloque de varias lineas sin datos de una persona real.',
+      status: 'read',
+    })
+    expect(fields.find((field) => field.code === 'conduct')).toMatchObject({ rawValue: 'Reevaluacion sintetica y plan ficticio.', status: 'read' })
+    expect(fields.find((field) => field.code === 'document_type')).toMatchObject({ rawValue: 'Informe vestibular / vHIT', status: 'review' })
+  })
+
+  it('conserva completa una frase narrativa de examen clinico', () => {
+    const reportPage: ExtractedPage = {
+      ...page('Informe vestibular sintetico', 'vestibular_report'),
+      lines: [
+        { text: 'Se realizo examen clinico e instrumentado del sistema vestibular', confidence: 94, region: { x: .12, y: .23, width: .7, height: .019 } },
+        { text: 'y de los sistemas oculomotores centrales.', confidence: 93, region: { x: .12, y: .257, width: .46, height: .019 } },
+        { text: '1. HIMP: resultado sintetico.', confidence: 95, region: { x: .14, y: .295, width: .31, height: .019 } },
+      ],
+    }
+    const field = extractFields([reportPage], 'vestibular_and_reports').find((candidate) => candidate.code === 'clinical_exam')
+    expect(field).toMatchObject({ rawValue: 'Se realizo examen clinico e instrumentado del sistema vestibular y de los sistemas oculomotores centrales.', status: 'read' })
+  })
+
   it('lee panel BAP compacto y porcentajes ubicados por columna', () => {
     const bapPage: ExtractedPage = {
       ...page('Posturografía BAP\nPorcent. de condiciones\nTest de organización sensorial', 'posturography'),

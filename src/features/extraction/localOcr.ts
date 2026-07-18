@@ -3,6 +3,7 @@ import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { bapRecognitionRegions, binarizeBapDarkText } from './bapOcrProfile'
 import { classifyPage, comparePatientIdentity, EXTRACTOR_VERSION, extractFields, type PatientIdentityForMatch } from './extractor'
+import { clinicalReportSummaryRegion } from './reportOcrProfile'
 import type { ExtractedPage, ExtractionProgress, IntakeKind, LocalExtractionDraft, OcrLine } from './types'
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl
@@ -112,6 +113,23 @@ function darkTextRegion(source: HTMLCanvasElement, region: { x: number; y: numbe
   return target
 }
 
+function textRegion(source: HTMLCanvasElement, region: { x: number; y: number; width: number; height: number }) {
+  const sourceX = Math.round(source.width * region.x)
+  const sourceY = Math.round(source.height * region.y)
+  const sourceWidth = Math.max(1, Math.round(source.width * region.width))
+  const sourceHeight = Math.max(1, Math.round(source.height * region.height))
+  const scale = Math.min(3, 3000 / Math.max(sourceWidth, sourceHeight))
+  const target = document.createElement('canvas')
+  target.width = Math.max(1, Math.round(sourceWidth * scale))
+  target.height = Math.max(1, Math.round(sourceHeight * scale))
+  const context = target.getContext('2d')
+  if (!context) throw new Error('El navegador no permite preparar el bloque de texto clinico.')
+  context.imageSmoothingEnabled = true
+  context.imageSmoothingQuality = 'high'
+  context.drawImage(source, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, target.width, target.height)
+  return target
+}
+
 function mergeOcrLines(groups: OcrLine[][]) {
   const merged: OcrLine[] = []
   for (const line of groups.flat()) {
@@ -147,6 +165,17 @@ async function recognizeCanvas(canvas: HTMLCanvasElement, intakeKind: IntakeKind
       const contrastedResult = await worker.recognize(contrasted, { rotateAuto: false }, { text: true, blocks: true })
       results.push(contrastedResult)
       lineGroups.push(resultLines(contrastedResult, contrasted))
+    }
+    if (intakeKind === 'vestibular_and_reports') {
+      // Los informes escaneados suelen concentrar "En suma" y "Conducta" en
+      // el tercio inferior. PSM.SPARSE_TEXT separa esas frases en fragmentos;
+      // una segunda lectura como bloque preserva sus renglones y continuidad.
+      const prepared = textRegion(selected.canvas, clinicalReportSummaryRegion)
+      await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_BLOCK, preserve_interword_spaces: '1', user_defined_dpi: '300' })
+      const summaryResult = await worker.recognize(prepared, { rotateAuto: false }, { text: true, blocks: true })
+      results.push(summaryResult)
+      lineGroups.push(resultLines(summaryResult, prepared, clinicalReportSummaryRegion))
+      await worker.setParameters({ tessedit_pageseg_mode: PSM.SPARSE_TEXT, preserve_interword_spaces: '1', user_defined_dpi: '300' })
     }
     if (intakeKind === 'posturography_bap') {
       // Un OCR de página completa suele perder los valores impresos sobre las
