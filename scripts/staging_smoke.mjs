@@ -144,6 +144,23 @@ try{
   assert(!JSON.stringify(extractionAudits).includes('Conclusión profesional completamente sintética'),'La auditoría expuso el texto de la conclusión.')
   log('extracción local, RLS, revisión, confirmación y auditoría sin contenido clínico')
 
+  const directCaptureInput={target_patient_id:created.patientId,target_treatment_cycle_id:null,performed_at_input:new Date().toISOString(),condition_count_input:6,duration_seconds_input:20}
+  const foreignDirectCapture=await foreignProfessional.rpc('create_direct_bap_capture_draft',directCaptureInput)
+  assert(foreignDirectCapture.error,'Un profesional ajeno pudo crear una captura BAP directa.')
+  const patientDirectCapture=await patientClient.rpc('create_direct_bap_capture_draft',directCaptureInput)
+  assert(patientDirectCapture.error,'El portal del paciente pudo crear una captura BAP directa.')
+  const directStudyId=assertNoError(await professional.rpc('create_direct_bap_capture_draft',directCaptureInput),'crear borrador de captura BAP directa')
+  const directMetricPayload=Array.from({length:6},(_,index)=>({metric_code:'condition_score',raw_value:String(80+index),normalized_numeric_value:80+index,normalized_text_value:null,unit_code:'percent',condition_code:String(index+1),side:null,axis:null,trial_number:1,source_method:'transcribed',source_location:`Captura BAP sintética · condición ${index+1}`,normalization_rule_version:'onur-normalization-1.0',quality_status:'ok',issues:[]}))
+  assertNoError(await professional.rpc('replace_study_import',{target_study_id:directStudyId,metric_payload:directMetricPayload,import_quality_notes:'Captura directa completamente ficticia de staging',import_interpretable:false,parser_version:'onur-normalization-1.0'}),'guardar parámetros BAP directos')
+  const directStudy=assertNoError(await professional.from('clinical_studies').select('status,calculation_method_version,metric_values(source_method)').eq('id',directStudyId).single(),'leer captura BAP directa')
+  assert(directStudy.status==='reviewed'&&directStudy.calculation_method_version==='onur-bap-webserial-1.0-beta'&&directStudy.metric_values?.length===6&&directStudy.metric_values.every(metric=>metric.source_method==='direct_capture'),'La captura directa no preservó origen, versión o métricas.')
+  const directJob=assertNoError(await professional.from('import_jobs').select('parser_type,parser_version').eq('study_id',directStudyId).single(),'leer importación BAP directa')
+  assert(directJob.parser_type==='bap_web_serial'&&directJob.parser_version==='onur-bap-webserial-1.0-beta','La captura directa no quedó identificada por su transporte.')
+  const directAudits=assertNoError(await admin.from('audit_events').select('action,metadata').eq('entity_id',directStudyId).eq('action','direct_bap_capture_created'),'leer auditoría BAP directa')
+  assert(directAudits.length===1&&directAudits[0].metadata?.transport==='web_serial'&&directAudits[0].metadata?.raw_frames_stored===false,'La auditoría BAP directa no registra el transporte seguro.')
+  assert(!JSON.stringify(directAudits).includes('80'),'La auditoría BAP directa expuso un parámetro de la captura.')
+  log('captura BAP directa, permisos, trazabilidad y auditoría sin tramas crudas')
+
   const study=assertNoError(await professional.from('clinical_studies').insert({patient_id:created.patientId,source_document_id:document.id,study_type:'posturography',performed_at:'2026-07-16T12:00:00Z',device_name:'Equipo ficticio',protocol_code:'bap-a-d',protocol_version:'1',created_by:created.professionalUserId}).select().single(),'crear estudio')
   const metricPayload=[{metric_code:'condition_score',raw_value:'75,0',normalized_numeric_value:75,normalized_text_value:null,unit_code:'percent',condition_code:'A',side:null,axis:null,trial_number:1,source_method:'transcribed',source_location:'Smoke test',normalization_rule_version:'onur-normalization-1.0',quality_status:'ok',issues:[]}]
   assertNoError(await professional.rpc('replace_study_import',{target_study_id:study.id,metric_payload:metricPayload,import_quality_notes:'Revisión ficticia de staging',import_interpretable:true,parser_version:'onur-normalization-1.0'}),'confirmar importación')

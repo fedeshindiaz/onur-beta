@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, ChevronLeft, ClipboardPaste, LockKeyhole, Plus, Save, Trash2 } from 'lucide-react'
+import { Activity, AlertTriangle, CheckCircle2, ChevronLeft, ClipboardPaste, LockKeyhole, Plus, Save, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { PageHeader } from '../components/PageHeader'
@@ -97,7 +97,8 @@ export function StudyReviewPage() {
 
   return <div className="space-y-7">
     <Link to={`/app/pacientes/${study.patientId}`} className="inline-flex items-center gap-2 text-xs font-black text-[#0b7a75]"><ChevronLeft size={16}/> Volver al paciente</Link>
-    <PageHeader eyebrow="Importación estructurada" title={`Revisar ${study.studyType === 'posturography' ? 'posturografía' : 'vHIT'}`} description={`${study.patientName} · ${study.performedAt.slice(0, 10)} · ${study.sourceFilename}`}/>
+    <PageHeader eyebrow={study.calculationMethodVersion.startsWith('onur-bap-webserial-') ? 'Captura directa BAP' : 'Importación estructurada'} title={`Revisar ${study.studyType === 'posturography' ? 'posturografía' : 'vHIT'}`} description={`${study.patientName} · ${study.performedAt.slice(0, 10)} · ${study.sourceFilename}`}/>
+    {study.calculationMethodVersion.startsWith('onur-bap-webserial-')&&<div className="flex gap-3 rounded-3xl border border-[#bcded9] bg-[#e8f5f2] p-5"><Activity className="shrink-0 text-[#08746e]" size={20}/><div><p className="text-sm font-black text-[#075e5a]">Parámetros recibidos directamente del BAP</p><p className="mt-1 text-xs leading-5 text-[#3e716f]">Se registraron métricas calculadas, no tramas crudas. Verificá condiciones, seguridad y calidad antes de indicar que el estudio es interpretable o finalizarlo.</p></div></div>}
     {study.status==='finalized'&&<div className="flex gap-3 rounded-3xl border border-[#bcded9] bg-[#e8f5f2] p-5"><LockKeyhole className="shrink-0 text-[#08746e]" size={20}/><div><p className="text-sm font-black text-[#075e5a]">Estudio finalizado</p><p className="mt-1 text-xs leading-5 text-[#3e716f]">La revisión quedó bloqueada para preservar el registro confirmado. Las sugerencias profesionales pueden seguir revisándose por separado.</p></div></div>}
 
     <fieldset disabled={study.status==='finalized'||extraction?.status==='review'||extraction?.status==='discarded'} className="contents disabled:opacity-90">
