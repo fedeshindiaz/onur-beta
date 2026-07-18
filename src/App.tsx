@@ -17,6 +17,7 @@ const SessionBuilderPage = lazy(() => import('./pages/SessionBuilderPage').then(
 const InPersonSessionPage = lazy(() => import('./pages/InPersonSessionPage').then((module) => ({ default: module.InPersonSessionPage })))
 const SessionsPage = lazy(() => import('./pages/SessionsPage').then((module) => ({ default: module.SessionsPage })))
 const AssessmentFormPage = lazy(() => import('./pages/AssessmentFormPage').then((module) => ({ default: module.AssessmentFormPage })))
+const BapDirectCapturePage = lazy(() => import('./pages/BapDirectCapturePage').then((module) => ({ default: module.BapDirectCapturePage })))
 const EvaluationsPage = lazy(() => import('./pages/EvaluationsPage').then((module) => ({ default: module.EvaluationsPage })))
 const TreatmentReportPage = lazy(() => import('./pages/TreatmentReportPage').then((module) => ({ default: module.TreatmentReportPage })))
 const ReportsPage = lazy(() => import('./pages/ReportsPage').then((module) => ({ default: module.ReportsPage })))
@@ -68,6 +69,7 @@ const router = createBrowserRouter([
       { path: 'evaluaciones', element: load(<EvaluationsPage />) },
       { path: 'informes', element: load(<ReportsPage />) },
       { path: 'estudios', element: load(<StudiesPage />) },
+      { path: 'estudios/posturografia', element: load(<BapDirectCapturePage />) },
       { path: 'estudios/importar', element: load(<ImportStudyPage />) },
       { path: 'estudios/:studyId/revisar', element: load(<StudyReviewPage />) },
       { path: 'estudios/:studyId/informe', element: load(<StudyExtractionReportPage />) },

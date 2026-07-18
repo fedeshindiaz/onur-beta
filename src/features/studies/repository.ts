@@ -8,12 +8,20 @@ const IMPORT_STORAGE_KEY = 'onur-demo-study-imports-v1'
 const SUGGESTION_STORAGE_KEY = 'onur-demo-statistical-suggestions-v2'
 const DOCUMENT_STORAGE_KEY = 'onur-demo-documents-v1'
 const PATIENT_STORAGE_KEY = 'onur-demo-patients-v1'
+const DIRECT_CAPTURE_STORAGE_KEY = 'onur-demo-bap-direct-captures-v1'
 
 interface StoredImport {
   metrics: MetricRowInput[]
   status: ClinicalStudyReview['status']
   qualityNotes: string
   interpretable: boolean
+}
+
+export interface DirectBapCaptureDraftInput {
+  patientId: string
+  treatmentCycleId: string
+  performedAt: string
+  durationSeconds: 10 | 20 | 30
 }
 
 const demoPatients: Record<string, string> = {
@@ -47,6 +55,8 @@ function readJson<T>(key: string, fallback: T): T {
 
 function readStoredImports() { return readJson<Record<string, StoredImport>>(IMPORT_STORAGE_KEY, {}) }
 function writeStoredImports(value: Record<string, StoredImport>) { localStorage.setItem(IMPORT_STORAGE_KEY, JSON.stringify(value)) }
+function readDirectCaptures() { return readJson<Record<string, ClinicalStudyReview>>(DIRECT_CAPTURE_STORAGE_KEY, {}) }
+function writeDirectCaptures(value: Record<string, ClinicalStudyReview>) { localStorage.setItem(DIRECT_CAPTURE_STORAGE_KEY, JSON.stringify(value)) }
 
 function demoPatientName(patientId: string) {
   const patients = readJson<Array<{ id: string; fullName: string }>>(PATIENT_STORAGE_KEY, [])
@@ -84,7 +94,7 @@ function rowToMetric(row: Record<string, unknown>): MetricRowInput {
 
 export async function getStudyReview(studyId: string): Promise<ClinicalStudyReview | null> {
   if (!isSupabaseConfigured || !supabase) {
-    const base = demoStudies[studyId] ?? demoStudyFromDocument(studyId)
+    const base = demoStudies[studyId] ?? readDirectCaptures()[studyId] ?? demoStudyFromDocument(studyId)
     if (!base) return null
     const stored = readStoredImports()[studyId]
     return stored ? { ...base, ...stored } : base
@@ -99,7 +109,7 @@ export async function getStudyReview(studyId: string): Promise<ClinicalStudyRevi
   const patient = study.patients as unknown as { full_name?: string } | null
   const document = study.source_documents as unknown as { original_filename?: string } | null
   return {
-    id: study.id, patientId: study.patient_id, patientName: patient?.full_name ?? 'Paciente', treatmentCycleId: study.treatment_cycle_id ?? '', sourceDocumentId: study.source_document_id ?? '', sourceFilename: document?.original_filename ?? 'Documento original', studyType: study.study_type as StudyType, performedAt: study.performed_at, deviceName: study.device_name ?? '', softwareVersion: study.software_version ?? '', protocolCode: study.protocol_code, protocolVersion: study.protocol_version, calculationMethodVersion: study.calculation_method_version ?? 'onur-normalization-1.0', status: study.status, qualityNotes: study.quality_notes ?? '', interpretable: study.interpretable ?? false, metrics: (metrics ?? []).map((row) => rowToMetric(row as Record<string, unknown>)),
+    id: study.id, patientId: study.patient_id, patientName: patient?.full_name ?? 'Paciente', treatmentCycleId: study.treatment_cycle_id ?? '', sourceDocumentId: study.source_document_id ?? '', sourceFilename: document?.original_filename ?? (String(study.calculation_method_version ?? '').startsWith('onur-bap-webserial-') ? 'Captura directa BAP' : 'Documento original'), studyType: study.study_type as StudyType, performedAt: study.performed_at, deviceName: study.device_name ?? '', softwareVersion: study.software_version ?? '', protocolCode: study.protocol_code, protocolVersion: study.protocol_version, calculationMethodVersion: study.calculation_method_version ?? 'onur-normalization-1.0', status: study.status, qualityNotes: study.quality_notes ?? '', interpretable: study.interpretable ?? false, metrics: (metrics ?? []).map((row) => rowToMetric(row as Record<string, unknown>)),
   }
 }
 
@@ -108,12 +118,34 @@ function summaryFromReview(study:ClinicalStudyReview):ClinicalStudySummary{retur
 export async function listClinicalStudies():Promise<ClinicalStudySummary[]>{
   if(!isSupabaseConfigured||!supabase){
     const dynamicIds=readJson<Array<Record<string,unknown>>>(DOCUMENT_STORAGE_KEY,[]).map(item=>String(item.studyId??'')).filter(Boolean)
-    const ids=[...new Set([...Object.keys(demoStudies),...dynamicIds])]
+    const ids=[...new Set([...Object.keys(demoStudies),...Object.keys(readDirectCaptures()),...dynamicIds])]
     const studies=(await Promise.all(ids.map(id=>getStudyReview(id)))).filter((study):study is ClinicalStudyReview=>Boolean(study))
     return studies.map(summaryFromReview).sort((a,b)=>b.performedAt.localeCompare(a.performedAt))
   }
   const{data,error}=await supabase.from('clinical_studies').select('*, patients(full_name), source_documents(original_filename), metric_values(id), data_quality_issues(id)').order('performed_at',{ascending:false});if(error)throw error
-  return(data??[]).map(row=>{const patient=row.patients as unknown as{full_name?:string}|null;const document=row.source_documents as unknown as{original_filename?:string}|null;return{id:String(row.id),patientId:String(row.patient_id),patientName:patient?.full_name??'Paciente',sourceFilename:document?.original_filename??'Documento original',studyType:row.study_type as StudyType,performedAt:String(row.performed_at),deviceName:String(row.device_name??''),protocolCode:String(row.protocol_code),protocolVersion:String(row.protocol_version),status:row.status as ClinicalStudyReview['status'],interpretable:Boolean(row.interpretable),metricCount:Array.isArray(row.metric_values)?row.metric_values.length:0,issueCount:Array.isArray(row.data_quality_issues)?row.data_quality_issues.length:0}})
+  return(data??[]).map(row=>{const patient=row.patients as unknown as{full_name?:string}|null;const document=row.source_documents as unknown as{original_filename?:string}|null;const direct=String(row.calculation_method_version??'').startsWith('onur-bap-webserial-');return{id:String(row.id),patientId:String(row.patient_id),patientName:patient?.full_name??'Paciente',sourceFilename:document?.original_filename??(direct?'Captura directa BAP':'Documento original'),studyType:row.study_type as StudyType,performedAt:String(row.performed_at),deviceName:String(row.device_name??''),protocolCode:String(row.protocol_code),protocolVersion:String(row.protocol_version),status:row.status as ClinicalStudyReview['status'],interpretable:Boolean(row.interpretable),metricCount:Array.isArray(row.metric_values)?row.metric_values.length:0,issueCount:Array.isArray(row.data_quality_issues)?row.data_quality_issues.length:0}})
+}
+
+export async function createDirectBapCaptureDraft(input: DirectBapCaptureDraftInput): Promise<string> {
+  if (!isSupabaseConfigured || !supabase) {
+    const id = crypto.randomUUID()
+    const study: ClinicalStudyReview = {
+      id, patientId: input.patientId, patientName: demoPatientName(input.patientId), treatmentCycleId: input.treatmentCycleId,
+      sourceDocumentId: '', sourceFilename: 'Captura directa BAP', studyType: 'posturography', performedAt: input.performedAt,
+      deviceName: 'BAP · captura directa por Web Serial', softwareVersion: 'BAP 2.32 · Web Serial', protocolCode: 'bap-1-6', protocolVersion: '2.32-direct-beta', calculationMethodVersion: 'onur-bap-webserial-1.0-beta', status: 'draft', qualityNotes: '', interpretable: false, metrics: [],
+    }
+    writeDirectCaptures({ ...readDirectCaptures(), [id]: study })
+    return id
+  }
+  const { data, error } = await supabase.rpc('create_direct_bap_capture_draft', {
+    target_patient_id: input.patientId,
+    target_treatment_cycle_id: input.treatmentCycleId || null,
+    performed_at_input: input.performedAt,
+    condition_count_input: 6,
+    duration_seconds_input: input.durationSeconds,
+  })
+  if (error) throw error
+  return String(data)
 }
 
 function issueCount(metrics: NormalizedMetricRow[]) { return metrics.reduce((sum, metric) => sum + metric.issues.length, 0) }
