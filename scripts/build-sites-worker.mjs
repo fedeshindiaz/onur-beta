@@ -7,12 +7,31 @@ const serverDirectory = join(distDirectory, 'server')
 
 const worker = `export default {
   async fetch(request, env) {
+    const url = new URL(request.url)
     let response = await env.ASSETS.fetch(request)
     const acceptsHtml = request.headers.get('accept')?.includes('text/html')
 
     if (response.status === 404 && request.method === 'GET' && acceptsHtml) {
       const fallbackUrl = new URL('/index.html', request.url)
       response = await env.ASSETS.fetch(new Request(fallbackUrl, request))
+    }
+
+    const contentType = response.headers.get('content-type') ?? ''
+    const requiresFreshResponse =
+      contentType.includes('text/html') ||
+      url.pathname === '/sw.js' ||
+      url.pathname === '/registerSW.js'
+
+    if (requiresFreshResponse) {
+      const headers = new Headers(response.headers)
+      headers.set('Cache-Control', 'no-cache, no-store, must-revalidate')
+      headers.set('Expires', '0')
+
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers,
+      })
     }
 
     return response
