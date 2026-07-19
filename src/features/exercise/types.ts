@@ -37,7 +37,7 @@ export const defaultExerciseConfig: ExerciseConfig = {
   backgroundSpeed: 45,
   stripeWidth: 54,
   foregroundColor: '#0a1214',
-  backgroundColor: '#f7f8f7',
+  backgroundColor: '#F7F6F4',
   objectEnabled: true,
   objectMode: 'fixed',
   objectColor: '#ef3e45',

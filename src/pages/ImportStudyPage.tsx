@@ -15,7 +15,7 @@ const intakeOptions: Array<{ value: IntakeKind; title: string }> = [
   { value: 'vestibular_and_reports', title: 'Vestibular, vHIT o informe clínico' },
 ]
 
-const fieldClass = 'mt-2 h-12 w-full rounded-2xl border border-[#cfddda] bg-white px-4 text-sm text-[#17363c]'
+const fieldClass = 'mt-2 h-12 w-full rounded-2xl border border-[#E9E7E7] bg-white px-4 text-sm text-[#171717]'
 
 export function ImportStudyPage() {
   const [params] = useSearchParams()
@@ -75,31 +75,31 @@ export function ImportStudyPage() {
   }
 
   return <div className="space-y-7">
-    <Link to={patientId ? `/app/pacientes/${patientId}` : '/app'} className="inline-flex items-center gap-2 text-xs font-black text-[#0b7a75]"><ChevronLeft size={16}/> Volver</Link>
+    <Link to={patientId ? `/app/pacientes/${patientId}` : '/app'} className="inline-flex items-center gap-2 text-xs font-black text-[#E49A02]"><ChevronLeft size={16}/> Volver</Link>
     <PageHeader eyebrow="Carga privada" title="Cargar estudio" description="Elegí el paciente, cargá el archivo y revisá los parámetros obtenidos."/>
 
     <form onSubmit={submit} className="mx-auto max-w-4xl space-y-5">
-      <section className="rounded-3xl border border-[#dce7e5] bg-white p-5 sm:p-7">
+      <section className="rounded-2xl border border-[#E9E7E7] bg-white p-5 sm:p-7">
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="text-sm font-black text-[#29474d]">Paciente *<select className={fieldClass} value={patientId} onChange={(event) => { setPatientId(event.target.value); setFile(null); setDraft(null) }}><option value="">Seleccionar…</option>{patients.map((patient) => <option key={patient.id} value={patient.id}>{patient.fullName}</option>)}</select></label>
-          <label className="text-sm font-black text-[#29474d]">Tipo de estudio *<select className={fieldClass} value={intakeKind} onChange={(event) => setIntakeKind(event.target.value as IntakeKind)}>{intakeOptions.map((option) => <option key={option.value} value={option.value}>{option.title}</option>)}</select></label>
-          <label className="text-sm font-black text-[#29474d]">Fecha *<input type="date" className={fieldClass} value={date} onChange={(event) => setDate(event.target.value)}/></label>
-          <label className="text-sm font-black text-[#29474d]">Ciclo<select className={fieldClass} value={cycleId} onChange={(event) => setCycleId(event.target.value)}><option value="">Sin asociar</option>{cycles.map((cycle) => <option key={cycle.id} value={cycle.id}>{cycle.label}</option>)}</select></label>
+          <label className="text-sm font-black text-[#2F2F2F]">Paciente *<select className={fieldClass} value={patientId} onChange={(event) => { setPatientId(event.target.value); setFile(null); setDraft(null) }}><option value="">Seleccionar…</option>{patients.map((patient) => <option key={patient.id} value={patient.id}>{patient.fullName}</option>)}</select></label>
+          <label className="text-sm font-black text-[#2F2F2F]">Tipo de estudio *<select className={fieldClass} value={intakeKind} onChange={(event) => setIntakeKind(event.target.value as IntakeKind)}>{intakeOptions.map((option) => <option key={option.value} value={option.value}>{option.title}</option>)}</select></label>
+          <label className="text-sm font-black text-[#2F2F2F]">Fecha *<input type="date" className={fieldClass} value={date} onChange={(event) => setDate(event.target.value)}/></label>
+          <label className="text-sm font-black text-[#2F2F2F]">Ciclo<select className={fieldClass} value={cycleId} onChange={(event) => setCycleId(event.target.value)}><option value="">Sin asociar</option>{cycles.map((cycle) => <option key={cycle.id} value={cycle.id}>{cycle.label}</option>)}</select></label>
         </div>
 
         <div className="mt-6"><ClinicalFileDropzone file={file} previewUrl={draft?.pages[0]?.previewUrl ?? ''} pageCount={draft?.pages.length ?? 0} disabled={upload.isPending} onFile={changeFile} onError={setError}/></div>
 
-        {progress && <div role="status" className="mt-4 rounded-2xl bg-[#e8f5f2] p-4 text-sm font-black text-[#08746e]">{progress}</div>}
-        {draft && <div className="mt-4 rounded-2xl border border-[#dce7e5] bg-[#f8fbfa] p-4"><p className="text-sm font-black text-[#29474d]">{counts.read} parámetros obtenidos</p><p className="mt-1 text-xs text-[#60777d]">{counts.review} dudosos · {counts.missing} obligatorios faltantes · {draft.pages.length} página(s)</p></div>}
+        {progress && <div role="status" className="mt-4 rounded-2xl bg-[#FFF7E8] p-4 text-sm font-black text-[#A36B00]">{progress}</div>}
+        {draft && <div className="mt-4 rounded-2xl border border-[#E9E7E7] bg-[#F7F6F4] p-4"><p className="text-sm font-black text-[#2F2F2F]">{counts.read} parámetros obtenidos</p><p className="mt-1 text-xs text-[#747474]">{counts.review} dudosos · {counts.missing} obligatorios faltantes · {draft.pages.length} página(s)</p></div>}
         {draft?.patientMatchStatus === 'mismatch' && <div className="mt-4 flex gap-3 rounded-2xl border border-[#efc3c7] bg-[#fceced] p-4"><AlertTriangle className="shrink-0 text-[#a94952]" size={20}/><p className="text-xs leading-5 text-[#8d3c45]"><strong>Posible discrepancia de identidad.</strong> Se confirmará en el informe sin cambiar el paciente automáticamente.</p></div>}
 
-        {draft && (draft.pages.length > 1 || draft.pages.some((page) => page.classification === 'unrecognized')) && <details className="mt-4 rounded-2xl border border-[#dce7e5] p-4"><summary className="cursor-pointer text-xs font-black text-[#29474d]">Revisar páginas</summary><div className="mt-4 grid gap-3 sm:grid-cols-2">{draft.pages.map((page) => <label key={page.pageNumber} className="text-xs font-bold text-[#60777d]">Página {page.pageNumber}<select value={page.classification} onChange={(event) => changeClassification(page.pageNumber, event.target.value as PageClassification)} className="mt-1 h-10 w-full rounded-xl border border-[#cfddda] px-3 text-xs">{Object.entries(pageClassificationLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>)}</div></details>}
+        {draft && (draft.pages.length > 1 || draft.pages.some((page) => page.classification === 'unrecognized')) && <details className="mt-4 rounded-2xl border border-[#E9E7E7] p-4"><summary className="cursor-pointer text-xs font-black text-[#2F2F2F]">Revisar páginas</summary><div className="mt-4 grid gap-3 sm:grid-cols-2">{draft.pages.map((page) => <label key={page.pageNumber} className="text-xs font-bold text-[#747474]">Página {page.pageNumber}<select value={page.classification} onChange={(event) => changeClassification(page.pageNumber, event.target.value as PageClassification)} className="mt-1 h-10 w-full rounded-xl border border-[#E9E7E7] px-3 text-xs">{Object.entries(pageClassificationLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>)}</div></details>}
 
-        <details className="mt-4"><summary className="cursor-pointer text-xs font-bold text-[#71878c]">Agregar una descripción</summary><textarea className="mt-3 min-h-20 w-full rounded-2xl border border-[#cfddda] p-4 text-sm" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Contexto opcional, sin interpretar el estudio."/></details>
-        <div className="mt-5 flex gap-3 rounded-2xl bg-[#f5f8f7] p-4"><ShieldCheck className="shrink-0 text-[#0b7a75]" size={20}/><p className="text-xs leading-5 text-[#60777d]">El original permanece privado. El OCR se ejecuta en este navegador y requiere confirmación profesional.</p></div>
+        <details className="mt-4"><summary className="cursor-pointer text-xs font-bold text-[#747474]">Agregar una descripción</summary><textarea className="mt-3 min-h-20 w-full rounded-2xl border border-[#E9E7E7] p-4 text-sm" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Contexto opcional, sin interpretar el estudio."/></details>
+        <div className="mt-5 flex gap-3 rounded-2xl bg-[#F7F6F4] p-4"><ShieldCheck className="shrink-0 text-[#E49A02]" size={20}/><p className="text-xs leading-5 text-[#747474]">El original permanece privado. El OCR se ejecuta en este navegador y requiere confirmación profesional.</p></div>
 
         {error && <p role="alert" className="mt-4 rounded-2xl bg-[#fceced] p-4 text-sm font-bold text-[#a94952]">{error}</p>}
-        <button disabled={!draft || upload.isPending} className="mt-6 w-full rounded-2xl bg-[#0b7a75] px-5 py-4 text-sm font-black text-white disabled:opacity-50">{upload.isPending ? 'Guardando…' : 'Continuar al informe'}</button>
+        <button disabled={!draft || upload.isPending} className="mt-6 w-full rounded-2xl bg-[#E49A02] px-5 py-4 text-sm font-black text-white disabled:opacity-50">{upload.isPending ? 'Guardando…' : 'Continuar al informe'}</button>
       </section>
     </form>
   </div>

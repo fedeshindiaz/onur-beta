@@ -4,7 +4,7 @@ import { useAuth, type AppRole } from './AuthProvider'
 
 export function RequireRole({role,children}:{role:AppRole;children:ReactNode}){
   const auth=useAuth();const location=useLocation()
-  if(!auth.ready)return <div className="grid min-h-screen place-items-center text-sm font-bold text-[#60777d]">Verificando acceso…</div>
+  if(!auth.ready)return <div className="grid min-h-screen place-items-center text-sm font-bold text-[#747474]">Verificando acceso…</div>
   if(auth.role!==role)return <Navigate to="/ingresar" replace state={{from:location.pathname}}/>
   return children
 }

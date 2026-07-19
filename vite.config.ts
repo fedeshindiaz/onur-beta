@@ -22,9 +22,9 @@ export default defineConfig({
       manifest: {
         name: 'ONUr Beta',
         short_name: 'ONUr',
-        description: 'Herramienta profesional de entrenamiento vestíbulo-visual.',
-        theme_color: '#123238',
-        background_color: '#f4f7f6',
+        description: 'Aplicación clínica de Otoneuro Uruguay para sesiones, seguimiento y trazabilidad vestíbulo-visual.',
+        theme_color: '#171717',
+        background_color: '#F7F6F4',
         display: 'standalone',
         lang: 'es',
         start_url: base,

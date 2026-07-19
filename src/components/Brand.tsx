@@ -1,29 +1,35 @@
-import { Crosshair } from 'lucide-react'
-
 interface BrandProps {
   compact?: boolean
   light?: boolean
 }
 
 export function Brand({ compact = false, light = false }: BrandProps) {
+  const ink = light ? 'text-white' : 'text-[#171717]'
+  const muted = light ? 'text-white/55' : 'text-[#747474]'
+
   return (
-    <div className="flex items-center gap-3" aria-label="ONUr">
-      <span
-        className={`grid size-10 place-items-center rounded-2xl ${
-          light ? 'bg-white/12 text-[#79ddd0]' : 'bg-[#123238] text-[#79ddd0]'
-        }`}
-      >
-        <Crosshair aria-hidden="true" size={22} strokeWidth={2.3} />
+    <div className="flex items-center gap-3" aria-label="Otoneuro Uruguay, ONUr Beta">
+      <span className="relative grid size-10 shrink-0 place-items-center rounded-xl border border-[#E9E7E7] bg-white" aria-hidden="true">
+        <span className="absolute h-[2px] w-5 rounded-full bg-[#171717]" />
+        <span className="absolute h-5 w-[2px] rounded-full bg-[#171717]" />
+        <span className="relative size-2.5 rounded-full bg-[#E49A02] ring-4 ring-white" />
       </span>
       {!compact && (
-        <span>
-          <span className={`block text-lg font-black tracking-tight ${light ? 'text-white' : 'text-[#123238]'}`}>
-            ONUr
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="leading-none">
+            <span className={`block font-['Poppins'] text-[13px] font-semibold tracking-[-0.02em] ${ink}`}>
+              Otoneuro
+            </span>
+            <span className={`mt-1 block text-[8px] font-bold uppercase tracking-[0.24em] ${muted}`}>
+              Uruguay
+            </span>
           </span>
-          <span className={`block text-[10px] font-semibold uppercase tracking-[0.18em] ${light ? 'text-white/55' : 'text-[#668087]'}`}>
-            Beta profesional
+          <span className={`h-7 w-px ${light ? 'bg-white/20' : 'bg-[#E9E7E7]'}`} />
+          <span className="leading-none">
+            <span className={`block font-['Poppins'] text-[13px] font-semibold ${ink}`}>ONUr</span>
+            <span className="mt-1 block text-[8px] font-bold uppercase tracking-[0.18em] text-[#A36B00]">Beta</span>
           </span>
-        </span>
+        </div>
       )}
     </div>
   )

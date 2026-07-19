@@ -31,9 +31,9 @@ export function PrivateDocumentViewer({ url, mimeType, pageNumber, region }: { u
     })()
     return () => { disposed = true; if (objectUrl) URL.revokeObjectURL(objectUrl) }
   }, [url, mimeType, pageNumber])
-  if (!url) return <div className="grid min-h-[540px] place-items-center p-8 text-center text-sm text-[#60777d]">El modo demo conserva la trazabilidad del borrador, pero no persiste el archivo original. En staging y producción se muestra desde Storage privado mediante URL temporal.</div>
+  if (!url) return <div className="grid min-h-[540px] place-items-center p-8 text-center text-sm text-[#747474]">El modo demo conserva la trazabilidad del borrador, pero no persiste el archivo original. En staging y producción se muestra desde Storage privado mediante URL temporal.</div>
   if (error) return <div className="grid min-h-[540px] place-items-center p-8 text-center text-sm text-[#a94952]">{error}</div>
   const imageUrl = mimeType === 'application/pdf' ? renderedUrl : url
-  if (!imageUrl) return <div className="grid min-h-[540px] place-items-center text-sm text-[#60777d]">Renderizando página privada…</div>
-  return <div className="relative mx-auto w-fit"><img src={imageUrl} alt={`Página ${pageNumber} del documento clínico privado`} className="max-h-[680px] max-w-full object-contain"/>{region && <span aria-label="Región de origen" className="pointer-events-none absolute border-2 border-[#e39a24] bg-[#ffd98a]/25" style={{ left: `${region.x * 100}%`, top: `${region.y * 100}%`, width: `${region.width * 100}%`, height: `${region.height * 100}%` }}/>}</div>
+  if (!imageUrl) return <div className="grid min-h-[540px] place-items-center text-sm text-[#747474]">Renderizando página privada…</div>
+  return <div className="relative mx-auto w-fit"><img src={imageUrl} alt={`Página ${pageNumber} del documento clínico privado`} className="max-h-[680px] max-w-full object-contain"/>{region && <span aria-label="Región de origen" className="pointer-events-none absolute border-2 border-[#e39a24] bg-[#E8CE99]/25" style={{ left: `${region.x * 100}%`, top: `${region.y * 100}%`, width: `${region.width * 100}%`, height: `${region.height * 100}%` }}/>}</div>
 }

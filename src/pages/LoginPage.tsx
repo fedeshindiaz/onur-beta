@@ -1,4 +1,4 @@
-import { Eye, EyeOff, LockKeyhole, ShieldCheck, UserRound, UsersRound } from 'lucide-react'
+import { Check, Eye, EyeOff, LockKeyhole, ShieldCheck, UserRound, UsersRound } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Brand } from '../components/Brand'
@@ -49,69 +49,53 @@ export function LoginPage() {
   }
 
   return (
-    <main className="grid min-h-screen lg:grid-cols-[1.05fr_0.95fr]">
-      <section className="relative hidden overflow-hidden bg-[#123238] p-12 text-white lg:flex lg:flex-col lg:justify-between xl:p-16">
-        <div className="absolute -right-28 -top-28 size-[410px] rounded-full border-[70px] border-[#79d8cd]/12" />
-        <div className="absolute -bottom-52 -left-36 size-[520px] rounded-full border-[82px] border-white/[0.045]" />
+    <main className="grid min-h-screen bg-white lg:grid-cols-[0.88fr_1.12fr]">
+      <section className="relative hidden overflow-hidden bg-[#171717] p-12 text-white lg:flex lg:flex-col lg:justify-between xl:p-16">
         <Brand light />
 
         <div className="relative max-w-xl">
-          <p className="text-sm font-black uppercase tracking-[0.2em] text-[#79d8cd]">Entrenamiento vestíbulo-visual</p>
-          <h1 className="mt-5 text-5xl font-black leading-[1.02] tracking-[-0.045em] xl:text-6xl">
-            Una sesión clara para cada paciente.
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#E49A02]">Plataforma clínica vestíbulo-visual</p>
+          <h1 className="mt-5 max-w-lg text-[42px] leading-[1.08] tracking-[-0.045em] xl:text-[50px]">
+            Claridad clínica en cada decisión.
           </h1>
-          <p className="mt-6 max-w-lg text-base leading-7 text-white/62">
-            Configuración profesional, ejecución guiada y seguimiento en un entorno diseñado para conservar privacidad y trazabilidad.
+          <p className="mt-6 max-w-lg text-[15px] leading-7 text-white/60">
+            Identificá al paciente, acompañá su sesión y seguí su evolución en un entorno sereno, preciso y trazable.
           </p>
+          <div className="mt-9 space-y-4">
+            {['Sesiones guiadas y supervisadas', 'Progreso clínico visible', 'Registro profesional protegido'].map((item) => (
+              <p key={item} className="flex items-center gap-3 text-sm text-white/75">
+                <span className="grid size-6 place-items-center rounded-full bg-white/10 text-[#E49A02]"><Check size={13} /></span>
+                {item}
+              </p>
+            ))}
+          </div>
         </div>
 
-        <div className="relative grid grid-cols-2 gap-4 text-sm">
-          <div className="rounded-3xl border border-white/10 bg-white/[0.055] p-5">
-            <ShieldCheck className="text-[#79d8cd]" size={23} />
-            <p className="mt-4 font-black">Privacidad primero</p>
-            <p className="mt-1 text-xs leading-5 text-white/55">Acceso por rol, permisos y auditoría.</p>
-          </div>
-          <div className="rounded-3xl border border-white/10 bg-white/[0.055] p-5">
-            <LockKeyhole className="text-[#79d8cd]" size={23} />
-            <p className="mt-4 font-black">Revisión profesional</p>
-            <p className="mt-1 text-xs leading-5 text-white/55">Sin diagnóstico automático.</p>
-          </div>
+        <div className="relative flex items-center gap-3 border-t border-white/10 pt-6 text-xs text-white/45">
+          <ShieldCheck size={16} className="text-[#E49A02]" />
+          Privacidad, revisión profesional y trazabilidad por diseño.
         </div>
       </section>
 
-      <section className="flex items-center justify-center px-5 py-10 sm:px-10">
-        <div className="w-full max-w-[470px]">
-          <div className="mb-10 lg:hidden">
-            <Brand />
-          </div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-[#0b7a75]">ONUr 1.0 Beta</p>
-          <h2 className="mt-3 text-4xl font-black tracking-[-0.04em] text-[#123238]">Ingresar</h2>
-          <p className="mt-3 text-sm leading-6 text-[#667d82]">Elegí el tipo de acceso para continuar.</p>
+      <section className="flex items-center justify-center bg-[#F7F6F4] px-5 py-10 sm:px-10">
+        <div className="w-full max-w-[440px] rounded-2xl border border-[#E2DED9] bg-white p-6 shadow-[0_18px_50px_rgba(23,23,23,0.055)] sm:p-9">
+          <div className="mb-10 lg:hidden"><Brand /></div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.17em] text-[#A36B00]">ONUr Beta</p>
+          <h2 className="mt-2 text-[30px] tracking-[-0.04em] text-[#171717]">Ingresar</h2>
+          <p className="mt-2 text-sm leading-6 text-[#747474]">Elegí tu perfil para acceder al entorno clínico.</p>
 
-          <div className="mt-8 grid grid-cols-2 rounded-2xl bg-[#e8efed] p-1.5">
-            <button
-              type="button"
-              onClick={() => setMode('professional')}
-              className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-black transition ${
-                mode === 'professional' ? 'bg-white text-[#123238] shadow-sm' : 'text-[#667d82]'
-              }`}
-            >
-              <UserRound size={17} /> Profesional
+          <div className="mt-7 grid grid-cols-2 rounded-xl bg-[#F1EFEC] p-1">
+            <button type="button" onClick={() => setMode('professional')} className={`flex h-10 items-center justify-center gap-2 rounded-lg px-3 text-xs font-semibold transition ${mode === 'professional' ? 'bg-white text-[#171717] shadow-sm' : 'text-[#747474]'}`}>
+              <UserRound size={16} /> Profesional
             </button>
-            <button
-              type="button"
-              onClick={() => setMode('patient')}
-              className={`flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-sm font-black transition ${
-                mode === 'patient' ? 'bg-white text-[#123238] shadow-sm' : 'text-[#667d82]'
-              }`}
-            >
-              <UsersRound size={17} /> Paciente
+            <button type="button" onClick={() => setMode('patient')} className={`flex h-10 items-center justify-center gap-2 rounded-lg px-3 text-xs font-semibold transition ${mode === 'patient' ? 'bg-white text-[#171717] shadow-sm' : 'text-[#747474]'}`}>
+              <UsersRound size={16} /> Paciente
             </button>
           </div>
 
           <form className="mt-7 space-y-5" onSubmit={submit}>
             <label className="block">
-              <span className="text-sm font-black text-[#29474d]">{mode === 'professional' ? 'Correo profesional' : 'Usuario'}</span>
+              <span className="text-xs font-semibold text-[#2F2F2F]">{mode === 'professional' ? 'Correo profesional' : 'Usuario'}</span>
               <input
                 type={mode === 'professional' ? 'email' : 'text'}
                 name="identifier"
@@ -119,11 +103,11 @@ export function LoginPage() {
                 onChange={(event) => setIdentifier(event.target.value)}
                 autoComplete="username"
                 placeholder={mode === 'professional' ? 'profesional@ejemplo.com' : 'PepitoPerez'}
-                className="mt-2 h-13 w-full rounded-2xl border border-[#cfddda] bg-white px-4 text-sm text-[#17363c] shadow-sm placeholder:text-[#9aabad]"
+                className="mt-2 h-12 w-full rounded-lg border border-[#D9D6D2] bg-white px-3.5 text-sm text-[#171717] transition placeholder:text-[#A1A1A1] focus:border-[#E49A02]"
               />
             </label>
             <label className="block">
-              <span className="text-sm font-black text-[#29474d]">{mode === 'professional' ? 'Contraseña' : 'PIN de 4 dígitos'}</span>
+              <span className="text-xs font-semibold text-[#2F2F2F]">{mode === 'professional' ? 'Contraseña' : 'PIN de 4 dígitos'}</span>
               <span className="relative mt-2 block">
                 <input
                   type={showSecret ? 'text' : 'password'}
@@ -134,41 +118,25 @@ export function LoginPage() {
                   maxLength={mode === 'patient' ? 4 : undefined}
                   autoComplete="current-password"
                   placeholder={mode === 'patient' ? '••••' : 'Ingresá tu contraseña'}
-                  className="h-13 w-full rounded-2xl border border-[#cfddda] bg-white px-4 pr-12 text-sm text-[#17363c] shadow-sm placeholder:text-[#9aabad]"
+                  className="h-12 w-full rounded-lg border border-[#D9D6D2] bg-white px-3.5 pr-12 text-sm text-[#171717] transition placeholder:text-[#A1A1A1] focus:border-[#E49A02]"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowSecret((visible) => !visible)}
-                  className="absolute inset-y-0 right-1 grid w-11 place-items-center text-[#71868b]"
-                  aria-label={showSecret ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                >
-                  {showSecret ? <EyeOff size={18} /> : <Eye size={18} />}
+                <button type="button" onClick={() => setShowSecret((visible) => !visible)} className="absolute inset-y-0 right-1 grid w-10 place-items-center rounded-lg text-[#747474] hover:text-[#171717]" aria-label={showSecret ? 'Ocultar contraseña' : 'Mostrar contraseña'}>
+                  {showSecret ? <EyeOff size={17} /> : <Eye size={17} />}
                 </button>
               </span>
             </label>
 
-            {mode === 'professional' && (
-              <div className="-mt-2 text-right">
-                <Link to="/recuperar-clave" className="text-xs font-black text-[#0b7a75]">¿Olvidaste tu contraseña?</Link>
-              </div>
-            )}
+            {mode === 'professional' && <div className="-mt-2 text-right"><Link to="/recuperar-clave" className="text-xs font-semibold text-[#8A5B00]">¿Olvidaste tu contraseña?</Link></div>}
+            {error && <p role="alert" className="rounded-lg bg-[#FCECED] px-4 py-3 text-xs font-semibold text-[#A94952]">{error}</p>}
 
-            {error && <p role="alert" className="rounded-2xl bg-[#fceced] px-4 py-3 text-xs font-bold text-[#a94952]">{error}</p>}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="h-13 w-full rounded-2xl bg-[#0b7a75] px-5 text-sm font-black text-white shadow-[0_10px_24px_rgba(11,122,117,0.22)] transition hover:bg-[#086b66]"
-            >
+            <button type="submit" disabled={loading} className="h-11 w-full rounded-lg bg-[#E49A02] px-5 text-sm font-semibold text-[#171717] shadow-[0_8px_20px_rgba(228,154,2,0.18)] transition hover:bg-[#D99000] disabled:opacity-60">
               {loading ? 'Ingresando…' : isSupabaseConfigured ? 'Ingresar' : 'Ingresar a la demostración'}
             </button>
           </form>
 
-          <div className="mt-6 rounded-2xl border border-[#d7e4e1] bg-white p-4 text-xs leading-5 text-[#637a80]">
-            <strong className="text-[#29474d]">Estado técnico:</strong>{' '}
-            {isSupabaseConfigured
-              ? 'Supabase está configurado para este entorno.'
-              : 'modo demo; todavía no se envían credenciales ni datos clínicos.'}
+          <div className="mt-6 flex gap-2.5 rounded-xl bg-[#F7F6F4] p-3.5 text-[11px] leading-5 text-[#747474]">
+            <LockKeyhole size={15} className="mt-0.5 shrink-0 text-[#8A5B00]" />
+            <span><strong className="font-semibold text-[#2F2F2F]">Entorno seguro:</strong>{' '}{isSupabaseConfigured ? 'la conexión clínica está configurada para este entorno.' : 'modo demostración; no se envían credenciales ni datos clínicos.'}</span>
           </div>
         </div>
       </section>

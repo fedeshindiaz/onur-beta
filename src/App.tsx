@@ -34,7 +34,7 @@ function load(page: ReactNode) {
   return (
     <Suspense
       fallback={
-        <div className="grid min-h-64 place-items-center text-sm font-bold text-[#60777d]" role="status">
+        <div className="grid min-h-64 place-items-center text-sm font-bold text-[#747474]" role="status">
           Cargando ONUr…
         </div>
       }

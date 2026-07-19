@@ -109,7 +109,7 @@ export function ExercisePlayer({ config, onExit, onSkip, onComplete }: ExerciseP
         <button
           type="button"
           onClick={() => setPaused((value) => !value)}
-          className="grid size-13 place-items-center rounded-full bg-white text-[#123238] shadow-lg"
+          className="grid size-13 place-items-center rounded-full bg-white text-[#171717] shadow-lg"
           aria-label={paused ? 'Continuar' : 'Pausar'}
         >
           {paused ? <Play size={20} /> : <Pause size={20} />}

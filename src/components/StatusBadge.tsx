@@ -28,33 +28,33 @@ const labels: Record<string, string> = {
 }
 
 const tones: Record<string, string> = {
-  active: 'bg-[#e6f5ee] text-[#27734c]',
-  enabled: 'bg-[#e6f5ee] text-[#27734c]',
-  completed: 'bg-[#e6f5ee] text-[#27734c]',
-  accepted: 'bg-[#e6f5ee] text-[#27734c]',
-  ok: 'bg-[#e6f5ee] text-[#27734c]',
-  pending: 'bg-[#fff3d9] text-[#98620b]',
-  assigned: 'bg-[#fff3d9] text-[#98620b]',
-  paused: 'bg-[#eaf1f8] text-[#35658a]',
-  revoked: 'bg-[#eef1f2] text-[#687a7e]',
-  review: 'bg-[#fff3d9] text-[#98620b]',
-  partial: 'bg-[#eaf1f8] text-[#35658a]',
-  edited: 'bg-[#eaf1f8] text-[#35658a]',
-  inactive: 'bg-[#eef1f2] text-[#687a7e]',
-  disabled: 'bg-[#eef1f2] text-[#687a7e]',
+  active: 'border border-[#D6E6DA] bg-[#EEF5F0] text-[#496451]',
+  enabled: 'border border-[#D6E6DA] bg-[#EEF5F0] text-[#496451]',
+  completed: 'border border-[#D6E6DA] bg-[#EEF5F0] text-[#496451]',
+  accepted: 'border border-[#D6E6DA] bg-[#EEF5F0] text-[#496451]',
+  ok: 'border border-[#D6E6DA] bg-[#EEF5F0] text-[#496451]',
+  pending: 'border border-[#E8CE99] bg-[#FFF7E8] text-[#8A5B00]',
+  assigned: 'border border-[#E8CE99] bg-[#FFF7E8] text-[#8A5B00]',
+  paused: 'border border-[#DEDCD9] bg-[#F1EFEC] text-[#5E5E5E]',
+  revoked: 'border border-[#DEDCD9] bg-[#F1EFEC] text-[#696969]',
+  review: 'border border-[#E8CE99] bg-[#FFF7E8] text-[#8A5B00]',
+  partial: 'border border-[#DEDCD9] bg-[#F1EFEC] text-[#5E5E5E]',
+  edited: 'border border-[#DEDCD9] bg-[#F1EFEC] text-[#5E5E5E]',
+  inactive: 'border border-[#DEDCD9] bg-[#F1EFEC] text-[#696969]',
+  disabled: 'border border-[#DEDCD9] bg-[#F1EFEC] text-[#696969]',
   interrupted: 'bg-[#fceced] text-[#a94952]',
-  discarded: 'bg-[#eef1f2] text-[#687a7e]',
+  discarded: 'border border-[#DEDCD9] bg-[#F1EFEC] text-[#696969]',
   quarantine: 'bg-[#fceced] text-[#a94952]',
   blocked: 'bg-[#fceced] text-[#a94952]',
-  not_applicable: 'bg-[#eef1f2] text-[#687a7e]',
-  draft: 'bg-[#eef1f2] text-[#687a7e]',
-  reviewed: 'bg-[#eaf1f8] text-[#35658a]',
-  finalized: 'bg-[#e6f5ee] text-[#27734c]',
+  not_applicable: 'border border-[#DEDCD9] bg-[#F1EFEC] text-[#696969]',
+  draft: 'border border-[#DEDCD9] bg-[#F1EFEC] text-[#696969]',
+  reviewed: 'border border-[#DEDCD9] bg-[#F1EFEC] text-[#5E5E5E]',
+  finalized: 'border border-[#D6E6DA] bg-[#EEF5F0] text-[#496451]',
 }
 
 export function StatusBadge({ status }: StatusBadgeProps) {
   return (
-    <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-black ${tones[status] ?? tones.inactive}`}>
+    <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold ${tones[status] ?? tones.inactive}`}>
       {labels[status] ?? status}
     </span>
   )
