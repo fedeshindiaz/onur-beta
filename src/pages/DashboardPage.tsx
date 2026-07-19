@@ -90,7 +90,7 @@ export function DashboardPage() {
                 Ver ficha
               </Link>
               {nextSession.mode === 'in_person' ? (
-                <Link to={`/app/pacientes/${nextSession.patientId}`} className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-[#E49A02] px-4 text-xs font-semibold text-[#171717] hover:bg-[#D99000] lg:flex-none">
+                <Link to={`/app/pacientes/${nextSession.patientId}/sesiones/${nextSession.id}/presencial`} className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-[#E49A02] px-4 text-xs font-semibold text-[#171717] hover:bg-[#D99000] lg:flex-none">
                   Iniciar sesión <ArrowRight size={15} />
                 </Link>
               ) : (
@@ -151,7 +151,7 @@ export function DashboardPage() {
               <h2 className="mt-2 text-base tracking-[-0.02em] text-[#171717]">Ana Pereira</h2>
               <p className="mt-1 text-xs text-[#747474]">Índice de estabilidad · Ciclo 2</p>
             </div>
-            <button type="button" className="grid size-8 place-items-center rounded-lg text-[#747474] hover:bg-[#F7F6F4]" aria-label="Más opciones"><MoreHorizontal size={18} /></button>
+            <Link to="/app/pacientes/ana-p" className="grid size-8 place-items-center rounded-lg text-[#747474] hover:bg-[#F7F6F4]" aria-label="Abrir ficha de Ana Pereira"><MoreHorizontal size={18} /></Link>
           </div>
           <div className="mt-6 flex items-end justify-between gap-4">
             <div>

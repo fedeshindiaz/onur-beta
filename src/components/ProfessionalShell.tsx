@@ -2,24 +2,23 @@ import {
   BarChart3,
   BookOpenCheck,
   BrainCircuit,
-  ChevronDown,
   ClipboardList,
   FileText,
   LayoutDashboard,
   LogOut,
   Menu,
   MonitorPlay,
-  Search,
   ShieldCheck,
   Upload,
   Users,
   X,
   type LucideIcon,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { Brand } from './Brand'
 import { useAuth } from '../features/auth/AuthProvider'
+import { GlobalSearch } from './GlobalSearch'
 
 interface NavigationItem {
   label: string
@@ -42,6 +41,8 @@ const navigation: NavigationItem[] = [
 
 export function ProfessionalShell() {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [accountOpen, setAccountOpen] = useState(false)
+  const accountRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
   const location = useLocation()
   const auth = useAuth()
@@ -52,6 +53,20 @@ export function ProfessionalShell() {
     await auth.signOut()
     navigate('/ingresar')
   }
+
+  useEffect(() => {
+    if (!accountOpen) return
+    const closeAccountMenu = (event: PointerEvent | KeyboardEvent) => {
+      if (event instanceof KeyboardEvent && event.key === 'Escape') setAccountOpen(false)
+      if (event instanceof PointerEvent && !accountRef.current?.contains(event.target as Node)) setAccountOpen(false)
+    }
+    window.addEventListener('pointerdown', closeAccountMenu)
+    window.addEventListener('keydown', closeAccountMenu)
+    return () => {
+      window.removeEventListener('pointerdown', closeAccountMenu)
+      window.removeEventListener('keydown', closeAccountMenu)
+    }
+  }, [accountOpen])
 
   return (
     <div className="min-h-screen bg-[#F7F6F4] text-[#171717]">
@@ -146,16 +161,17 @@ export function ProfessionalShell() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button type="button" className="hidden h-10 w-[240px] items-center gap-2.5 rounded-lg border border-[#E9E7E7] bg-[#F7F6F4] px-3 text-left text-xs text-[#747474] transition hover:border-[#D9D6D2] md:flex" aria-label="Buscar en ONUr">
-              <Search size={16} />
-              Buscar paciente o estudio
-              <span className="ml-auto rounded border border-[#D9D6D2] bg-white px-1.5 py-0.5 text-[9px]">⌘K</span>
-            </button>
-            <button type="button" className="hidden h-10 items-center gap-2 rounded-lg px-3 text-xs font-semibold text-[#2F2F2F] hover:bg-[#F7F6F4] sm:flex">
-              <span className="grid size-6 place-items-center rounded-full bg-[#171717] text-[9px] font-bold text-white">{initials}</span>
-              {auth.displayName?.split(' ')[0] || 'Profesional'}
-              <ChevronDown size={14} className="text-[#747474]" />
-            </button>
+            <GlobalSearch />
+            <div ref={accountRef} className="relative hidden sm:block">
+              <button type="button" onClick={() => setAccountOpen((value) => !value)} aria-expanded={accountOpen} aria-haspopup="menu" className="flex h-10 items-center gap-2 rounded-lg px-3 text-xs font-semibold text-[#2F2F2F] hover:bg-[#F7F6F4]">
+                <span className="grid size-6 place-items-center rounded-full bg-[#171717] text-[9px] font-bold text-white">{initials}</span>
+                {auth.displayName?.split(' ')[0] || 'Profesional'}
+              </button>
+              {accountOpen && <div role="menu" className="absolute right-0 top-12 w-64 overflow-hidden rounded-xl border border-[#E9E7E7] bg-white p-2 shadow-[0_18px_50px_rgba(23,23,23,0.16)]">
+                <div className="border-b border-[#E9E7E7] px-3 py-2.5"><p className="truncate text-xs font-black text-[#2F2F2F]">{auth.displayName || 'Profesional'}</p><p className="mt-1 text-[10px] text-[#747474]">Cuenta profesional</p></div>
+                <button role="menuitem" type="button" onClick={() => void logout()} className="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-xs font-bold text-[#a94952] hover:bg-[#fceced]"><LogOut size={15} /> Cerrar sesión</button>
+              </div>}
+            </div>
           </div>
         </header>
         <main className="mx-auto max-w-[1540px] px-4 py-7 sm:px-7 lg:px-8 lg:py-8">
