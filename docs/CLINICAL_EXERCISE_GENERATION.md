@@ -25,6 +25,17 @@ El endpoint o proveedor de IA todavía no se conecta a esta capa. Cuando se cone
 7. Validar estructura, taxonomía y fuentes antes de guardar.
 8. No publicar ni asignar hasta aprobación clínica humana.
 
+## Reglas de dispositivo para todo borrador
+
+- La finalidad del ejercicio debe mapearse a una configuración técnica validable; el título no alcanza.
+- `GAZE_ADAPTATION_VORX1` solo puede usar una pantalla 2D inmóvil en la versión actual. VR Box fija el blanco a la cabeza y Quest navegador no ofrece un anclaje WebXR controlado y verificado por la aplicación.
+- Seguimiento ocular y sacadas pueden mostrarse en visor únicamente con instrucción explícita de mantener la cabeza quieta. No pueden presentarse como reemplazo de adaptación o sustitución vestibular.
+- La estimulación optocinética o la habituación visual requieren un patrón no sólido, velocidad mayor que cero, blanco oculto, postura sentada y límites sintomáticos definidos por el profesional.
+- Balance, marcha, sentarse-pararse y toda tarea funcional se ejecutan en Pantalla 2D, fuera del visor y con el entorno visible.
+- VR Box exige dosis temporal y avance automático. Quest admite interacción del navegador, pero una sesión Quest no se mezcla con otro dispositivo hasta implementar continuidad segura entre equipos.
+
+Estas reglas se aplican al guardar una plantilla, validar una sesión y abrir el reproductor; una asignación heredada incompatible se bloquea antes de ejecutarse.
+
 ## Resultado del JSON recibido
 
 El ejemplo con `clinician_authorized=false` y campos `COMPLETAR_*` debe quedar bloqueado. No existe información suficiente ni autorización para crear un ejercicio, elegir dosis o sugerir una progresión.

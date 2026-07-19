@@ -1,6 +1,7 @@
 import { FolderOpen, RotateCcw, Save, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { PageHeader } from '../components/PageHeader'
+import { analyzeExerciseCompatibility } from '../features/exercise/compatibility'
 import { defaultExerciseConfig, type ExerciseConfig } from '../features/exercise/types'
 import { SessionExerciseEditor } from '../features/sessions/SessionExerciseEditor'
 import { useDeleteExerciseTemplate, useExerciseTemplates, useSaveExerciseTemplate } from '../features/templates/hooks'
@@ -15,6 +16,7 @@ export function ExerciseBuilderPage() {
   const { data: templates = [] } = useExerciseTemplates()
   const saveTemplate = useSaveExerciseTemplate()
   const deleteTemplate = useDeleteExerciseTemplate()
+  const compatibility = analyzeExerciseCompatibility(config)
 
   return (
     <div className="space-y-7">
@@ -24,7 +26,7 @@ export function ExerciseBuilderPage() {
         description="Configurá el estímulo o la tarea física, su dosis y el modo de confirmación. Toda prescripción necesita revisión profesional antes de asignarse."
         actions={<>
           <button type="button" onClick={() => { setConfig(defaultExerciseConfig); setNotice('') }} className="inline-flex items-center gap-2 rounded-2xl border border-[#E9E7E7] bg-white px-4 py-3 text-sm font-black text-[#2F2F2F]"><RotateCcw size={17}/> Restablecer</button>
-          <button type="button" disabled={saveTemplate.isPending} onClick={async () => { try { await saveTemplate.mutateAsync(config); setNotice('Plantilla guardada en la biblioteca.') } catch (caught) { setNotice(caught instanceof Error ? caught.message : 'No fue posible guardar.') } }} className="inline-flex items-center gap-2 rounded-2xl bg-[#E49A02] px-4 py-3 text-sm font-black text-white disabled:opacity-50"><Save size={17}/> Guardar plantilla</button>
+          <button type="button" disabled={saveTemplate.isPending || !compatibility.valid} onClick={async () => { try { await saveTemplate.mutateAsync(config); setNotice('Plantilla guardada en la biblioteca.') } catch (caught) { setNotice(caught instanceof Error ? caught.message : 'No fue posible guardar.') } }} className="inline-flex items-center gap-2 rounded-2xl bg-[#E49A02] px-4 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50"><Save size={17}/> Guardar plantilla</button>
         </>}
       />
 

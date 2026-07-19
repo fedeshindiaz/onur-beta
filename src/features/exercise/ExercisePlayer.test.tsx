@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ExercisePlayer } from './ExercisePlayer'
+import { applyExercisePurpose } from './compatibility'
 import { defaultExerciseConfig } from './types'
 
 vi.mock('./ExerciseCanvas', () => ({ ExerciseCanvas: () => <div>Vista visual</div> }))
@@ -12,7 +13,7 @@ describe('avance del reproductor', () => {
   it('finaliza automáticamente un ejercicio VR Box por tiempo', async () => {
     vi.useFakeTimers()
     const onComplete = vi.fn()
-    render(<ExercisePlayer config={{ ...defaultExerciseConfig, displayMode: 'vr_box', doseMode: 'time', advanceMode: 'automatic', durationSeconds: 1, preparationSeconds: 0 }} onExit={vi.fn()} onComplete={onComplete}/>)
+    render(<ExercisePlayer config={{ ...applyExercisePurpose(defaultExerciseConfig, 'optokinetic'), displayMode: 'vr_box', doseMode: 'time', advanceMode: 'automatic', durationSeconds: 1, preparationSeconds: 0 }} onExit={vi.fn()} onComplete={onComplete}/>)
 
     await act(async () => { vi.advanceTimersByTime(1_000) })
     expect(onComplete).toHaveBeenCalledTimes(1)
@@ -40,5 +41,13 @@ describe('avance del reproductor', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar y continuar' }))
 
     expect(onComplete).toHaveBeenCalledWith(0, expect.objectContaining({ doseMode: 'repetitions', completion: 'partial', targetRepetitions: 8, reportedRepetitions: 5 }))
+  })
+
+  it('impide ejecutar un RVO x1 heredado dentro de VR Box', () => {
+    const onExit = vi.fn()
+    render(<ExercisePlayer config={{ ...defaultExerciseConfig, displayMode: 'vr_box', advanceMode: 'automatic' }} onExit={onExit}/>)
+    expect(screen.getByRole('alert')).toHaveTextContent('el blanco está unido al celular y acompaña la cabeza')
+    fireEvent.click(screen.getByRole('button', { name: 'Salir y avisar al profesional' }))
+    expect(onExit).toHaveBeenCalledOnce()
   })
 })

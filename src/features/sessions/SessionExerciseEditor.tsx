@@ -1,8 +1,9 @@
-import { Accessibility, Eye, Play, ShieldAlert } from 'lucide-react'
+import { Accessibility, CircleCheck, Eye, Play, ShieldAlert } from 'lucide-react'
 import { useState } from 'react'
 import { ExerciseCanvas } from '../exercise/ExerciseCanvas'
+import { analyzeExerciseCompatibility, applyExercisePurpose, exercisePurposeLabels } from '../exercise/compatibility'
 import { ExercisePlayer } from '../exercise/ExercisePlayer'
-import type { BackgroundType, ExerciseConfig, MotionDirection, PreparationSeconds } from '../exercise/types'
+import type { BackgroundType, ExerciseConfig, ExercisePurpose, MotionDirection, PreparationSeconds } from '../exercise/types'
 
 interface SessionExerciseEditorProps {
   config: ExerciseConfig
@@ -17,7 +18,9 @@ export function SessionExerciseEditor({ config, isFirst = false, onChange }: Ses
   const set = <Key extends keyof ExerciseConfig>(key: Key, value: ExerciseConfig[Key]) => onChange({ ...config, [key]: value })
   const directions: MotionDirection[] = config.backgroundType === 'spiral' ? ['clockwise', 'counterclockwise'] : ['left', 'right', 'up', 'down']
   const isPhysical = config.kind === 'guided_physical'
-  const vrStandingWarning = config.displayMode === 'vr_box' && config.posture !== 'seated'
+  const compatibility = analyzeExerciseCompatibility(config)
+  const setKind = (kind: ExerciseConfig['kind']) => onChange(applyExercisePurpose(config, kind === 'guided_physical' ? 'guided_functional' : 'gaze_stabilization'))
+  const setPurpose = (purpose: ExercisePurpose) => onChange(applyExercisePurpose(config, purpose))
   const setDisplayMode = (displayMode: ExerciseConfig['displayMode']) => onChange(displayMode === 'vr_box'
     ? { ...config, displayMode, doseMode: 'time', advanceMode: 'automatic' }
     : { ...config, displayMode })
@@ -29,8 +32,17 @@ export function SessionExerciseEditor({ config, isFirst = false, onChange }: Ses
           <h3 className="font-black text-[#171717]">Identificación</h3>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <label className="text-xs font-black text-[#2F2F2F]">Nombre<input className={input} value={config.name} onChange={(event) => set('name', event.target.value)} /></label>
-            <label className="text-xs font-black text-[#2F2F2F]">Tipo<select className={input} value={config.kind} onChange={(event) => set('kind', event.target.value as ExerciseConfig['kind'])}><option value="visual_stimulus">Estímulo visual</option><option value="guided_physical">Ejercicio físico guiado</option></select></label>
+            <label className="text-xs font-black text-[#2F2F2F]">Tipo<select className={input} value={config.kind} onChange={(event) => setKind(event.target.value as ExerciseConfig['kind'])}><option value="visual_stimulus">Estímulo visual</option><option value="guided_physical">Ejercicio físico guiado</option></select></label>
           </div>
+          <label className="mt-4 block text-xs font-black text-[#2F2F2F]">Objetivo del ejercicio<select className={input} value={config.purpose} onChange={(event) => setPurpose(event.target.value as ExercisePurpose)}>{isPhysical
+            ? <option value="guided_functional">{exercisePurposeLabels.guided_functional}</option>
+            : <>
+              <option value="gaze_stabilization">{exercisePurposeLabels.gaze_stabilization}</option>
+              <option value="smooth_pursuit">{exercisePurposeLabels.smooth_pursuit}</option>
+              <option value="saccades">{exercisePurposeLabels.saccades}</option>
+              <option value="optokinetic">{exercisePurposeLabels.optokinetic}</option>
+              <option value="visual_habituation">{exercisePurposeLabels.visual_habituation}</option>
+            </>}</select></label>
           <label className="mt-4 block text-xs font-black text-[#2F2F2F]">Instrucción para el paciente<textarea rows={3} className="mt-2 w-full rounded-2xl border border-[#E9E7E7] bg-white p-3 text-sm font-normal" value={config.patientInstruction} onChange={(event) => set('patientInstruction', event.target.value)} /></label>
         </section>
 
@@ -67,10 +79,15 @@ export function SessionExerciseEditor({ config, isFirst = false, onChange }: Ses
 
         <section className="rounded-2xl border border-[#E9E7E7] bg-white p-5">
           <h3 className="font-black text-[#171717]">Dispositivo y confirmación</h3>
-          <label className="mt-4 block text-xs font-black text-[#2F2F2F]">Modo<select className={input} value={config.displayMode} onChange={(event) => setDisplayMode(event.target.value as ExerciseConfig['displayMode'])}><option value="standard">Pantalla 2D</option><option value="vr_box">VR Box · celular dividido</option><option value="quest_browser">Meta Quest · navegador BETA</option></select></label>
-          <p className="mt-3 text-[11px] leading-5 text-[#747474]">{config.displayMode === 'standard' ? 'El paciente confirma con la pantalla fuera de un visor.' : config.displayMode === 'vr_box' ? 'VR Box se usa únicamente en ejercicios por tiempo. No requiere botones, mirada ni controles externos: la fase termina automáticamente.' : 'La confirmación usa la interacción disponible en el navegador Quest.'}</p>
+          <label className="mt-4 block text-xs font-black text-[#2F2F2F]">Modo<select className={input} value={config.displayMode} onChange={(event) => setDisplayMode(event.target.value as ExerciseConfig['displayMode'])}><option value="standard">Pantalla 2D</option><option value="vr_box" disabled={config.purpose === 'gaze_stabilization' || isPhysical}>VR Box · estímulo visual sin anclaje</option><option value="quest_browser" disabled={config.purpose === 'gaze_stabilization' || isPhysical}>Meta Quest · navegador sin anclaje</option></select></label>
+          <p className="mt-3 text-[11px] leading-5 text-[#747474]">{config.displayMode === 'standard' ? 'La pantalla debe permanecer inmóvil. El paciente puede confirmar con controles visibles.' : config.displayMode === 'vr_box' ? 'VR Box duplica el estímulo para ambos ojos y solo admite ejercicios por tiempo. No usa botones, mirada ni controles externos.' : 'Quest usa el navegador 2D actual y sus controles, pero todavía no ancla objetos al ambiente mediante WebXR.'}</p>
           {config.displayMode === 'vr_box' && <p className="mt-3 rounded-xl bg-[#FFF7E8] p-3 text-[11px] font-bold leading-5 text-[#8A5B00]">La sesión agregará una pantalla previa y 20 segundos para colocar el celular en el visor, y otros 20 segundos para retirarlo antes de volver a una tarea manual.</p>}
-          {vrStandingWarning && <p className="mt-3 flex gap-2 rounded-xl bg-[#fceced] p-3 text-[11px] font-bold leading-5 text-[#a94952]"><ShieldAlert className="mt-0.5 shrink-0" size={16}/> VR Box no se habilitará para tareas domiciliarias de pie o marcha.</p>}
+          <div role={compatibility.valid ? 'status' : 'alert'} className={`mt-4 rounded-2xl border p-4 ${compatibility.valid ? 'border-[#B9D9C5] bg-[#F0F8F3] text-[#28613D]' : 'border-[#eccfd2] bg-[#fceced] text-[#9A3842]'}`}>
+            <p className="flex gap-2 text-xs font-black">{compatibility.valid ? <CircleCheck className="shrink-0" size={17}/> : <ShieldAlert className="shrink-0" size={17}/>} {compatibility.valid ? 'Configuración coherente' : 'Configuración bloqueada'}</p>
+            <p className="mt-2 text-[11px] font-bold leading-5">{compatibility.explanation}</p>
+            {!compatibility.valid && <ul className="mt-3 space-y-2 text-[11px] leading-5">{compatibility.issues.map((item) => <li key={item.code}><strong>{item.message}</strong> {item.correction}</li>)}</ul>}
+            {compatibility.clinicalNote && <p className="mt-3 border-t border-current/15 pt-3 text-[11px] leading-5">{compatibility.clinicalNote}</p>}
+          </div>
         </section>
 
         <section className="rounded-2xl border border-[#E9E7E7] bg-white p-5">
@@ -102,11 +119,11 @@ export function SessionExerciseEditor({ config, isFirst = false, onChange }: Ses
           <div className="p-5">
             <p className="text-sm font-black text-[#2F2F2F]">{config.name}</p>
             <p className="mt-2 text-xs text-[#747474]">{config.doseMode === 'time' ? `${config.durationSeconds} s` : `${config.targetRepetitions} repeticiones`} × {config.rounds} vueltas · avance {config.advanceMode === 'manual' ? 'manual' : 'automático'}</p>
-            <button type="button" onClick={() => setPlaying(true)} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#E49A02] px-4 py-3 text-xs font-black text-white"><Play size={16} /> Probar ejercicio</button>
+            <button type="button" disabled={!compatibility.valid} onClick={() => setPlaying(true)} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#E49A02] px-4 py-3 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-40"><Play size={16} /> {compatibility.valid ? 'Probar ejercicio' : 'Corregí la compatibilidad para probar'}</button>
           </div>
         </div>
       </aside>
-      {playing && <ExercisePlayer config={config} onExit={() => setPlaying(false)} onSkip={() => setPlaying(false)} onComplete={() => setPlaying(false)} />}
+      {playing && compatibility.valid && <ExercisePlayer config={config} onExit={() => setPlaying(false)} onSkip={() => setPlaying(false)} onComplete={() => setPlaying(false)} />}
     </div>
   )
 }

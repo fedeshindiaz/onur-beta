@@ -1,6 +1,7 @@
-import { Accessibility, Check, Clock3, Expand, LogOut, Pause, Play, SkipForward } from 'lucide-react'
+import { Accessibility, Check, Clock3, Expand, LogOut, Pause, Play, ShieldAlert, SkipForward } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { ExerciseCanvas } from './ExerciseCanvas'
+import { analyzeExerciseCompatibility } from './compatibility'
 import { StereoscopicExerciseCanvas } from './StereoscopicExerciseCanvas'
 import type { ExerciseCompletionReport, ExerciseConfig } from './types'
 
@@ -36,7 +37,7 @@ function CompletionOverlay({ config, onTarget, onPartial, onSkip }: { config: Ex
   return <div className="absolute inset-0 z-50 grid grid-cols-2 divide-x divide-white/10 bg-[#171717]"><div className="grid place-items-center p-3"><CompletionPanel config={config} onTarget={onTarget} onPartial={onPartial} onSkip={onSkip}/></div><div className="grid place-items-center p-3" aria-hidden="true"><CompletionPanel config={config} onTarget={onTarget} onPartial={onPartial} onSkip={onSkip}/></div></div>
 }
 
-export function ExercisePlayer({ config, onExit, onSkip, onComplete, preparationSeconds }: ExercisePlayerProps) {
+function CompatibleExercisePlayer({ config, onExit, onSkip, onComplete, preparationSeconds }: ExercisePlayerProps) {
   const [paused, setPaused] = useState(false)
   const [controlsVisible, setControlsVisible] = useState(true)
   const [preparationRemaining, setPreparationRemaining] = useState(preparationSeconds ?? config.preparationSeconds ?? 0)
@@ -106,5 +107,20 @@ export function ExercisePlayer({ config, onExit, onSkip, onComplete, preparation
       onPartial={(reportedRepetitions) => finish({ doseMode: 'repetitions', completion: 'partial', targetRepetitions: config.targetRepetitions, reportedRepetitions })}
       onSkip={() => finish({ doseMode: config.doseMode, completion: 'skipped', targetRepetitions: config.doseMode === 'repetitions' ? config.targetRepetitions : undefined })}
     />}
+  </div>
+}
+
+export function ExercisePlayer(props: ExercisePlayerProps) {
+  const compatibility = analyzeExerciseCompatibility(props.config)
+  if (compatibility.valid) return <CompatibleExercisePlayer {...props}/>
+  return <div className="fixed inset-0 z-[100] grid place-items-center bg-[#171717] p-6 text-white" role="alert">
+    <div className="w-full max-w-xl rounded-3xl border border-[#c74750]/50 bg-white/[0.06] p-7 text-center shadow-2xl">
+      <ShieldAlert className="mx-auto text-[#ef6b74]" size={48}/>
+      <p className="mt-5 text-xs font-black uppercase tracking-[.16em] text-[#ef6b74]">Ejercicio no ejecutable</p>
+      <h2 className="mt-3 text-2xl font-black">La configuración no representa la tarea indicada</h2>
+      <p className="mt-4 text-sm leading-6 text-white/70">{compatibility.issues[0].message}</p>
+      <p className="mt-2 text-sm font-bold leading-6 text-white/85">{compatibility.issues[0].correction}</p>
+      <button type="button" onClick={props.onExit} className="mt-7 h-13 w-full rounded-2xl bg-white px-5 text-sm font-black text-[#171717]">Salir y avisar al profesional</button>
+    </div>
   </div>
 }

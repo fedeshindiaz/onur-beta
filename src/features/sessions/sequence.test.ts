@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import { applyExercisePurpose } from '../exercise/compatibility'
 import { defaultExerciseConfig } from '../exercise/types'
 import { analyzeSessionSequence, orderExercisesForVrBox } from './sequence'
 
 const repetitions = { ...defaultExerciseConfig, name: 'Sentarse y pararse', doseMode: 'repetitions' as const, displayMode: 'standard' as const }
-const vrBox = { ...defaultExerciseConfig, name: 'VOR X1 VR', doseMode: 'time' as const, displayMode: 'vr_box' as const, advanceMode: 'automatic' as const }
+const vrBox = { ...applyExercisePurpose(defaultExerciseConfig, 'optokinetic'), name: 'Optocinético VR', doseMode: 'time' as const, displayMode: 'vr_box' as const, advanceMode: 'automatic' as const }
 const standardTimed = { ...defaultExerciseConfig, name: 'Seguimiento 2D', doseMode: 'time' as const, displayMode: 'standard' as const }
 
 describe('secuencia de equipamiento VR Box', () => {
@@ -13,7 +14,7 @@ describe('secuencia de equipamiento VR Box', () => {
 
   it('ordena repeticiones antes del bloque temporizado VR', () => {
     const ordered = orderExercisesForVrBox([vrBox, repetitions, vrBox])
-    expect(ordered.map((exercise) => exercise.name)).toEqual(['Sentarse y pararse', 'VOR X1 VR', 'VOR X1 VR'])
+    expect(ordered.map((exercise) => exercise.name)).toEqual(['Sentarse y pararse', 'Optocinético VR', 'Optocinético VR'])
     expect(analyzeSessionSequence(ordered)).toMatchObject({ optimizedForVrBox: true, visorChanges: 2 })
   })
 
@@ -32,7 +33,7 @@ describe('secuencia de equipamiento VR Box', () => {
     const vr2 = { ...vrBox, name: 'Optocinético VR' }
     const ordered = orderExercisesForVrBox([vr2, timed2, rep2, vrBox, standardTimed, repetitions])
     expect(ordered.map((exercise) => exercise.name)).toEqual([
-      'Marcha asistida', 'Sentarse y pararse', 'Sacadas 2D', 'Seguimiento 2D', 'Optocinético VR', 'VOR X1 VR',
+      'Marcha asistida', 'Sentarse y pararse', 'Sacadas 2D', 'Seguimiento 2D', 'Optocinético VR', 'Optocinético VR',
     ])
   })
 })

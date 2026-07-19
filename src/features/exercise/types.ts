@@ -5,6 +5,7 @@ export type SaccadePattern = 'horizontal' | 'vertical' | 'random'
 export type ExerciseDisplayMode = 'standard' | 'vr_box' | 'quest_browser'
 export type PreparationSeconds = 0 | 5 | 10 | 20
 export type ExerciseKind = 'visual_stimulus' | 'guided_physical'
+export type ExercisePurpose = 'gaze_stabilization' | 'smooth_pursuit' | 'saccades' | 'optokinetic' | 'visual_habituation' | 'guided_functional'
 export type ExerciseDoseMode = 'time' | 'repetitions'
 export type ExerciseAdvanceMode = 'automatic' | 'manual'
 export type ExercisePosture = 'seated' | 'standing' | 'walking'
@@ -21,6 +22,7 @@ export interface ExerciseCompletionReport {
 export interface ExerciseConfig {
   name: string
   kind: ExerciseKind
+  purpose: ExercisePurpose
   patientInstruction: string
   displayMode: ExerciseDisplayMode
   doseMode: ExerciseDoseMode
@@ -53,8 +55,9 @@ export interface ExerciseConfig {
 }
 
 export const defaultExerciseConfig: ExerciseConfig = {
-  name: 'RVO X1 · Fondo sólido',
+  name: 'RVO X1 · Punto fijo 2D',
   kind: 'visual_stimulus',
+  purpose: 'gaze_stabilization',
   patientInstruction: 'Mantené el blanco nítido mientras movés la cabeza según la indicación profesional.',
   displayMode: 'standard',
   doseMode: 'time',
@@ -86,6 +89,15 @@ export const defaultExerciseConfig: ExerciseConfig = {
   metronomeHz: 1,
 }
 
+export function inferExercisePurpose(config: Partial<ExerciseConfig>): ExercisePurpose {
+  if (config.purpose) return config.purpose
+  if (config.kind === 'guided_physical') return 'guided_functional'
+  if (config.objectMode === 'tracking') return 'smooth_pursuit'
+  if (config.objectMode === 'saccades') return 'saccades'
+  if (config.backgroundType && config.backgroundType !== 'solid' && Number(config.backgroundSpeed) > 0) return 'optokinetic'
+  return 'gaze_stabilization'
+}
+
 export function normalizeExerciseConfig(config: Partial<ExerciseConfig>, legacyPreparationSeconds: PreparationSeconds = 0): ExerciseConfig {
   const preparationSeconds = [0, 5, 10, 20].includes(Number(config.preparationSeconds))
     ? Number(config.preparationSeconds) as PreparationSeconds
@@ -93,6 +105,7 @@ export function normalizeExerciseConfig(config: Partial<ExerciseConfig>, legacyP
   return {
     ...defaultExerciseConfig,
     ...config,
+    purpose: inferExercisePurpose(config),
     preparationSeconds,
     // Las asignaciones antiguas continúan automáticamente; las nuevas usan el valor manual del predeterminado.
     advanceMode: config.advanceMode ?? 'automatic',

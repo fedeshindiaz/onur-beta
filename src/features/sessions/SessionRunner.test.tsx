@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defaultExerciseConfig, type ExerciseCompletionReport, type ExerciseConfig } from '../exercise/types'
+import { applyExercisePurpose } from '../exercise/compatibility'
 import type { SessionAssignmentRecord } from './repository'
 import { SessionRunner } from './SessionRunner'
 
@@ -61,7 +62,7 @@ describe('SessionRunner', () => {
   it('inserta 20 segundos para colocar y retirar el VR Box sin pedir controles dentro del visor', async () => {
     vi.useFakeTimers()
     const onFinish = vi.fn()
-    const vrSession = { ...session, exercises: [{ ...defaultExerciseConfig, name: 'VOR X1 VR', displayMode: 'vr_box' as const, doseMode: 'time' as const, advanceMode: 'automatic' as const, rounds: 1, restSeconds: 0 }] }
+    const vrSession = { ...session, exercises: [{ ...applyExercisePurpose(defaultExerciseConfig, 'optokinetic'), name: 'Optocinético VR', displayMode: 'vr_box' as const, doseMode: 'time' as const, advanceMode: 'automatic' as const, rounds: 1, restSeconds: 0 }] }
     render(<SessionRunner session={vrSession} onFinish={onFinish} onExit={vi.fn()} />)
 
     expect(screen.getByText('El próximo ejercicio usa el visor')).toBeInTheDocument()
