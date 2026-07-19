@@ -4,5 +4,5 @@ import { deleteExerciseTemplate, listExerciseTemplates, saveExerciseTemplate } f
 
 describe('biblioteca de ejercicios',()=>{
   beforeEach(()=>localStorage.clear())
-  it('guarda y elimina configuraciones reutilizables',async()=>{const saved=await saveExerciseTemplate({...defaultExerciseConfig,name:'Sacadas de prueba',objectMode:'saccades'});expect((await listExerciseTemplates()).some(item=>item.id===saved.id)).toBe(true);await deleteExerciseTemplate(saved.id);expect((await listExerciseTemplates()).some(item=>item.id===saved.id)).toBe(false)})
+  it('guarda la preparación y elimina configuraciones reutilizables',async()=>{const saved=await saveExerciseTemplate({...defaultExerciseConfig,name:'Sacadas de prueba',objectMode:'saccades',preparationSeconds:20});expect((await listExerciseTemplates()).find(item=>item.id===saved.id)?.config.preparationSeconds).toBe(20);await deleteExerciseTemplate(saved.id);expect((await listExerciseTemplates()).some(item=>item.id===saved.id)).toBe(false)})
 })

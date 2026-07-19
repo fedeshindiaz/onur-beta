@@ -1,11 +1,11 @@
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
-import { defaultExerciseConfig, type ExerciseConfig } from '../exercise/types'
+import { defaultExerciseConfig, normalizeExerciseConfig, type ExerciseConfig } from '../exercise/types'
 export interface ExerciseTemplateRecord {id:string;name:string;config:ExerciseConfig;createdAt:string;updatedAt:string}
 const STORAGE_KEY='onur-demo-exercise-templates-v1'
 const seed:ExerciseTemplateRecord[]=[{id:'template-rvo-bars',name:'RVO x1 · Barras',config:defaultExerciseConfig,createdAt:'2026-07-16T00:00:00.000Z',updatedAt:'2026-07-16T00:00:00.000Z'}]
-function read(){const raw=localStorage.getItem(STORAGE_KEY);if(!raw)return seed;try{return JSON.parse(raw) as ExerciseTemplateRecord[]}catch{return seed}}
+function read(){const raw=localStorage.getItem(STORAGE_KEY);if(!raw)return seed;try{return (JSON.parse(raw) as ExerciseTemplateRecord[]).map(item=>({...item,config:normalizeExerciseConfig(item.config,10)}))}catch{return seed}}
 function write(items:ExerciseTemplateRecord[]){localStorage.setItem(STORAGE_KEY,JSON.stringify(items))}
-function fromRow(row:Record<string,unknown>):ExerciseTemplateRecord{return{id:String(row.id),name:String(row.name),config:row.config as ExerciseConfig,createdAt:String(row.created_at),updatedAt:String(row.updated_at)}}
+function fromRow(row:Record<string,unknown>):ExerciseTemplateRecord{return{id:String(row.id),name:String(row.name),config:normalizeExerciseConfig(row.config as Partial<ExerciseConfig>,10),createdAt:String(row.created_at),updatedAt:String(row.updated_at)}}
 export async function listExerciseTemplates():Promise<ExerciseTemplateRecord[]>{if(!isSupabaseConfigured||!supabase)return read().sort((a,b)=>a.name.localeCompare(b.name));const{data,error}=await supabase.from('exercise_templates').select('*').order('name');if(error)throw error;return(data??[]).map(fromRow)}
 export async function saveExerciseTemplate(config:ExerciseConfig):Promise<ExerciseTemplateRecord>{if(!config.name.trim())throw new Error('La plantilla necesita un nombre.');if(!isSupabaseConfigured||!supabase){const record={id:crypto.randomUUID(),name:config.name.trim(),config:{...config},createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};write([...read(),record]);return record}const{data:auth,error:authError}=await supabase.auth.getUser();if(authError||!auth.user)throw authError??new Error('Sesión profesional no disponible.');const{data,error}=await supabase.from('exercise_templates').insert({professional_id:auth.user.id,name:config.name.trim(),config}).select().single();if(error)throw error;return fromRow(data)}
 export async function deleteExerciseTemplate(id:string):Promise<void>{if(!isSupabaseConfigured||!supabase){write(read().filter(item=>item.id!==id));return}const{error}=await supabase.from('exercise_templates').delete().eq('id',id);if(error)throw error}

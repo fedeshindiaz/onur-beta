@@ -25,5 +25,5 @@ export function SessionRunner({session,onFinish,onExit}:{session:SessionAssignme
   if(!unit)return null
   if(unit.type==='rest')return <RestUnit seconds={unit.seconds} label={unit.label} onComplete={()=>advance()} onExit={onExit}/>
   const progress=units.slice(0,index+1).filter(item=>item.type==='exercise').length
-  return <><div className="fixed left-4 top-20 z-[110] rounded-full bg-black/55 px-3 py-2 text-[10px] font-black text-white backdrop-blur">{unit.label} · {progress}/{session.exercises.reduce((n,e)=>n+e.rounds,0)}</div><ExercisePlayer key={index} config={{...unit.config,rounds:1}} onComplete={(seconds)=>advance(seconds)} onSkip={(seconds)=>advance(seconds,true)} onExit={onExit}/></>
+  return <><div className="fixed left-4 top-20 z-[110] rounded-full bg-black/55 px-3 py-2 text-[10px] font-black text-white backdrop-blur">{unit.label} · {progress}/{session.exercises.reduce((n,e)=>n+e.rounds,0)}</div><ExercisePlayer key={index} config={{...unit.config,rounds:1}} preparationSeconds={index===0 ? unit.config.preparationSeconds : 0} onComplete={(seconds)=>advance(seconds)} onSkip={(seconds)=>advance(seconds,true)} onExit={onExit}/></>
 }

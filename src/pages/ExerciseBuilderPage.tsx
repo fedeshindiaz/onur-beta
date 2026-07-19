@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { PageHeader } from '../components/PageHeader'
 import { ExerciseCanvas } from '../features/exercise/ExerciseCanvas'
 import { ExercisePlayer } from '../features/exercise/ExercisePlayer'
-import { defaultExerciseConfig, type BackgroundType, type ExerciseConfig, type MotionDirection } from '../features/exercise/types'
+import { defaultExerciseConfig, type BackgroundType, type ExerciseConfig, type MotionDirection, type PreparationSeconds } from '../features/exercise/types'
 import { useDeleteExerciseTemplate, useExerciseTemplates, useSaveExerciseTemplate } from '../features/templates/hooks'
 
 const backgroundLabels: Record<BackgroundType, string> = {
@@ -66,7 +66,7 @@ export function ExerciseBuilderPage() {
       />
 
       {notice&&<p className="rounded-2xl bg-[#FFF7E8] px-4 py-3 text-sm font-bold text-[#A36B00]">{notice}</p>}
-      <section className="rounded-2xl border border-[#E9E7E7] bg-white p-5"><div className="flex items-center gap-2"><FolderOpen size={18} className="text-[#E49A02]"/><h2 className="text-sm font-black text-[#171717]">Biblioteca de ejercicios</h2></div><div className="mt-4 flex gap-3 overflow-x-auto pb-1">{templates.map(template=><div key={template.id} className="flex min-w-56 items-center gap-2 rounded-2xl border border-[#E9E7E7] p-3"><button type="button" onClick={()=>{setConfig({...template.config});setNotice(`Plantilla “${template.name}” cargada.`)}} className="min-w-0 flex-1 text-left"><p className="truncate text-xs font-black text-[#2F2F2F]">{template.name}</p><p className="mt-1 text-[10px] text-[#747474]">{template.config.durationSeconds}s × {template.config.rounds}</p></button><button type="button" onClick={()=>deleteTemplate.mutate(template.id)} className="grid size-8 place-items-center rounded-xl text-[#a94952]" aria-label={`Eliminar ${template.name}`}><Trash2 size={15}/></button></div>)}</div></section>
+      <section className="rounded-2xl border border-[#E9E7E7] bg-white p-5"><div className="flex items-center gap-2"><FolderOpen size={18} className="text-[#E49A02]"/><h2 className="text-sm font-black text-[#171717]">Biblioteca de ejercicios</h2></div><div className="mt-4 flex gap-3 overflow-x-auto pb-1">{templates.map(template=><div key={template.id} className="flex min-w-56 items-center gap-2 rounded-2xl border border-[#E9E7E7] p-3"><button type="button" onClick={()=>{setConfig({...template.config});setNotice(`Plantilla “${template.name}” cargada.`)}} className="min-w-0 flex-1 text-left"><p className="truncate text-xs font-black text-[#2F2F2F]">{template.name}</p><p className="mt-1 text-[10px] text-[#747474]">{template.config.durationSeconds}s × {template.config.rounds} · Prep. {template.config.preparationSeconds}s</p></button><button type="button" onClick={()=>deleteTemplate.mutate(template.id)} className="grid size-8 place-items-center rounded-xl text-[#a94952]" aria-label={`Eliminar ${template.name}`}><Trash2 size={15}/></button></div>)}</div></section>
 
       <section className="grid gap-6 xl:grid-cols-[0.78fr_1.22fr]">
         <div className="space-y-5">
@@ -168,6 +168,17 @@ export function ExerciseBuilderPage() {
 
           <article className="rounded-2xl border border-[#E9E7E7] bg-white p-5 sm:p-6">
             <h2 className="text-lg font-black text-[#171717]">Duración y vueltas</h2>
+            <div className="mt-5 rounded-xl border border-[#E8CE99] bg-[#FFF7E8] p-4">
+              <p className="text-xs font-black text-[#2F2F2F]">Tiempo de preparación inicial</p>
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                {([5, 10, 20] as PreparationSeconds[]).map((seconds) => (
+                  <button key={seconds} type="button" onClick={() => update('preparationSeconds', seconds)} aria-pressed={config.preparationSeconds === seconds} className={`h-11 rounded-lg border text-sm font-black transition ${config.preparationSeconds === seconds ? 'border-[#E49A02] bg-[#E49A02] text-white' : 'border-[#E8CE99] bg-white text-[#8A5B00]'}`}>
+                    {seconds} s
+                  </button>
+                ))}
+              </div>
+              <p className="mt-3 text-[11px] leading-5 text-[#8A5B00]">Se muestra una sola vez antes del primer ejercicio, para preparar el celular o colocarlo en el VR Box.</p>
+            </div>
             <div className="mt-5 grid grid-cols-3 gap-3">
               {[
                 ['durationSeconds', 'Ejercicio', 's', 10, 300],
@@ -201,6 +212,7 @@ export function ExerciseBuilderPage() {
               <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-black text-[#747474]">
                 <span className="rounded-full bg-[#F7F6F4] px-3 py-1.5">{backgroundLabels[config.backgroundType]}</span>
                 <span className="rounded-full bg-[#F7F6F4] px-3 py-1.5">{config.durationSeconds}s × {config.rounds}</span>
+                <span className="rounded-full bg-[#FFF7E8] px-3 py-1.5 text-[#8A5B00]">Preparación: {config.preparationSeconds}s</span>
                 <span className="rounded-full bg-[#F7F6F4] px-3 py-1.5">Objeto: {config.objectMode}</span>
               </div>
               <button type="button" onClick={() => setPlaying(true)} className="mt-5 flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-[#E49A02] text-sm font-black text-white shadow-[0_10px_22px_rgba(11,122,117,0.2)]">
