@@ -16,6 +16,10 @@ export interface SavePatientResult {
   warning?: string
 }
 
+export interface DeletePatientResult {
+  warning?: string
+}
+
 const STORAGE_KEY = 'onur-demo-patients-v1'
 
 function initials(name: string) {
@@ -135,4 +139,21 @@ export async function updatePatient(id: string, values: PatientFormValues): Prom
   const patient = await getPatient(id)
   if (!patient) throw new Error('Paciente no encontrado después de actualizar.')
   return { patient }
+}
+
+export async function deletePatient(id: string): Promise<DeletePatientResult> {
+  if (!isSupabaseConfigured || !supabase) {
+    const records = readDemo()
+    if (!records.some((patient) => patient.id === id)) throw new Error('Paciente no encontrado.')
+    writeDemo(records.filter((patient) => patient.id !== id))
+    return {}
+  }
+
+  const { data, error } = await supabase.functions.invoke<{ success?: boolean; warning?: string; error?: string }>('delete-patient', {
+    body: { patient_id: id },
+  })
+
+  if (error) throw new Error('No fue posible eliminar el paciente. Intentá nuevamente.')
+  if (!data?.success) throw new Error(data?.error ?? 'No fue posible eliminar el paciente.')
+  return { warning: data.warning }
 }
