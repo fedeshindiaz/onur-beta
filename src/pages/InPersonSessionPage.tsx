@@ -4,10 +4,10 @@ import { Link, useParams } from 'react-router-dom'
 import { usePatient } from '../features/patients/hooks'
 import { useCompleteSupervisedInPersonSession, useSessionAssignments, useStartSupervisedInPersonSession } from '../features/sessions/hooks'
 import { ScaleQuestion } from '../features/sessions/ScaleQuestion'
-import { sessionDurationSeconds } from '../features/sessions/repository'
+import { sessionDurationLabel, type SessionEventLogEntry } from '../features/sessions/repository'
 import { SessionRunner } from '../features/sessions/SessionRunner'
 
-type RunnerResult = { activeSeconds: number; skippedExercises: number }
+type RunnerResult = { activeSeconds: number; skippedExercises: number; eventLog: SessionEventLogEntry[] }
 
 export function InPersonSessionPage() {
   const { patientId = '', assignmentId = '' } = useParams()
@@ -26,8 +26,8 @@ export function InPersonSessionPage() {
   const [error, setError] = useState('')
 
   if (stage === 'running' && assignment) {
-    return <SessionRunner session={assignment} onExit={() => setStage('review')} onFinish={(activeSeconds, skippedExercises) => {
-      setRunnerResult({ activeSeconds, skippedExercises })
+    return <SessionRunner session={assignment} onExit={() => setStage('review')} onFinish={(activeSeconds, skippedExercises, eventLog) => {
+      setRunnerResult({ activeSeconds, skippedExercises, eventLog })
       setStage('feedback')
     }}/>
   }
@@ -109,7 +109,7 @@ export function InPersonSessionPage() {
     </article> : <article className="overflow-hidden rounded-2xl border border-[#E9E7E7] bg-white shadow-[0_20px_48px_rgba(18,50,56,0.08)]">
       <div className="bg-[#171717] p-6 text-white sm:p-8">
         <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.15em] text-[#E49A02]">{assignment.title}</p><h1 className="mt-3 text-2xl font-black">Sesión presencial supervisada</h1><p className="mt-2 text-sm text-white/65">Paciente: {patient.fullName}</p></div><span className="rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-black">PROFESIONAL</span></div>
-        <div className="mt-7 grid grid-cols-3 gap-3">{[[Clock3, `${Math.ceil(sessionDurationSeconds(assignment) / 60)} min`, 'Duración'], [Play, String(assignment.exercises.length), 'Ejercicios'], [Pause, `${assignment.exercises[0]?.restSeconds ?? 0} s`, 'Descanso']].map(([Icon, value, label]) => { const ItemIcon = Icon as typeof Clock3; return <div key={String(label)} className="rounded-2xl bg-white/[0.065] p-3"><ItemIcon size={16} className="text-[#E49A02]"/><p className="mt-3 text-sm font-black">{String(value)}</p><p className="mt-1 text-[10px] text-white/52">{String(label)}</p></div> })}</div>
+        <div className="mt-7 grid grid-cols-3 gap-3">{[[Clock3, sessionDurationLabel(assignment), 'Duración'], [Play, String(assignment.exercises.length), 'Ejercicios'], [Pause, `${assignment.exercises[0]?.restSeconds ?? 0} s`, 'Descanso']].map(([Icon, value, label]) => { const ItemIcon = Icon as typeof Clock3; return <div key={String(label)} className="rounded-2xl bg-white/[0.065] p-3"><ItemIcon size={16} className="text-[#E49A02]"/><p className="mt-3 text-sm font-black">{String(value)}</p><p className="mt-1 text-[10px] text-white/52">{String(label)}</p></div> })}</div>
       </div>
       <div className="p-6 sm:p-8">
         <h2 className="text-sm font-black text-[#2F2F2F]">Indicaciones</h2>

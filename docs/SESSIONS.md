@@ -2,26 +2,39 @@
 
 ## Flujo profesional
 
-1. El profesional abre el perfil del paciente.
-2. Inicia un ciclo con fecha, contexto y objetivos privados.
-3. Crea una sesión presencial o domiciliaria dentro del ciclo.
-4. Ordena uno o más ejercicios; cada ejercicio conserva su fondo, objeto, tiempo, descanso y vueltas.
-5. Define la vigencia y asigna la sesión.
+1. El profesional abre el perfil del paciente e inicia o selecciona un ciclo activo.
+2. Crea una sesión presencial o domiciliaria.
+3. Ordena ejercicios visuales o físicos guiados.
+4. Para cada ejercicio define dosis por tiempo o repeticiones, descanso, vueltas, dispositivo, postura, superficie, supervisión y modo de avance.
+5. Revisa las reglas de seguridad y asigna la sesión.
 
-El `plan_definition` se guarda como JSON versionado dentro de `session_plans`. La asignación referencia esa versión, por lo que los cambios futuros no alteran una sesión ya entregada.
+El `plan_definition` se guarda como JSON versionado dentro de `session_plans`. La asignación referencia esa versión, por lo que cambios futuros no alteran una sesión ya entregada.
 
 ## Flujo del paciente
 
 - Solo ve una asignación disponible y vigente.
-- La continuación entre vueltas, descansos y ejercicios es automática.
-- Puede pausar, omitir o salir.
-- Si sale, la siguiente reproducción comienza desde el principio.
-- Si omite ejercicios, el resultado queda como parcial; si termina todo, queda completado.
-- Antes de comenzar registra malestar percibido de 0 a 10.
-- Al finalizar registra malestar de 0 a 10, dificultad de 1 a 5 y un comentario opcional.
-- Las escalas son descriptivas y no activan decisiones ni recomendaciones automáticas.
+- Las fases nuevas fuera de VR Box esperan confirmación manual antes de continuar.
+- En dosis por repeticiones, informa “objetivo completo”, una cantidad parcial o “no pude completar”.
+- El descanso tiene cuenta regresiva; al llegar a cero muestra “Iniciar siguiente fase”.
+- Los ejercicios VR Box son siempre temporizados y avanzan automáticamente.
+- Puede pausar, omitir o salir. Si sale, la reproducción posterior comienza desde el principio.
+- Antes y después registra escalas descriptivas. Estas no activan recomendaciones automáticas.
 - Si termina sin conexión, el resultado queda pendiente en el dispositivo y se sincroniza al volver internet.
+
+Las asignaciones antiguas que no poseen `advanceMode` conservan continuidad automática por compatibilidad.
+
+## Pantalla, VR Box y Quest
+
+- Pantalla 2D: confirmación táctil, mouse o teclado.
+- VR Box: no usa botones, mirada ni controles externos. Antes de colocarlo se confirma en la pantalla normal y comienza una preparación automática de 20 segundos.
+- Quest navegador BETA: controlador, manos o selección compatible del navegador.
+
+Las repeticiones se realizan con el celular fuera del visor. Si la sesión mezcla ambos tipos, el constructor advierte y ofrece ordenar primero las repeticiones y luego un único bloque VR. Cada entrada o salida de VR agrega 20 segundos; también se retira el visor antes del autorreporte final.
+
+No se habilitan tareas físicas domiciliarias de pie o marcha dentro de un VR Box. Las superficies inestables requieren ayudante entrenado o supervisión directa; la marcha domiciliaria no se asigna como independiente.
 
 ## Seguridad y trazabilidad
 
-El inicio se registra mediante `start_session_assignment` y la finalización mediante `complete_session_assignment_v2`. Ambas funciones validan identidad, cuenta activa, asignación y rangos. El paciente no tiene permisos directos de inserción o actualización sobre ejecuciones. La finalización crea la ejecución con los auto-reportes, actualiza el estado y agrega el evento de auditoría en una sola transacción.
+El inicio se registra mediante `start_session_assignment` y la finalización mediante `complete_session_assignment_v2`. El paciente no escribe ejecuciones directamente.
+
+El `event_log` conserva por fase: ejercicio, vuelta, tipo, modo de dosis, dispositivo, tiempo activo, objetivo de repeticiones, cantidad informada, transiciones de colocación/retiro de VR Box y resultado completo/parcial/omitido. La finalización agrega los autorreportes y actualiza el estado en una transacción.

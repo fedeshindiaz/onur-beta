@@ -5,7 +5,7 @@ import { PageHeader } from '../components/PageHeader'
 import { StatusBadge } from '../components/StatusBadge'
 import { usePatient } from '../features/patients/hooks'
 import { useDuplicateInPersonAssignment, useSessionAssignments, useTreatmentCycles } from '../features/sessions/hooks'
-import { sessionDurationSeconds } from '../features/sessions/repository'
+import { sessionDurationLabel } from '../features/sessions/repository'
 import { PatientDocumentsPanel } from '../features/documents/PatientDocumentsPanel'
 import { PatientAssessmentsPanel } from '../features/assessments/PatientAssessmentsPanel'
 
@@ -99,8 +99,8 @@ export function PatientProfilePage() {
           <article className="rounded-2xl border border-[#E9E7E7] bg-white p-6">
             <PlayCircle className="text-[#E49A02]" size={22} />
             <h2 className="mt-5 text-lg font-black text-[#171717]">Sesión asignada</h2>
-            <p className="mt-2 text-sm leading-6 text-[#747474]">{activeAssignment ? `${activeAssignment.title} · ${Math.ceil(sessionDurationSeconds(activeAssignment)/60)} min · ${activeAssignment.exercises.length} ejercicios` : 'No hay una sesión activa para hoy.'}</p>
-            <div className="mt-6 rounded-2xl bg-[#FFF7E8] p-4 text-xs font-bold text-[#A36B00]">Continuación automática · pausa, omitir o salir</div>
+            <p className="mt-2 text-sm leading-6 text-[#747474]">{activeAssignment ? `${activeAssignment.title} · ${sessionDurationLabel(activeAssignment)} · ${activeAssignment.exercises.length} ejercicios` : 'No hay una sesión activa para hoy.'}</p>
+            <div className="mt-6 rounded-2xl bg-[#FFF7E8] p-4 text-xs font-bold text-[#A36B00]">Confirmación manual fuera del visor · avance automático en VR Box</div>
           </article>
           <article className="rounded-2xl border border-[#E9E7E7] bg-white p-6 sm:col-span-2">
             <div className="flex items-center justify-between gap-4"><h2 className="text-lg font-black text-[#171717]">Sesiones asignadas</h2><Link to={`/app/pacientes/${patient.id}/sesiones/nueva`} className="text-xs font-black text-[#E49A02]">Nueva sesión</Link></div>

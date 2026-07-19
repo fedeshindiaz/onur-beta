@@ -19,8 +19,9 @@ Decimotercer incremento técnico ejecutable:
 - ciclos de tratamiento con objetivos y trazabilidad;
 - constructor de sesiones con varios ejercicios ordenables;
 - asignaciones presenciales o domiciliarias con vigencia configurable;
-- reproducción automática de ejercicios, vueltas y descansos;
-- registro de finalización completa o parcial cuando se omiten ejercicios;
+- ejercicios visuales y físicos guiados con dosis por tiempo o repeticiones;
+- avance manual entre fases nuevas y compatibilidad automática para asignaciones antiguas;
+- registro de objetivo, repeticiones informadas y finalización completa, parcial u omitida;
 - auto-reporte descriptivo de malestar antes/después, dificultad y comentario opcional;
 - cola local de finalizaciones y sincronización al recuperar la conexión;
 - confirmación de uso versionada antes de abrir el portal del paciente;
@@ -63,6 +64,10 @@ Decimotercer incremento técnico ejecutable:
 - reproductor continuo con pausa, omitir, salir, fullscreen y controles auto-ocultables;
 - tiempo activo sin contar pausas ni descansos y metrónomo configurable;
 - salida 2D, VR Box con dos vistas sincronizadas y Quest navegador BETA desde el mismo panel;
+- VR Box temporizado sin botones ni mirada, con transiciones guiadas de 20 segundos para colocar y retirar el visor;
+- advertencia y reordenamiento recomendado cuando una sesión mezcla repeticiones con un bloque VR Box;
+- controles de postura, superficie y supervisión, con bloqueos domiciliarios para tareas de mayor riesgo;
+- catálogo de 30 fuentes y compuerta validada para futuros borradores clínicamente gobernados;
 - sesión domiciliaria de demostración;
 - PWA instalable;
 - esquema PostgreSQL/Supabase con RLS;
@@ -139,7 +144,7 @@ La cuenta profesional se prepara después de desplegar Supabase con `npm run adm
 - Las sugerencias estadísticas no son visibles para el paciente sin revisión y publicación profesional.
 - Los archivos originales y los valores normalizados permanecen separados.
 
-Ver [arquitectura](docs/ARCHITECTURE.md), [importación estructurada](docs/STRUCTURED_STUDY_IMPORT.md), [despliegue de staging](docs/STAGING_DEPLOYMENT.md), [checklist de staging](docs/STAGING_CHECKLIST.md), [motor visual](docs/EXERCISE_ENGINE.md), [ciclos y sesiones](docs/SESSIONS.md), [documentos e informes](docs/DOCUMENTS_ASSESSMENTS_REPORTS.md) y [seguridad](docs/SECURITY.md).
+Ver [arquitectura](docs/ARCHITECTURE.md), [importación estructurada](docs/STRUCTURED_STUDY_IMPORT.md), [despliegue de staging](docs/STAGING_DEPLOYMENT.md), [checklist de staging](docs/STAGING_CHECKLIST.md), [motor de ejercicios](docs/EXERCISE_ENGINE.md), [ciclos y sesiones](docs/SESSIONS.md), [generación clínicamente gobernada](docs/CLINICAL_EXERCISE_GENERATION.md), [documentos e informes](docs/DOCUMENTS_ASSESSMENTS_REPORTS.md) y [seguridad](docs/SECURITY.md).
 
 ## Alcance clínico
 

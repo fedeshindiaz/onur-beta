@@ -28,5 +28,13 @@ export function validateSession(values: SessionFormValues) {
   if (values.availableUntil && values.availableUntil < values.availableFrom) errors.availableUntil = 'La fecha final no puede ser anterior.'
   if (values.exercises.length === 0) errors.exercises = 'Agregá al menos un ejercicio.'
   if (values.exercises.some((exercise) => !exercise.name.trim())) errors.exercises = 'Todos los ejercicios necesitan un nombre.'
+  if (values.exercises.some((exercise) => !exercise.patientInstruction.trim())) errors.exercises = 'Todos los ejercicios necesitan una instrucción breve para el paciente.'
+  if (values.exercises.some((exercise) => exercise.doseMode === 'repetitions' && (exercise.targetRepetitions < 1 || exercise.targetRepetitions > 100))) errors.exercises = 'El objetivo por repeticiones debe estar entre 1 y 100.'
+  if (values.exercises.some((exercise) => exercise.doseMode === 'repetitions' && exercise.advanceMode !== 'manual')) errors.exercises = 'Los ejercicios por repeticiones requieren confirmación manual.'
+  if (values.exercises.some((exercise) => exercise.displayMode === 'vr_box' && exercise.doseMode === 'repetitions')) errors.exercises = 'VR Box solo admite ejercicios por tiempo; las repeticiones se realizan con el celular fuera del visor.'
+  if (values.exercises.some((exercise) => exercise.displayMode === 'vr_box' && exercise.advanceMode !== 'automatic')) errors.exercises = 'Los ejercicios VR Box deben finalizar automáticamente porque no dependen de botones ni controles externos.'
+  if (values.exercises.some((exercise) => exercise.surface === 'unstable' && exercise.supervision === 'independent_after_approval')) errors.exercises = 'Las superficies inestables requieren un ayudante entrenado o supervisión profesional.'
+  if (values.mode === 'home' && values.exercises.some((exercise) => exercise.kind === 'guided_physical' && exercise.displayMode === 'vr_box' && exercise.posture !== 'seated')) errors.exercises = 'VR Box no está habilitado para ejercicios físicos domiciliarios de pie o en marcha.'
+  if (values.mode === 'home' && values.exercises.some((exercise) => exercise.kind === 'guided_physical' && exercise.posture === 'walking' && exercise.supervision === 'independent_after_approval')) errors.exercises = 'La marcha domiciliaria requiere un ayudante entrenado.'
   return errors
 }

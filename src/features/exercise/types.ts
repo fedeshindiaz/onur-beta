@@ -4,10 +4,31 @@ export type ObjectMode = 'fixed' | 'tracking' | 'saccades'
 export type SaccadePattern = 'horizontal' | 'vertical' | 'random'
 export type ExerciseDisplayMode = 'standard' | 'vr_box' | 'quest_browser'
 export type PreparationSeconds = 0 | 5 | 10 | 20
+export type ExerciseKind = 'visual_stimulus' | 'guided_physical'
+export type ExerciseDoseMode = 'time' | 'repetitions'
+export type ExerciseAdvanceMode = 'automatic' | 'manual'
+export type ExercisePosture = 'seated' | 'standing' | 'walking'
+export type ExerciseSurface = 'firm' | 'unstable'
+export type ExerciseSupervision = 'independent_after_approval' | 'trained_helper' | 'direct_clinician'
+
+export interface ExerciseCompletionReport {
+  doseMode: ExerciseDoseMode
+  completion: 'target_completed' | 'partial' | 'skipped'
+  targetRepetitions?: number
+  reportedRepetitions?: number
+}
 
 export interface ExerciseConfig {
   name: string
+  kind: ExerciseKind
+  patientInstruction: string
   displayMode: ExerciseDisplayMode
+  doseMode: ExerciseDoseMode
+  targetRepetitions: number
+  advanceMode: ExerciseAdvanceMode
+  posture: ExercisePosture
+  surface: ExerciseSurface
+  supervision: ExerciseSupervision
   backgroundType: BackgroundType
   backgroundDirection: MotionDirection
   backgroundSpeed: number
@@ -32,11 +53,19 @@ export interface ExerciseConfig {
 }
 
 export const defaultExerciseConfig: ExerciseConfig = {
-  name: 'RVO x1 · Barras horizontales',
+  name: 'RVO X1 · Fondo sólido',
+  kind: 'visual_stimulus',
+  patientInstruction: 'Mantené el blanco nítido mientras movés la cabeza según la indicación profesional.',
   displayMode: 'standard',
-  backgroundType: 'bars',
+  doseMode: 'time',
+  targetRepetitions: 10,
+  advanceMode: 'manual',
+  posture: 'seated',
+  surface: 'firm',
+  supervision: 'independent_after_approval',
+  backgroundType: 'solid',
   backgroundDirection: 'left',
-  backgroundSpeed: 45,
+  backgroundSpeed: 0,
   stripeWidth: 54,
   foregroundColor: '#0a1214',
   backgroundColor: '#F7F6F4',
@@ -61,5 +90,11 @@ export function normalizeExerciseConfig(config: Partial<ExerciseConfig>, legacyP
   const preparationSeconds = [0, 5, 10, 20].includes(Number(config.preparationSeconds))
     ? Number(config.preparationSeconds) as PreparationSeconds
     : legacyPreparationSeconds
-  return { ...defaultExerciseConfig, ...config, preparationSeconds }
+  return {
+    ...defaultExerciseConfig,
+    ...config,
+    preparationSeconds,
+    // Las asignaciones antiguas continúan automáticamente; las nuevas usan el valor manual del predeterminado.
+    advanceMode: config.advanceMode ?? 'automatic',
+  }
 }

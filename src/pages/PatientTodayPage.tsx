@@ -6,11 +6,11 @@ import { PatientUseAcknowledgement } from '../features/auth/PatientUseAcknowledg
 import { usePatientAcknowledgement } from '../features/auth/patientAcknowledgementHooks'
 import { PatientPortalDocuments } from '../features/documents/PatientPortalDocuments'
 import { useCompleteSession, useCurrentPatientAssignment, usePendingSessionSync, useStartSession } from '../features/sessions/hooks'
-import { sessionDurationSeconds } from '../features/sessions/repository'
+import { sessionDurationLabel, type SessionEventLogEntry } from '../features/sessions/repository'
 import { SessionRunner } from '../features/sessions/SessionRunner'
 import { ScaleQuestion } from '../features/sessions/ScaleQuestion'
 
-type RunnerResult = { activeSeconds: number; skippedExercises: number }
+type RunnerResult = { activeSeconds: number; skippedExercises: number; eventLog: SessionEventLogEntry[] }
 
 export function PatientTodayPage() {
   const [stage, setStage] = useState<'review' | 'running' | 'feedback' | 'finished'>('review')
@@ -28,8 +28,8 @@ export function PatientTodayPage() {
   const auth = useAuth()
   usePendingSessionSync()
 
-  if (stage === 'running' && session) return <SessionRunner session={session} onExit={() => setStage('review')} onFinish={(activeSeconds, skippedExercises) => {
-    setRunnerResult({ activeSeconds, skippedExercises })
+  if (stage === 'running' && session) return <SessionRunner session={session} onExit={() => setStage('review')} onFinish={(activeSeconds, skippedExercises, eventLog) => {
+    setRunnerResult({ activeSeconds, skippedExercises, eventLog })
     setStage('feedback')
   }}/>
 
@@ -73,10 +73,10 @@ export function PatientTodayPage() {
       : !session ? <article className="mt-8 rounded-2xl border border-[#E9E7E7] bg-white p-8"><h2 className="text-xl font-black text-[#171717]">No hay una sesión disponible</h2><p className="mt-3 text-sm leading-6 text-[#747474]">Cuando tu profesional asigne una sesión vigente aparecerá en esta pantalla.</p></article>
       : <article className="mt-8 overflow-hidden rounded-2xl border border-[#E9E7E7] bg-white shadow-[0_20px_48px_rgba(18,50,56,0.08)]">
         <div className="bg-[#171717] p-6 text-white sm:p-8"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.15em] text-[#E49A02]">{session.title}</p><h2 className="mt-3 text-2xl font-black">{session.mode === 'home' ? 'Sesión domiciliaria' : 'Sesión presencial'}</h2></div><span className="rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-black">DISPONIBLE</span></div>
-          <div className="mt-7 grid grid-cols-3 gap-3">{[[Clock3, `${Math.ceil(sessionDurationSeconds(session) / 60)} min`, 'Duración'], [Play, String(session.exercises.length), 'Ejercicios'], [Pause, `${session.exercises[0]?.restSeconds ?? 0} s`, 'Descanso']].map(([Icon, value, label]) => { const ItemIcon = Icon as typeof Clock3; return <div key={String(label)} className="rounded-2xl bg-white/[0.065] p-3"><ItemIcon size={16} className="text-[#E49A02]"/><p className="mt-3 text-sm font-black">{String(value)}</p><p className="mt-1 text-[10px] text-white/52">{String(label)}</p></div> })}</div>
+          <div className="mt-7 grid grid-cols-3 gap-3">{[[Clock3, sessionDurationLabel(session), 'Duración'], [Play, String(session.exercises.length), 'Ejercicios'], [Pause, `${session.exercises[0]?.restSeconds ?? 0} s`, 'Descanso']].map(([Icon, value, label]) => { const ItemIcon = Icon as typeof Clock3; return <div key={String(label)} className="rounded-2xl bg-white/[0.065] p-3"><ItemIcon size={16} className="text-[#E49A02]"/><p className="mt-3 text-sm font-black">{String(value)}</p><p className="mt-1 text-[10px] text-white/52">{String(label)}</p></div> })}</div>
         </div>
         <div className="p-6 sm:p-8"><h3 className="text-sm font-black text-[#2F2F2F]">Indicaciones</h3><p className="mt-3 rounded-2xl bg-[#F7F6F4] p-4 text-xs leading-5 text-[#747474]">{session.instructions || 'Seguí las indicaciones brindadas por tu profesional.'}</p>
-          <div className="mt-4 space-y-3">{[[Expand, 'Usá pantalla completa y colocá el dispositivo como te indicaron.'], [Volume2, 'Activá el sonido si la sesión incluye metrónomo.'], [Pause, 'Podés pausar, omitir o salir. Si salís, podrás reiniciar desde el principio.']].map(([Icon, text]) => { const ItemIcon = Icon as typeof Expand; return <div key={String(text)} className="flex gap-3 rounded-2xl bg-[#F7F6F4] p-4"><ItemIcon className="mt-0.5 shrink-0 text-[#E49A02]" size={18}/><p className="text-xs leading-5 text-[#747474]">{String(text)}</p></div> })}</div>
+          <div className="mt-4 space-y-3">{[[Expand, 'Usá pantalla completa y colocá el dispositivo como te indicaron.'], [Volume2, 'Activá el sonido si la sesión incluye metrónomo.'], [Pause, 'El cambio de fase puede requerir tu confirmación. En ejercicios por repeticiones, informá cuando termines; no necesitás tocar la pantalla durante cada movimiento.']].map(([Icon, text]) => { const ItemIcon = Icon as typeof Expand; return <div key={String(text)} className="flex gap-3 rounded-2xl bg-[#F7F6F4] p-4"><ItemIcon className="mt-0.5 shrink-0 text-[#E49A02]" size={18}/><p className="text-xs leading-5 text-[#747474]">{String(text)}</p></div> })}</div>
           <div className="mt-5"><ScaleQuestion label="Malestar antes de comenzar" hint="0 significa ningún malestar y 10 el mayor malestar que puedas imaginar." min={0} max={10} value={initialDiscomfort} onChange={setInitialDiscomfort}/></div>
           <p className="mt-3 text-[11px] leading-5 text-[#747474]">Este valor solo se registra para que el profesional conozca tu experiencia. La aplicación no toma decisiones automáticas.</p>
           <button type="button" disabled={startSession.isPending} onClick={start} className="mt-6 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#E49A02] text-sm font-black text-white shadow-[0_12px_24px_rgba(11,122,117,0.2)] disabled:opacity-60">{startSession.isPending?'Iniciando…':'Comenzar sesión'} <ChevronRight size={18}/></button>
