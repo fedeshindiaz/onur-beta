@@ -144,6 +144,11 @@ export function SessionRunner({ session, onFinish, onExit }: { session: SessionA
   const finishingRef = useRef(false)
   const unit = units[index]
 
+  useEffect(() => {
+    document.body.dataset.onurSessionRunning = 'true'
+    return () => { delete document.body.dataset.onurSessionRunning }
+  }, [])
+
   const finishSession = () => {
     if (finishingRef.current) return
     finishingRef.current = true

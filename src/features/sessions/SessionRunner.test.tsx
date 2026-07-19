@@ -26,6 +26,13 @@ const session: SessionAssignmentRecord = {
 }
 
 describe('SessionRunner', () => {
+  it('marca la ejecución activa para diferir una actualización de la PWA', () => {
+    const view = render(<SessionRunner session={session} onFinish={vi.fn()} onExit={vi.fn()} />)
+    expect(document.body.dataset.onurSessionRunning).toBe('true')
+    view.unmount()
+    expect(document.body.dataset.onurSessionRunning).toBeUndefined()
+  })
+
   it('aplica la preparación únicamente al primer ejercicio', async () => {
     exercisePlayerMock.mockClear()
     render(<SessionRunner session={session} onFinish={vi.fn()} onExit={vi.fn()} />)
