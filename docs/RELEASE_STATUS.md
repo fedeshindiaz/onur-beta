@@ -1,43 +1,41 @@
-# Estado de release · ONUr 0.1.0-beta.13
+# Estado de release · ONUr 0.1.0-beta.15
 
-Fecha de corte: 17 de julio de 2026.
+Fecha de corte: 18 de julio de 2026.
 
 ## Resultado
 
-El repositorio contiene una Beta funcional y verificable para un único profesional. La demostración local funciona sin cuentas externas y el camino a Supabase staging está automatizado. No debe afirmarse que existe un ambiente clínico publicado hasta crear el proyecto Supabase, alojar el frontend y completar las pruebas físicas.
+ONUr dispone de un entorno privado operativo para piloto clínico con persistencia en Supabase. El frontend publicado utiliza autenticación real y deja de usar `localStorage` como fuente de verdad para pacientes, sesiones, documentos y evolución.
 
-## Cerrado en el código
+El esquema remoto está actualizado, las funciones de servidor están desplegadas y la cuenta profesional fue preparada. El smoke test integral fue completado correctamente y eliminó todos los pacientes, identidades y archivos sintéticos usados durante la verificación.
 
-- acceso profesional y portal paciente con CI temporal y PIN;
-- recuperación de contraseña profesional;
-- alta segura e idempotente del único profesional mediante variables de servidor;
-- publicación privada de GitHub y bootstrap completo de staging mediante comandos reproducibles;
-- despliegue HTTPS automatizado en GitHub Pages, con rutas SPA y PWA preparadas para `/onur-beta/`;
-- alta, edición, ciclos, sesiones e informes por paciente;
-- documentos privados, solicitudes, permisos hasta revocación y auditoría;
-- Posturografía, vHIT, cuestionario físico, valores estructurados y calidad de datos;
-- sugerencias estadísticas descriptivas sujetas a revisión profesional obligatoria;
-- constructor y reproductor de ejercicios con continuidad automática;
-- pausa, omitir, salir, reinicio, descansos, vueltas y controles auto-ocultables;
-- metrónomo, tiempo activo real, 2D, VR Box y Quest navegador BETA;
-- auto-reporte pre/post sin decisiones automáticas;
-- sincronización diferida de una finalización sin conexión;
-- confirmación de uso versionada;
-- RLS, Storage privado, Edge Functions, migraciones, seed y smoke test;
-- PWA instalable, tests y compilación de producción.
+## Verificado
 
-## Dependencias externas inevitables
+- autenticación profesional y recuperación de contraseña;
+- alta y edición persistente de pacientes;
+- acceso paciente con CI temporal y cambio obligatorio a PIN;
+- aislamiento RLS entre profesionales y pacientes;
+- ciclos, sesiones domiciliarias y presenciales;
+- documentos clínicos en Storage privado;
+- permisos de vista, descarga y revocación;
+- posturografía, vHIT, extracción local y revisión profesional;
+- finalización inmutable de estudios con SHA-256;
+- auditoría de eventos críticos sin copiar contenido clínico;
+- PWA instalable y publicación privada por HTTPS;
+- 29 archivos de prueba y 116 pruebas automatizadas aprobadas.
 
-1. Crear un proyecto Supabase de staging y obtener sus credenciales.
-2. Autorizar las URL del frontend y de recuperación de contraseña.
-3. Habilitar el flujo incluido de GitHub Pages y configurar las dos variables públicas.
-4. Ejecutar el despliegue y smoke test ya incluidos.
-5. Validar físicamente audio, fullscreen, VR Box, HDMI y Meta Quest 3S.
-6. Revisar textos de privacidad, confirmación de uso, retención e incidentes con asesoría aplicable.
-7. Cargar únicamente datos ficticios hasta completar lo anterior.
+## Alcance operativo
 
-## Alcance honesto
-
-El modo Quest actual abre el estímulo en el navegador del visor. No implementa una escena WebXR inmersiva ni seguimiento de cabeza. VR Box ofrece dos vistas sincronizadas del estímulo 2D y requiere calibración física del teléfono y prueba de tolerancia bajo criterio profesional.
+Esta versión puede utilizarse como piloto clínico real por el profesional configurado. Los datos nuevos se conservan en la base remota y no dependen del navegador o dispositivo utilizado.
 
 ONUr organiza ejercicios e información. No diagnostica, no prescribe y no reemplaza la valoración de un profesional habilitado.
+
+## Gestión continua necesaria
+
+- revisar y probar periódicamente las copias de seguridad;
+- definir política de retención y eliminación de historias clínicas;
+- mantener avisos de privacidad y consentimientos aplicables en Uruguay;
+- documentar respuesta a incidentes y responsables de acceso;
+- validar físicamente audio, pantalla completa, VR Box, HDMI y Quest antes de cada modalidad de uso;
+- revisar logs, dependencias, RLS y funciones de servidor en cada release.
+
+El desarrollo continuará de forma incremental: los fallos observados durante el uso deben registrarse, priorizarse y corregirse sin perder la trazabilidad de los datos clínicos.

@@ -21,10 +21,11 @@ port = 54323
 
 [auth]
 enabled = true
-site_url = "https://fedeshindiaz.github.io/onur-beta/"
+site_url = "https://onur-beta-clinica.fedeshin.chatgpt.site"
 additional_redirect_urls = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
+  "https://onur-beta-clinica.fedeshin.chatgpt.site/restablecer-clave",
   "https://fedeshindiaz.github.io/onur-beta/restablecer-clave",
 ]
 enable_signup = false
