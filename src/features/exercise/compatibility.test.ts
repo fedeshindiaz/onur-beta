@@ -11,6 +11,12 @@ describe('coherencia clínica y espacial de ejercicios', () => {
     ['gaze_stabilization', 'standard', true],
     ['gaze_stabilization', 'vr_box', false],
     ['gaze_stabilization', 'quest_browser', false],
+    ['gaze_stabilization_x2', 'standard', true],
+    ['gaze_stabilization_x2', 'vr_box', false],
+    ['gaze_stabilization_x2', 'quest_browser', false],
+    ['gaze_substitution_remembered', 'standard', true],
+    ['gaze_substitution_remembered', 'vr_box', false],
+    ['gaze_substitution_remembered', 'quest_browser', false],
     ['smooth_pursuit', 'standard', true],
     ['smooth_pursuit', 'vr_box', true],
     ['smooth_pursuit', 'quest_browser', true],
@@ -26,6 +32,9 @@ describe('coherencia clínica y espacial de ejercicios', () => {
     ['guided_functional', 'standard', true],
     ['guided_functional', 'vr_box', false],
     ['guided_functional', 'quest_browser', false],
+    ['custom_free', 'standard', true],
+    ['custom_free', 'vr_box', true],
+    ['custom_free', 'quest_browser', true],
   ] as const)('%s en %s: válido=%s', (purpose, displayMode, valid) => {
     const configured = exercise(purpose, {
       displayMode,
@@ -39,6 +48,13 @@ describe('coherencia clínica y espacial de ejercicios', () => {
     const analysis = analyzeExerciseCompatibility(exercise('gaze_stabilization', { displayMode, doseMode: 'time', advanceMode: 'automatic' }))
     expect(analysis.valid).toBe(false)
     expect(analysis.issues.some((item) => item.code === 'gaze-headset')).toBe(true)
+  })
+
+  it.each(['vr_box', 'quest_browser'] as const)('bloquea RVO x2 y objetivo recordado en %s sin referencia estable', (displayMode) => {
+    const x2 = analyzeExerciseCompatibility(exercise('gaze_stabilization_x2', { displayMode, doseMode: 'time', advanceMode: 'automatic' }))
+    const remembered = analyzeExerciseCompatibility(exercise('gaze_substitution_remembered', { displayMode, doseMode: 'time', advanceMode: 'automatic' }))
+    expect(x2.issues.some((item) => item.code === 'gaze-x2-headset')).toBe(true)
+    expect(remembered.issues.some((item) => item.code === 'remembered-headset')).toBe(true)
   })
 
   it.each(['vr_box', 'quest_browser'] as const)('admite optocinético coherente en %s', (displayMode) => {
@@ -60,9 +76,19 @@ describe('coherencia clínica y espacial de ejercicios', () => {
   })
 
   it('configura cada propósito con parámetros coherentes', () => {
+    expect(applyExercisePurpose(defaultExerciseConfig, 'gaze_stabilization_x2')).toMatchObject({ kind: 'visual_stimulus', displayMode: 'standard', objectEnabled: true, objectMode: 'tracking', backgroundSpeed: 0 })
+    expect(applyExercisePurpose(defaultExerciseConfig, 'gaze_substitution_remembered')).toMatchObject({ kind: 'visual_stimulus', displayMode: 'standard', doseMode: 'repetitions', advanceMode: 'manual', objectMode: 'fixed' })
     expect(applyExercisePurpose(defaultExerciseConfig, 'smooth_pursuit')).toMatchObject({ kind: 'visual_stimulus', objectEnabled: true, objectMode: 'tracking', backgroundSpeed: 0 })
     expect(applyExercisePurpose(defaultExerciseConfig, 'saccades')).toMatchObject({ kind: 'visual_stimulus', objectEnabled: true, objectMode: 'saccades', backgroundSpeed: 0 })
     expect(applyExercisePurpose(defaultExerciseConfig, 'optokinetic')).toMatchObject({ kind: 'visual_stimulus', objectEnabled: false, backgroundType: 'bars' })
     expect(applyExercisePurpose(defaultExerciseConfig, 'guided_functional')).toMatchObject({ kind: 'guided_physical', displayMode: 'standard', doseMode: 'repetitions', advanceMode: 'manual' })
+  })
+
+  it('modo Libre no aplica las reglas clínicas de RVO, pero mantiene límites técnicos de VR Box', () => {
+    const arbitrary = exercise('custom_free', { objectMode: 'saccades', backgroundType: 'spiral', backgroundSpeed: 80 })
+    expect(analyzeExerciseCompatibility(arbitrary)).toMatchObject({ valid: true })
+    const impossibleInVr = analyzeExerciseCompatibility({ ...arbitrary, displayMode: 'vr_box', doseMode: 'repetitions', advanceMode: 'manual' })
+    expect(impossibleInVr.valid).toBe(false)
+    expect(impossibleInVr.issues.map((item) => item.code)).toEqual(expect.arrayContaining(['vr-dose', 'vr-advance']))
   })
 })

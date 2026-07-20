@@ -43,6 +43,7 @@ export const clinicalSources: readonly ClinicalSource[] = [
   { id: 'SRC-028', priority: 'condition_specific', year: 2024, title: 'Vestibular Rehabilitation in Vestibular Schwannoma', doi: '10.1093/ptj/pzae085', pmid: '38982735', url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC11450271/' },
   { id: 'SRC-029', priority: 'pediatric_governance', year: 2024, title: 'French Society guidelines for vestibular rehabilitation in children', doi: '10.1016/j.arcped.2024.02.006', pmid: '38697883', url: 'https://pubmed.ncbi.nlm.nih.gov/38697883/' },
   { id: 'SRC-030', priority: 'safety', year: 2026, title: 'Signs and Symptoms of Stroke', url: 'https://www.cdc.gov/stroke/signs-symptoms/index.html' },
+  { id: 'SRC-031', priority: 'treatment_modality', year: 2026, title: 'Effectiveness of three vestibular rehabilitation exercises for treating acute unilateral peripheral vestibular dysfunction: a multicenter randomized study', doi: '10.3389/fneur.2025.1687181', pmid: '41561330', url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC12812630/' },
 ]
 
 export const clinicalSourceIds = new Set(clinicalSources.map((source) => source.id))

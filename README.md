@@ -60,14 +60,16 @@ Decimotercer incremento técnico ejecutable:
 - auditoría de importaciones y decisiones sobre sugerencias;
 - constructor de ejercicios con fondo y objeto independientes;
 - motor canvas para barras, espiral, damero, puntos y fondo sólido;
-- seguimiento suave y sacadas horizontales, verticales o aleatorias;
+- seguimiento suave y sacadas horizontales, verticales, diagonales o aleatorias;
+- RVO x2 digital sobre pantalla inmóvil y objetivo recordado como sustitución (alias docente RVO x3);
+- modo Libre para guardar combinaciones profesionales no validadas sin forzarlas a una finalidad clínica;
 - reproductor continuo con pausa, omitir, salir, fullscreen y controles auto-ocultables;
 - tiempo activo sin contar pausas ni descansos y metrónomo configurable;
 - salida 2D, VR Box con dos vistas sincronizadas y Quest navegador BETA desde el mismo panel;
 - VR Box temporizado sin botones ni mirada, con transiciones guiadas de 20 segundos para colocar y retirar el visor;
 - advertencia y reordenamiento recomendado cuando una sesión mezcla repeticiones con un bloque VR Box;
 - controles de postura, superficie y supervisión, con bloqueos domiciliarios para tareas de mayor riesgo;
-- catálogo de 30 fuentes y compuerta validada para futuros borradores clínicamente gobernados;
+- catálogo de 31 fuentes y compuerta validada para futuros borradores clínicamente gobernados;
 - sesión domiciliaria de demostración;
 - PWA instalable;
 - esquema PostgreSQL/Supabase con RLS;

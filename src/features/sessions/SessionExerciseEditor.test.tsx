@@ -60,6 +60,40 @@ describe('creación de ejercicios', () => {
     expect(screen.getByRole('option', { name: /Meta Quest/ })).toBeDisabled()
   })
 
+  it.each(['gaze_stabilization_x2', 'gaze_substitution_remembered'])('mantiene %s fuera de visores sin referencia espacial', (purpose) => {
+    render(<EditorHarness/>)
+    fireEvent.change(screen.getByLabelText('Objetivo del ejercicio'), { target: { value: purpose } })
+    expect(screen.getByRole('option', { name: /VR Box/ })).toBeDisabled()
+    expect(screen.getByRole('option', { name: /Meta Quest/ })).toBeDisabled()
+  })
+
+  it('ofrece modo Libre con advertencia y conserva combinaciones arbitrarias', () => {
+    render(<EditorHarness/>)
+    fireEvent.change(screen.getByLabelText('Objetivo del ejercicio'), { target: { value: 'custom_free' } })
+    fireEvent.change(screen.getByLabelText('Fondo'), { target: { value: 'spiral' } })
+    fireEvent.change(screen.getByLabelText('Comportamiento'), { target: { value: 'saccades' } })
+    expect(screen.getByText('Configuración Libre · sin validación clínica')).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /VR Box/ })).not.toBeDisabled()
+    expect(screen.getByLabelText('Fondo')).toHaveValue('spiral')
+    expect(screen.getByLabelText('Comportamiento')).toHaveValue('saccades')
+  })
+
+  it('ofrece diagonales para pelota y barras, pero no para la espiral', () => {
+    render(<EditorHarness/>)
+    fireEvent.change(screen.getByLabelText('Objetivo del ejercicio'), { target: { value: 'custom_free' } })
+    fireEvent.change(screen.getByLabelText('Fondo'), { target: { value: 'bars' } })
+    fireEvent.change(screen.getByLabelText('Dirección'), { target: { value: 'up_right' } })
+    fireEvent.change(screen.getByLabelText('Comportamiento'), { target: { value: 'tracking' } })
+    const directions = screen.getAllByLabelText('Dirección')
+    fireEvent.change(directions[1], { target: { value: 'diagonal_up' } })
+    expect(directions[0]).toHaveValue('up_right')
+    expect(directions[1]).toHaveValue('diagonal_up')
+
+    fireEvent.change(screen.getByLabelText('Fondo'), { target: { value: 'spiral' } })
+    expect(screen.getAllByLabelText('Dirección')[0]).toHaveValue('clockwise')
+    expect(screen.queryByRole('option', { name: 'Diagonal ↗' })).not.toBeInTheDocument()
+  })
+
   it.each(['solid', 'bars', 'spiral', 'checkerboard', 'dots'])('permite seleccionar el fondo %s', (backgroundType) => {
     render(<EditorHarness/>)
     fireEvent.change(screen.getByLabelText('Fondo'), { target: { value: backgroundType } })

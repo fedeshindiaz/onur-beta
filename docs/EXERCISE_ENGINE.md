@@ -7,7 +7,9 @@ El mismo modelo admite dos tipos de contenido:
 - `visual_stimulus`: fondo y blanco visual configurables;
 - `guided_physical`: consigna física, postura, superficie y supervisión explícitas.
 
-Además, cada ejercicio declara una finalidad obligatoria: estabilización de mirada RVO x1, seguimiento ocular suave, sacadas, estimulación optocinética, habituación a movimiento visual o tarea física/funcional. La finalidad gobierna los parámetros compatibles; el nombre del ejercicio por sí solo no determina su comportamiento.
+Además, cada ejercicio declara una finalidad obligatoria: estabilización de mirada RVO x1 o x2, sustitución por objetivo recordado, seguimiento ocular suave, sacadas, estimulación optocinética, habituación a movimiento visual, tarea física/funcional o modo Libre. La finalidad gobierna los parámetros compatibles; el nombre del ejercicio por sí solo no determina su comportamiento.
+
+El nombre `RVO x3` aparece en algunos materiales docentes para el objetivo recordado, pero no se usa como una tercera ganancia de adaptación. La plataforma lo muestra como alias y lo registra clínicamente como sustitución: mirar el blanco, cerrar los ojos, girar la cabeza imaginando que la mirada permanece en él y reabrirlos para comprobar la precisión.
 
 La dosis puede definirse por tiempo o por repeticiones. La plataforma no afirma detectar movimientos: en dosis por repeticiones el paciente informa si completó el objetivo, hizo menos o no pudo completar. El registro conserva objetivo y cantidad informada por cada vuelta.
 
@@ -17,9 +19,9 @@ Los ejercicios nuevos usan avance manual. Al terminar una fase, el descanso pued
 
 El motor usa Canvas 2D y `requestAnimationFrame`. El tiempo de animación se acumula únicamente mientras el ejercicio está activo; al pausar, fondo, objeto y temporizador quedan congelados.
 
-Fondos: color sólido, barras optocinéticas, espiral, damero y campo de puntos.
+Fondos: color sólido, barras optocinéticas, espiral, damero y campo de puntos. Barras, damero y puntos admiten traslación horizontal, vertical y en cuatro direcciones diagonales. La espiral solo admite rotación horaria o antihoraria.
 
-Objetos: blanco fijo, seguimiento suave sinusoidal y sacadas horizontales, verticales o pseudoaleatorias deterministas.
+Objetos: blanco fijo, seguimiento suave sinusoidal y sacadas horizontales, verticales, en ambos ejes diagonales o pseudoaleatorias deterministas.
 
 Fondo y objeto usan parámetros independientes. Los movimientos se calculan como funciones continuas del tiempo o pasos por Hz, de modo que el patrón no termina antes de la fase.
 
@@ -44,17 +46,26 @@ Quest navegador todavía no equivale a una escena WebXR controlada por la aplica
 | Finalidad | Pantalla 2D inmóvil | VR Box | Quest navegador actual | Acción del paciente |
 | --- | --- | --- | --- | --- |
 | RVO x1 / estabilización de mirada | Sí | No | No, hasta validar anclaje WebXR | Fijar el blanco y mover la cabeza |
+| RVO x2 / estabilización de mirada | Sí | No | No, hasta validar anclaje WebXR | Seguir el blanco y mover la cabeza en sentido opuesto |
+| Objetivo recordado / sustitución (alias RVO x3) | Sí | No | No | Mirar, cerrar ojos, girar cabeza y comprobar al reabrir |
 | Seguimiento ocular suave | Sí | Sí | Sí | Mantener cabeza quieta y seguir el blanco con los ojos |
 | Sacadas | Sí | Sí | Sí | Mantener cabeza quieta y cambiar la mirada |
 | Optocinético | Sí | Sí | Sí | Sentado, cabeza quieta, observar el patrón móvil |
 | Habituación visual | Sí | Sí | Sí | Sentado, cabeza quieta, observar el movimiento dosificado |
 | Tarea física o funcional | Sí | No | No | Ejecutar fuera del visor con el entorno visible |
+| Libre | Según configuración | Según límites técnicos | Según límites técnicos | Definido y revisado por el profesional |
 
-En VR Box, un blanco fijo en el celular acompaña la cabeza y no representa un blanco fijo en el ambiente. En Quest, la aplicación actual no inicia una sesión WebXR ni controla o verifica la referencia espacial del blanco; por criterio conservador no habilita RVO x1. Seguimiento y sacadas con cabeza quieta son tareas oculomotoras y no se rotulan como sustitutos de la estabilización de mirada.
+En VR Box, el lienzo del celular acompaña la cabeza. En Quest, la aplicación actual no inicia una sesión WebXR ni controla o verifica la referencia espacial. Por criterio conservador no se habilitan RVO x1, RVO x2 ni objetivo recordado en visores. Seguimiento y sacadas con cabeza quieta son tareas oculomotoras y no se rotulan como sustitutos de la estabilización de mirada.
+
+## Modo Libre
+
+`custom_free` permite conservar como plantilla cualquier combinación de fondo, objeto, trayectoria, colores, amplitud, frecuencia, dosis, postura y dispositivo, incluso si no cumple las reglas de una finalidad clínica cerrada. La biblioteca no bloquea su guardado. La interfaz lo identifica en amarillo como configuración profesional no validada y no infiere que sea RVO, sustitución, habituación u optocinético.
+
+Guardar y asignar son operaciones distintas. Al crear una sesión se mantienen los límites técnicos de VR Box (tiempo y avance automático), la postura sentada en visores, las reglas de ayuda para superficie inestable o marcha domiciliaria y la exclusividad de dispositivo en Quest.
 
 ## Límites clínicos y técnicos
 
-- Los rangos de velocidad son controles técnicos, no dosis clínicamente validadas.
+- Los rangos de velocidad, frecuencia, amplitud y diagonal son controles técnicos, no dosis clínicamente validadas.
 - El generador visual no mide técnica, postura, velocidad cefálica ni repeticiones reales.
 - El sonido puede requerir una primera interacción si el navegador bloquea audio automático.
 - VR Box duplica el estímulo 2D; no simula profundidad ni seguimiento de cabeza.
@@ -64,4 +75,4 @@ En VR Box, un blanco fijo en el celular acompaña la cabeza y no representa un b
 
 ## Pruebas
 
-Las funciones de seguimiento y sacadas se prueban separadas del Canvas. Las posiciones aleatorias son deterministas. La matriz automática cubre las seis finalidades en Pantalla 2D, VR Box y Quest, además de dosis, avance, preparación, confirmación de fases y trazabilidad de repeticiones. El reproductor vuelve a validar una configuración heredada antes de mostrarla al paciente.
+Las funciones de seguimiento y sacadas se prueban separadas del Canvas, incluidos ambos ejes diagonales. Las posiciones aleatorias son deterministas. La matriz automática cubre las nueve finalidades en Pantalla 2D, VR Box y Quest, además de modo Libre, dosis, avance, preparación, confirmación de fases y trazabilidad de repeticiones. El reproductor vuelve a validar una configuración heredada antes de mostrarla al paciente.

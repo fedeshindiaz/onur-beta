@@ -4,7 +4,7 @@
 
 La plataforma incorpora la base segura para un generador de borradores, no una prescripción automática:
 
-- catálogo versionado de 30 fuentes en `src/features/clinicalGeneration/catalog.ts`;
+- catálogo versionado de 31 fuentes en `src/features/clinicalGeneration/catalog.ts`;
 - taxonomía cerrada de 12 categorías;
 - compuerta previa de autorización, datos clínicos y alertas;
 - rechazo recursivo de valores `COMPLETAR_*`, `PENDIENTE` o `TBD`;
@@ -29,12 +29,16 @@ El endpoint o proveedor de IA todavía no se conecta a esta capa. Cuando se cone
 
 - La finalidad del ejercicio debe mapearse a una configuración técnica validable; el título no alcanza.
 - `GAZE_ADAPTATION_VORX1` solo puede usar una pantalla 2D inmóvil en la versión actual. VR Box fija el blanco a la cabeza y Quest navegador no ofrece un anclaje WebXR controlado y verificado por la aplicación.
+- `GAZE_ADAPTATION_VORX2` usa un blanco que se desplaza mientras la cabeza se mueve en sentido opuesto; también requiere pantalla 2D inmóvil en la implementación actual.
+- El objetivo recordado se mapea a `GAZE_SUBSTITUTION`. La etiqueta `RVO x3` puede mostrarse como alias docente, pero no debe codificarse como una tercera adaptación ni como ganancia triple.
 - Seguimiento ocular y sacadas pueden mostrarse en visor únicamente con instrucción explícita de mantener la cabeza quieta. No pueden presentarse como reemplazo de adaptación o sustitución vestibular.
 - La estimulación optocinética o la habituación visual requieren un patrón no sólido, velocidad mayor que cero, blanco oculto, postura sentada y límites sintomáticos definidos por el profesional.
 - Balance, marcha, sentarse-pararse y toda tarea funcional se ejecutan en Pantalla 2D, fuera del visor y con el entorno visible.
 - VR Box exige dosis temporal y avance automático. Quest admite interacción del navegador, pero una sesión Quest no se mezcla con otro dispositivo hasta implementar continuidad segura entre equipos.
 
 Estas reglas se aplican al guardar una plantilla, validar una sesión y abrir el reproductor; una asignación heredada incompatible se bloquea antes de ejecutarse.
+
+La excepción es una plantilla marcada `custom_free`: puede guardarse sin cumplir una finalidad cerrada porque queda identificada como configuración profesional no validada. Esto no omite los bloqueos técnicos y de seguridad cuando se incorpora a una sesión ni permite que el generador clínico la publique como prescripción automática.
 
 ## Resultado del JSON recibido
 
@@ -46,5 +50,6 @@ El ejemplo con `clinician_authorized=false` y campos `COMPLETAR_*` debe quedar b
 - `SRC-014`: año 2025 y PMID `41288240`.
 - `SRC-029`: DOI `10.1016/j.arcped.2024.02.006`; no extrapolar dosis adulta y no recomendar exposición optocinética/VR a niños o adolescentes jóvenes sin regla pediátrica específica.
 - `SRC-030`: enlace vigente del CDC revisado el 19 de julio de 2026.
+- `SRC-031`: ensayo piloto multicéntrico 2026 que describe RVO x1/x2 horizontal, vertical y diagonal; DOI `10.3389/fneur.2025.1687181`, PMID `41561330`.
 
 La biblioteca debe revisarse como mínimo una vez al año y cuando aparezca una guía relevante nueva.

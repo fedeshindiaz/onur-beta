@@ -1,4 +1,4 @@
-import type { ExerciseConfig, SaccadePattern } from './types'
+import type { ExerciseConfig, LinearMotionDirection, MotionDirection, ObjectDirection, SaccadePattern } from './types'
 
 export interface Point {
   x: number
@@ -18,16 +18,22 @@ export function calculateTrackingPosition(
   elapsedSeconds: number,
   width: number,
   height: number,
-  direction: 'horizontal' | 'vertical',
+  direction: ObjectDirection,
   frequencyHz: number,
   amplitudePercent: number,
 ): Point {
   const center = { x: width / 2, y: height / 2 }
   const phase = Math.sin(elapsedSeconds * Math.PI * 2 * frequencyHz)
-  const amplitude = (direction === 'horizontal' ? width : height) * (amplitudePercent / 100)
-  return direction === 'horizontal'
-    ? { x: center.x + phase * amplitude, y: center.y }
-    : { x: center.x, y: center.y + phase * amplitude }
+  const horizontalAmplitude = width * (amplitudePercent / 100)
+  const verticalAmplitude = height * (amplitudePercent / 100)
+  if (direction === 'horizontal') return { x: center.x + phase * horizontalAmplitude, y: center.y }
+  if (direction === 'vertical') return { x: center.x, y: center.y + phase * verticalAmplitude }
+  const diagonalScale = Math.SQRT1_2
+  const ySign = direction === 'diagonal_down' ? 1 : -1
+  return {
+    x: center.x + phase * horizontalAmplitude * diagonalScale,
+    y: center.y + phase * verticalAmplitude * diagonalScale * ySign,
+  }
 }
 
 export function calculateSaccadePosition(
@@ -49,6 +55,14 @@ export function calculateSaccadePosition(
   if (pattern === 'vertical') {
     return { x: center.x, y: center.y + (step % 2 === 0 ? -verticalAmplitude : verticalAmplitude) }
   }
+  if (pattern === 'diagonal_down' || pattern === 'diagonal_up') {
+    const phase = step % 2 === 0 ? -1 : 1
+    const ySign = pattern === 'diagonal_down' ? 1 : -1
+    return {
+      x: center.x + phase * horizontalAmplitude * Math.SQRT1_2,
+      y: center.y + phase * verticalAmplitude * Math.SQRT1_2 * ySign,
+    }
+  }
   return {
     x: center.x + (deterministicUnit(step + 1) * 2 - 1) * horizontalAmplitude,
     y: center.y + (deterministicUnit(step + 101) * 2 - 1) * verticalAmplitude,
@@ -64,21 +78,28 @@ function drawBars(
 ) {
   const stripe = Math.max(config.stripeWidth, 8)
   const period = stripe * 2
-  const signedSpeed = ['left', 'up', 'counterclockwise'].includes(config.backgroundDirection)
-    ? -config.backgroundSpeed
-    : config.backgroundSpeed
-  const offset = positiveModulo(elapsedSeconds * signedSpeed, period)
+  const { x: directionX, y: directionY } = linearMotionVector(config.backgroundDirection)
+  const angle = Math.atan2(directionY, directionX)
+  const offset = positiveModulo(elapsedSeconds * config.backgroundSpeed, period)
+  const radius = Math.hypot(width, height)
   context.fillStyle = config.foregroundColor
-
-  if (config.backgroundDirection === 'up' || config.backgroundDirection === 'down') {
-    for (let y = -period + offset; y < height + period; y += period) {
-      context.fillRect(0, y, width, stripe)
-    }
-  } else {
-    for (let x = -period + offset; x < width + period; x += period) {
-      context.fillRect(x, 0, stripe, height)
-    }
+  context.save()
+  context.translate(width / 2, height / 2)
+  context.rotate(angle)
+  for (let x = -radius - period + offset; x < radius + period; x += period) {
+    context.fillRect(x, -radius, stripe, radius * 2)
   }
+  context.restore()
+}
+
+function linearMotionVector(direction: MotionDirection): Point {
+  const diagonal = Math.SQRT1_2
+  const vectors: Record<LinearMotionDirection, Point> = {
+    left: { x: -1, y: 0 }, right: { x: 1, y: 0 }, up: { x: 0, y: -1 }, down: { x: 0, y: 1 },
+    up_left: { x: -diagonal, y: -diagonal }, up_right: { x: diagonal, y: -diagonal },
+    down_left: { x: -diagonal, y: diagonal }, down_right: { x: diagonal, y: diagonal },
+  }
+  return vectors[direction as LinearMotionDirection] ?? { x: 1, y: 0 }
 }
 
 function drawCheckerboard(
@@ -89,16 +110,16 @@ function drawCheckerboard(
   height: number,
 ) {
   const tile = Math.max(config.stripeWidth, 18)
-  const signedSpeed = ['left', 'up'].includes(config.backgroundDirection) ? -config.backgroundSpeed : config.backgroundSpeed
-  const horizontal = config.backgroundDirection === 'left' || config.backgroundDirection === 'right'
-  const offset = positiveModulo(elapsedSeconds * signedSpeed, tile * 2)
+  const direction = linearMotionVector(config.backgroundDirection)
+  const offsetX = positiveModulo(elapsedSeconds * config.backgroundSpeed * direction.x, tile * 2)
+  const offsetY = positiveModulo(elapsedSeconds * config.backgroundSpeed * direction.y, tile * 2)
   context.fillStyle = config.foregroundColor
 
   for (let row = -2; row < Math.ceil(height / tile) + 2; row += 1) {
     for (let column = -2; column < Math.ceil(width / tile) + 2; column += 1) {
       if ((row + column) % 2 !== 0) continue
-      const x = column * tile + (horizontal ? offset : 0)
-      const y = row * tile + (horizontal ? 0 : offset)
+      const x = column * tile + offsetX
+      const y = row * tile + offsetY
       context.fillRect(x, y, tile, tile)
     }
   }
@@ -113,15 +134,15 @@ function drawDots(
 ) {
   const gap = Math.max(config.stripeWidth, 22)
   const radius = Math.max(3, gap * 0.12)
-  const signedSpeed = ['left', 'up'].includes(config.backgroundDirection) ? -config.backgroundSpeed : config.backgroundSpeed
-  const horizontal = config.backgroundDirection === 'left' || config.backgroundDirection === 'right'
-  const offset = positiveModulo(elapsedSeconds * signedSpeed, gap)
+  const direction = linearMotionVector(config.backgroundDirection)
+  const offsetX = positiveModulo(elapsedSeconds * config.backgroundSpeed * direction.x, gap)
+  const offsetY = positiveModulo(elapsedSeconds * config.backgroundSpeed * direction.y, gap)
   context.fillStyle = config.foregroundColor
 
   for (let y = -gap; y < height + gap; y += gap) {
     for (let x = -gap; x < width + gap; x += gap) {
       context.beginPath()
-      context.arc(x + (horizontal ? offset : 0), y + (horizontal ? 0 : offset), radius, 0, Math.PI * 2)
+      context.arc(x + offsetX, y + offsetY, radius, 0, Math.PI * 2)
       context.fill()
     }
   }

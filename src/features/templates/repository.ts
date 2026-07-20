@@ -1,13 +1,112 @@
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
-import { analyzeExerciseCompatibility } from '../exercise/compatibility'
+import { analyzeExerciseCompatibility, applyExercisePurpose } from '../exercise/compatibility'
 import { defaultExerciseConfig, normalizeExerciseConfig, type ExerciseConfig } from '../exercise/types'
-export interface ExerciseTemplateRecord {id:string;name:string;config:ExerciseConfig;createdAt:string;updatedAt:string}
-const STORAGE_KEY='onur-demo-exercise-templates-v1'
-const seed:ExerciseTemplateRecord[]=[{id:'template-rvo-bars',name:'RVO X1 · Punto fijo 2D',config:defaultExerciseConfig,createdAt:'2026-07-16T00:00:00.000Z',updatedAt:'2026-07-16T00:00:00.000Z'}]
-function normalizeTemplate(item:ExerciseTemplateRecord){const config=normalizeExerciseConfig(item.config,10);return item.id==='template-rvo-bars'?{...item,name:'RVO X1 · Punto fijo 2D',config:{...config,name:'RVO X1 · Punto fijo 2D'}}:{...item,config}}
-function read(){const raw=localStorage.getItem(STORAGE_KEY);if(!raw)return seed;try{return (JSON.parse(raw) as ExerciseTemplateRecord[]).map(normalizeTemplate)}catch{return seed}}
-function write(items:ExerciseTemplateRecord[]){localStorage.setItem(STORAGE_KEY,JSON.stringify(items))}
-function fromRow(row:Record<string,unknown>):ExerciseTemplateRecord{return{id:String(row.id),name:String(row.name),config:normalizeExerciseConfig(row.config as Partial<ExerciseConfig>,10),createdAt:String(row.created_at),updatedAt:String(row.updated_at)}}
-export async function listExerciseTemplates():Promise<ExerciseTemplateRecord[]>{if(!isSupabaseConfigured||!supabase)return read().sort((a,b)=>a.name.localeCompare(b.name));const{data,error}=await supabase.from('exercise_templates').select('*').order('name');if(error)throw error;return(data??[]).map(fromRow)}
-export async function saveExerciseTemplate(config:ExerciseConfig):Promise<ExerciseTemplateRecord>{if(!config.name.trim())throw new Error('La plantilla necesita un nombre.');const compatibility=analyzeExerciseCompatibility(config);if(!compatibility.valid)throw new Error(`${compatibility.issues[0].message} ${compatibility.issues[0].correction}`);if(!isSupabaseConfigured||!supabase){const record={id:crypto.randomUUID(),name:config.name.trim(),config:{...config},createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};write([...read(),record]);return record}const{data:auth,error:authError}=await supabase.auth.getUser();if(authError||!auth.user)throw authError??new Error('Sesión profesional no disponible.');const{data,error}=await supabase.from('exercise_templates').insert({professional_id:auth.user.id,name:config.name.trim(),config}).select().single();if(error)throw error;return fromRow(data)}
-export async function deleteExerciseTemplate(id:string):Promise<void>{if(!isSupabaseConfigured||!supabase){write(read().filter(item=>item.id!==id));return}const{error}=await supabase.from('exercise_templates').delete().eq('id',id);if(error)throw error}
+
+export interface ExerciseTemplateRecord {
+  id: string
+  name: string
+  config: ExerciseConfig
+  createdAt: string
+  updatedAt: string
+}
+
+const STORAGE_KEY = 'onur-demo-exercise-templates-v1'
+const SEED_VERSION_KEY = 'onur-demo-exercise-templates-seed-version'
+const SEED_VERSION = '2'
+const seedDate = '2026-07-20T00:00:00.000Z'
+
+const rvoX2Horizontal = {
+  ...applyExercisePurpose(defaultExerciseConfig, 'gaze_stabilization_x2'),
+  name: 'RVO X2 · blanco y cabeza opuestos',
+  objectDirection: 'horizontal' as const,
+}
+const rvoX2Diagonal = {
+  ...applyExercisePurpose(defaultExerciseConfig, 'gaze_stabilization_x2'),
+  name: 'RVO X2 · diagonal',
+  objectDirection: 'diagonal_down' as const,
+}
+const rememberedTarget = {
+  ...applyExercisePurpose(defaultExerciseConfig, 'gaze_substitution_remembered'),
+  name: 'Objetivo recordado · sustitución (RVO x3)',
+  targetRepetitions: 10,
+  rounds: 1,
+}
+
+const seed: ExerciseTemplateRecord[] = [
+  { id: 'template-rvo-bars', name: 'RVO X1 · Punto fijo 2D', config: defaultExerciseConfig, createdAt: '2026-07-16T00:00:00.000Z', updatedAt: '2026-07-16T00:00:00.000Z' },
+  { id: 'template-rvo-x2-horizontal', name: rvoX2Horizontal.name, config: rvoX2Horizontal, createdAt: seedDate, updatedAt: seedDate },
+  { id: 'template-rvo-x2-diagonal', name: rvoX2Diagonal.name, config: rvoX2Diagonal, createdAt: seedDate, updatedAt: seedDate },
+  { id: 'template-remembered-target', name: rememberedTarget.name, config: rememberedTarget, createdAt: seedDate, updatedAt: seedDate },
+]
+
+function normalizeTemplate(item: ExerciseTemplateRecord) {
+  const config = normalizeExerciseConfig(item.config, 10)
+  return item.id === 'template-rvo-bars'
+    ? { ...item, name: 'RVO X1 · Punto fijo 2D', config: { ...config, name: 'RVO X1 · Punto fijo 2D' } }
+    : { ...item, config }
+}
+
+function read() {
+  const raw = localStorage.getItem(STORAGE_KEY)
+  if (!raw) return seed
+  try {
+    const stored = (JSON.parse(raw) as ExerciseTemplateRecord[]).map(normalizeTemplate)
+    if (localStorage.getItem(SEED_VERSION_KEY) === SEED_VERSION) return stored
+    const knownIds = new Set(stored.map((item) => item.id))
+    const migrated = [...stored, ...seed.filter((item) => !knownIds.has(item.id))]
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated))
+    localStorage.setItem(SEED_VERSION_KEY, SEED_VERSION)
+    return migrated
+  } catch {
+    return seed
+  }
+}
+
+function write(items: ExerciseTemplateRecord[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(items))
+  localStorage.setItem(SEED_VERSION_KEY, SEED_VERSION)
+}
+
+function fromRow(row: Record<string, unknown>): ExerciseTemplateRecord {
+  return {
+    id: String(row.id),
+    name: String(row.name),
+    config: normalizeExerciseConfig(row.config as Partial<ExerciseConfig>, 10),
+    createdAt: String(row.created_at),
+    updatedAt: String(row.updated_at),
+  }
+}
+
+export async function listExerciseTemplates(): Promise<ExerciseTemplateRecord[]> {
+  if (!isSupabaseConfigured || !supabase) return read().sort((a, b) => a.name.localeCompare(b.name))
+  const { data, error } = await supabase.from('exercise_templates').select('*').order('name')
+  if (error) throw error
+  return (data ?? []).map(fromRow)
+}
+
+export async function saveExerciseTemplate(config: ExerciseConfig): Promise<ExerciseTemplateRecord> {
+  if (!config.name.trim()) throw new Error('La plantilla necesita un nombre.')
+  const compatibility = analyzeExerciseCompatibility(config)
+  if (!compatibility.valid && config.purpose !== 'custom_free') {
+    throw new Error(`${compatibility.issues[0].message} ${compatibility.issues[0].correction}`)
+  }
+  if (!isSupabaseConfigured || !supabase) {
+    const record = { id: crypto.randomUUID(), name: config.name.trim(), config: { ...config }, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+    write([...read(), record])
+    return record
+  }
+  const { data: auth, error: authError } = await supabase.auth.getUser()
+  if (authError || !auth.user) throw authError ?? new Error('Sesión profesional no disponible.')
+  const { data, error } = await supabase.from('exercise_templates').insert({ professional_id: auth.user.id, name: config.name.trim(), config }).select().single()
+  if (error) throw error
+  return fromRow(data)
+}
+
+export async function deleteExerciseTemplate(id: string): Promise<void> {
+  if (!isSupabaseConfigured || !supabase) {
+    write(read().filter((item) => item.id !== id))
+    return
+  }
+  const { error } = await supabase.from('exercise_templates').delete().eq('id', id)
+  if (error) throw error
+}

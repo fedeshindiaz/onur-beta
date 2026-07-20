@@ -29,7 +29,11 @@ Las asignaciones antiguas que no poseen `advanceMode` conservan continuidad auto
 - VR Box: no usa botones, mirada ni controles externos. Antes de colocarlo se confirma en la pantalla normal y comienza una preparación automática de 20 segundos.
 - Quest navegador BETA: controlador, manos o selección compatible del navegador.
 
-RVO x1 solo se habilita en una pantalla 2D inmóvil. VR Box fija el blanco a la cabeza y Quest navegador todavía no ofrece a la aplicación un anclaje espacial WebXR verificado. Los visores quedan reservados para seguimiento, sacadas, optocinético o habituación visual con cabeza quieta. Estas tareas oculomotoras no se presentan como equivalentes a la adaptación del RVO.
+RVO x1, RVO x2 y el objetivo recordado solo se habilitan en una pantalla 2D inmóvil. VR Box fija el lienzo a la cabeza y Quest navegador todavía no ofrece a la aplicación un anclaje espacial WebXR verificado. Los visores quedan reservados para seguimiento, sacadas, optocinético, habituación visual o una configuración Libre explícita con cabeza quieta. Estas tareas oculomotoras no se presentan como equivalentes a la adaptación del RVO.
+
+RVO x2 usa un blanco móvil y una consigna de movimiento cefálico en sentido opuesto. El objetivo recordado es una tarea de sustitución por repeticiones y confirmación manual; `RVO x3` se conserva solo como alias docente, no como progresión automática ni como ganancia triple.
+
+El modo Libre puede guardarse como predeterminado aun cuando no satisfaga las reglas clínicas de una finalidad cerrada. La asignación sigue bloqueando combinaciones técnicamente inexequibles y condiciones domiciliarias sin la supervisión necesaria.
 
 Las repeticiones se realizan con el celular fuera del visor. Si la sesión mezcla ambos tipos, el constructor advierte y ofrece ordenar primero las repeticiones y luego un único bloque VR. Cada entrada o salida de VR agrega 20 segundos; también se retira el visor antes del autorreporte final.
 

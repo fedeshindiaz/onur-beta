@@ -1,11 +1,13 @@
 export type BackgroundType = 'solid' | 'bars' | 'spiral' | 'checkerboard' | 'dots'
-export type MotionDirection = 'left' | 'right' | 'up' | 'down' | 'clockwise' | 'counterclockwise'
+export type LinearMotionDirection = 'left' | 'right' | 'up' | 'down' | 'up_left' | 'up_right' | 'down_left' | 'down_right'
+export type MotionDirection = LinearMotionDirection | 'clockwise' | 'counterclockwise'
 export type ObjectMode = 'fixed' | 'tracking' | 'saccades'
-export type SaccadePattern = 'horizontal' | 'vertical' | 'random'
+export type ObjectDirection = 'horizontal' | 'vertical' | 'diagonal_down' | 'diagonal_up'
+export type SaccadePattern = ObjectDirection | 'random'
 export type ExerciseDisplayMode = 'standard' | 'vr_box' | 'quest_browser'
 export type PreparationSeconds = 0 | 5 | 10 | 20
 export type ExerciseKind = 'visual_stimulus' | 'guided_physical'
-export type ExercisePurpose = 'gaze_stabilization' | 'smooth_pursuit' | 'saccades' | 'optokinetic' | 'visual_habituation' | 'guided_functional'
+export type ExercisePurpose = 'gaze_stabilization' | 'gaze_stabilization_x2' | 'gaze_substitution_remembered' | 'smooth_pursuit' | 'saccades' | 'optokinetic' | 'visual_habituation' | 'guided_functional' | 'custom_free'
 export type ExerciseDoseMode = 'time' | 'repetitions'
 export type ExerciseAdvanceMode = 'automatic' | 'manual'
 export type ExercisePosture = 'seated' | 'standing' | 'walking'
@@ -41,7 +43,7 @@ export interface ExerciseConfig {
   objectMode: ObjectMode
   objectColor: string
   objectSize: number
-  objectDirection: 'horizontal' | 'vertical'
+  objectDirection: ObjectDirection
   objectSpeedHz: number
   objectAmplitude: number
   saccadePattern: SaccadePattern

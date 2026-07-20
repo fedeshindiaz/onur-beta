@@ -26,7 +26,7 @@ export function ExerciseBuilderPage() {
         description="Configurá el estímulo o la tarea física, su dosis y el modo de confirmación. Toda prescripción necesita revisión profesional antes de asignarse."
         actions={<>
           <button type="button" onClick={() => { setConfig(defaultExerciseConfig); setNotice('') }} className="inline-flex items-center gap-2 rounded-2xl border border-[#E9E7E7] bg-white px-4 py-3 text-sm font-black text-[#2F2F2F]"><RotateCcw size={17}/> Restablecer</button>
-          <button type="button" disabled={saveTemplate.isPending || !compatibility.valid} onClick={async () => { try { await saveTemplate.mutateAsync(config); setNotice('Plantilla guardada en la biblioteca.') } catch (caught) { setNotice(caught instanceof Error ? caught.message : 'No fue posible guardar.') } }} className="inline-flex items-center gap-2 rounded-2xl bg-[#E49A02] px-4 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50"><Save size={17}/> Guardar plantilla</button>
+          <button type="button" disabled={saveTemplate.isPending || (!compatibility.valid && config.purpose !== 'custom_free')} onClick={async () => { try { await saveTemplate.mutateAsync(config); setNotice(config.purpose === 'custom_free' ? 'Plantilla Libre guardada. Requiere revisión profesional antes de asignarse.' : 'Plantilla guardada en la biblioteca.') } catch (caught) { setNotice(caught instanceof Error ? caught.message : 'No fue posible guardar.') } }} className="inline-flex items-center gap-2 rounded-2xl bg-[#E49A02] px-4 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-50"><Save size={17}/> Guardar plantilla</button>
         </>}
       />
 
