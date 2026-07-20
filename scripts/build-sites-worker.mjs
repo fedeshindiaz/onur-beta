@@ -1,9 +1,10 @@
-import { mkdir, readdir, rename, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, readdir, rename, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 const distDirectory = 'dist'
 const clientDirectory = join(distDirectory, 'client')
 const serverDirectory = join(distDirectory, 'server')
+const hostingDirectory = join(distDirectory, '.openai')
 
 const worker = `export default {
   async fetch(request, env) {
@@ -49,3 +50,5 @@ for (const entry of await readdir(distDirectory, { withFileTypes: true })) {
 
 await mkdir(serverDirectory, { recursive: true })
 await writeFile(join(serverDirectory, 'index.js'), worker, 'utf8')
+await mkdir(hostingDirectory, { recursive: true })
+await copyFile(join('.openai', 'hosting.json'), join(hostingDirectory, 'hosting.json'))
