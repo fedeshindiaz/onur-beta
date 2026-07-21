@@ -3,9 +3,10 @@ import { useState } from 'react'
 import { clinicalSources } from '../clinicalGeneration/catalog'
 import { cognitiveInstruction, cognitiveSymbolLabels, cognitiveTaskLabel } from '../exercise/cognitive'
 import { ExerciseCanvas } from '../exercise/ExerciseCanvas'
-import { analyzeExerciseCompatibility, applyExercisePurpose, exercisePurposeLabels } from '../exercise/compatibility'
+import { analyzeExerciseCompatibility, applyExercisePurpose, exercisePurposeLabels, isVrBoxPurposeSupported, vrBoxPurposeCompatibility } from '../exercise/compatibility'
 import { buildExerciseExecutionPlan, type ExerciseSetting } from '../exercise/execution'
 import { ExercisePlayer } from '../exercise/ExercisePlayer'
+import { StereoscopicExerciseCanvas } from '../exercise/StereoscopicExerciseCanvas'
 import type { BackgroundType, CognitiveResponseMode, CognitiveSymbol, CognitiveTaskMode, ExerciseConfig, ExercisePurpose, LinearMotionDirection, MotionDirection, ObjectDirection, PreparationSeconds } from '../exercise/types'
 
 interface SessionExerciseEditorProps {
@@ -45,12 +46,13 @@ export function SessionExerciseEditor({ config, isFirst = false, setting = 'unsp
   const setBackgroundType = (backgroundType: BackgroundType) => onChange({
     ...config,
     backgroundType,
+    backgroundSpeed: backgroundType === 'solid' ? 0 : config.backgroundSpeed,
     backgroundDirection: backgroundType === 'spiral'
       ? (config.backgroundDirection === 'counterclockwise' ? 'counterclockwise' : 'clockwise')
       : config.backgroundDirection === 'clockwise' || config.backgroundDirection === 'counterclockwise' ? 'left' : config.backgroundDirection,
   })
   const setDisplayMode = (displayMode: ExerciseConfig['displayMode']) => onChange(displayMode === 'vr_box'
-    ? { ...config, displayMode, doseMode: 'time', advanceMode: 'automatic' }
+    ? { ...config, displayMode, doseMode: 'time', advanceMode: 'automatic', posture: 'seated', surface: 'firm', metronomeEnabled: false }
     : { ...config, displayMode })
   const setCognitiveTask = (cognitiveTaskMode: CognitiveTaskMode) => {
     if (cognitiveTaskMode === 'none') return onChange({ ...config, cognitiveTaskMode })
@@ -65,6 +67,20 @@ export function SessionExerciseEditor({ config, isFirst = false, setting = 'unsp
       objectEnabled: true,
       cognitiveResponseMode: cognitiveTaskMode === 'rare_target' ? 'count_at_end' : config.cognitiveResponseMode === 'count_at_end' ? 'verbal' : config.cognitiveResponseMode,
     })
+  }
+  const startPreview = async () => {
+    if (config.displayMode === 'vr_box') {
+      try {
+        await document.documentElement.requestFullscreen?.()
+        const orientation = screen.orientation as (ScreenOrientation & { lock?: (value: 'landscape') => Promise<void> }) | undefined
+        await orientation?.lock?.('landscape')
+      } catch { /* La prueba continúa aunque el navegador no permita fullscreen u orientación fija. */ }
+    }
+    setPlaying(true)
+  }
+  const closePreview = () => {
+    setPlaying(false)
+    if (config.displayMode === 'vr_box' && document.fullscreenElement) void document.exitFullscreen().catch(() => undefined)
   }
 
   return (
@@ -159,9 +175,10 @@ export function SessionExerciseEditor({ config, isFirst = false, setting = 'unsp
 
         <section className="rounded-2xl border border-[#E9E7E7] bg-white p-5">
           <h3 className="font-black text-[#171717]">Dispositivo y confirmación</h3>
-          <label className="mt-4 block text-xs font-black text-[#2F2F2F]">Modo<select className={input} value={config.displayMode} onChange={(event) => setDisplayMode(event.target.value as ExerciseConfig['displayMode'])}><option value="standard">Pantalla 2D</option><option value="vr_box" disabled={['gaze_stabilization', 'gaze_stabilization_x2', 'gaze_substitution_remembered'].includes(config.purpose) || isPhysical || cognitive}>VR Box · estímulo visual sin anclaje</option><option value="quest_browser" disabled={['gaze_stabilization', 'gaze_stabilization_x2', 'gaze_substitution_remembered'].includes(config.purpose) || isPhysical || cognitive}>Meta Quest · navegador sin anclaje</option></select></label>
-          <p className="mt-3 text-[11px] leading-5 text-[#747474]">{config.displayMode === 'standard' ? 'La pantalla debe permanecer inmóvil. El paciente puede confirmar con controles visibles.' : config.displayMode === 'vr_box' ? 'VR Box duplica el estímulo para ambos ojos y solo admite ejercicios por tiempo. No usa botones, mirada ni controles externos.' : 'Quest usa el navegador 2D actual y sus controles, pero todavía no ancla objetos al ambiente mediante WebXR.'}</p>
-          {config.displayMode === 'vr_box' && <p className="mt-3 rounded-xl bg-[#FFF7E8] p-3 text-[11px] font-bold leading-5 text-[#8A5B00]">La sesión agregará una pantalla previa y 20 segundos para colocar el celular en el visor, y otros 20 segundos para retirarlo antes de volver a una tarea manual.</p>}
+          <label className="mt-4 block text-xs font-black text-[#2F2F2F]">Modo<select className={input} value={config.displayMode} onChange={(event) => setDisplayMode(event.target.value as ExerciseConfig['displayMode'])}><option value="standard">Pantalla 2D</option><option value="vr_box" disabled={!isVrBoxPurposeSupported(config.purpose) || isPhysical || cognitive}>VR Box · presentación binocular 2D</option><option value="quest_browser" disabled={['gaze_stabilization', 'gaze_stabilization_x2', 'gaze_substitution_remembered'].includes(config.purpose) || isPhysical || cognitive}>Meta Quest · navegador sin anclaje</option></select></label>
+          <p className="mt-3 text-[11px] leading-5 text-[#747474]">{config.displayMode === 'standard' ? 'La pantalla debe permanecer inmóvil. El paciente puede confirmar con controles visibles.' : config.displayMode === 'vr_box' ? 'VR Box muestra el mismo estímulo 2D a ambos ojos. No usa botones, mirada ni controles externos, y no implementa anclaje espacial, seguimiento de cabeza ni corrección óptica específica del visor.' : 'Quest usa el navegador 2D actual y sus controles, pero todavía no ancla objetos al ambiente mediante WebXR.'}</p>
+          {config.displayMode === 'vr_box' && <div className="mt-3 rounded-xl bg-[#FFF7E8] p-3 text-[11px] font-bold leading-5 text-[#8A5B00]"><p>Solo se ejecuta sentado, en superficie firme, por tiempo y con avance automático. La sesión agrega 20 segundos para colocar o retirar el visor.</p><p className="mt-2">Antes de empezar, la persona debe ver un único marcador nítido. Si ve doble, borroso o no logra fusionarlo, debe retirar el visor y no comenzar.</p></div>}
+          {config.displayMode !== 'vr_box' && !isVrBoxPurposeSupported(config.purpose) && <p className="mt-3 rounded-xl bg-[#F7F6F4] p-3 text-[11px] leading-5 text-[#747474]"><strong>No disponible en VR Box:</strong> {vrBoxPurposeCompatibility[config.purpose].reason}</p>}
           <div role={compatibility.valid ? 'status' : 'alert'} className={`mt-4 rounded-2xl border p-4 ${isFree ? 'border-[#E8CE99] bg-[#FFF7E8] text-[#8A5B00]' : compatibility.valid ? 'border-[#B9D9C5] bg-[#F0F8F3] text-[#28613D]' : 'border-[#eccfd2] bg-[#fceced] text-[#9A3842]'}`}>
             <p className="flex gap-2 text-xs font-black">{compatibility.valid && !isFree ? <CircleCheck className="shrink-0" size={17}/> : <ShieldAlert className="shrink-0" size={17}/>} {isFree ? 'Configuración Libre · sin validación clínica' : compatibility.valid ? 'Configuración coherente' : 'Configuración bloqueada'}</p>
             <p className="mt-2 text-[11px] font-bold leading-5">{compatibility.explanation}</p>
@@ -201,7 +218,8 @@ export function SessionExerciseEditor({ config, isFirst = false, setting = 'unsp
           </div>
           <label className="mt-4 block text-xs font-black text-[#2F2F2F]">Avance<select disabled={config.displayMode === 'vr_box' || cognitive} className={`${input} disabled:bg-[#F7F6F4] disabled:text-[#747474]`} value={config.advanceMode} onChange={(event) => set('advanceMode', event.target.value as ExerciseConfig['advanceMode'])}><option value="manual">Confirmación manual</option><option value="automatic" disabled={config.doseMode === 'repetitions' || cognitive}>Automático al terminar el tiempo</option></select></label>
           {config.doseMode === 'repetitions' && <p className="mt-3 text-[11px] leading-5 text-[#747474]">La aplicación no contará movimientos: el paciente informará si completó el objetivo o cuántas repeticiones realizó.</p>}
-          <div className="mt-5 flex items-center gap-4"><label className="inline-flex items-center gap-2 text-xs font-black text-[#2F2F2F]"><input type="checkbox" disabled={config.purpose === 'cognitive_visual'} checked={config.metronomeEnabled} onChange={(event) => set('metronomeEnabled', event.target.checked)} className="size-4 accent-[#E49A02] disabled:opacity-35" /> Metrónomo</label>{config.metronomeEnabled && <label className="flex-1 text-xs font-black text-[#2F2F2F]">{config.metronomeHz.toFixed(1)} señales/s · {Math.round(config.metronomeHz * 60)} BPM<input type="range" min="0.2" max="3" step="0.1" value={config.metronomeHz} onChange={(event) => set('metronomeHz', Number(event.target.value))} className="mt-2 w-full accent-[#E49A02]" /></label>}</div>
+          <div className="mt-5 flex items-center gap-4"><label className="inline-flex items-center gap-2 text-xs font-black text-[#2F2F2F]"><input type="checkbox" disabled={config.purpose === 'cognitive_visual' || config.displayMode === 'vr_box'} checked={config.metronomeEnabled} onChange={(event) => set('metronomeEnabled', event.target.checked)} className="size-4 accent-[#E49A02] disabled:opacity-35" /> Metrónomo</label>{config.metronomeEnabled && <label className="flex-1 text-xs font-black text-[#2F2F2F]">{config.metronomeHz.toFixed(1)} señales/s · {Math.round(config.metronomeHz * 60)} BPM<input type="range" min="0.2" max="3" step="0.1" value={config.metronomeHz} onChange={(event) => set('metronomeHz', Number(event.target.value))} className="mt-2 w-full accent-[#E49A02]" /></label>}</div>
+          {config.displayMode === 'vr_box' && <p className="mt-3 text-[11px] leading-5 text-[#747474]">El metrónomo queda desactivado porque el navegador móvil puede bloquear el audio después de la preparación dentro del visor.</p>}
           {config.metronomeEnabled && <p className="mt-3 text-[11px] leading-5 text-[#747474]">Cada señal sonora indica el cambio acordado por el profesional. Señales/s y BPM describen el metrónomo; no miden velocidad cefálica ni equivalen automáticamente a ciclos completos.</p>}
         </section>
       </div>
@@ -209,15 +227,15 @@ export function SessionExerciseEditor({ config, isFirst = false, setting = 'unsp
       <aside className="xl:sticky xl:top-24 xl:self-start">
         <div className="overflow-hidden rounded-2xl border border-[#E9E7E7] bg-white">
           <div className="flex items-center gap-2 p-4 text-sm font-black text-[#171717]"><Eye size={17} className="text-[#E49A02]" /> Vista previa</div>
-          <div className="aspect-video bg-[#081113]">{isPhysical ? <div className="grid size-full place-items-center p-6 text-center text-white"><div><Accessibility className="mx-auto text-[#E49A02]" size={54}/><p className="mt-4 text-sm font-black">{config.patientInstruction || 'Instrucción física pendiente'}</p><p className="mt-3 text-xs text-white/55">{config.posture === 'seated' ? 'Sentado' : config.posture === 'standing' ? 'De pie' : 'Marcha'} · {config.surface === 'firm' ? 'Superficie firme' : 'Superficie inestable'}</p></div></div> : <ExerciseCanvas config={config} className="size-full" />}</div>
+          <div className="relative aspect-video bg-[#081113]">{isPhysical ? <div className="grid size-full place-items-center p-6 text-center text-white"><div><Accessibility className="mx-auto text-[#E49A02]" size={54}/><p className="mt-4 text-sm font-black">{config.patientInstruction || 'Instrucción física pendiente'}</p><p className="mt-3 text-xs text-white/55">{config.posture === 'seated' ? 'Sentado' : config.posture === 'standing' ? 'De pie' : 'Marcha'} · {config.surface === 'firm' ? 'Superficie firme' : 'Superficie inestable'}</p></div></div> : config.displayMode === 'vr_box' ? <StereoscopicExerciseCanvas config={config}/> : <ExerciseCanvas config={config} className="size-full" />}</div>
           <div className="p-5">
             <p className="text-sm font-black text-[#2F2F2F]">{config.name}</p>
             <p className="mt-2 text-xs text-[#747474]">{config.doseMode === 'time' ? `${config.durationSeconds} s` : `${config.targetRepetitions} repeticiones`} × {config.rounds} vueltas · avance {config.advanceMode === 'manual' ? 'manual' : 'automático'}</p>
-            <button type="button" disabled={!compatibility.valid} onClick={() => setPlaying(true)} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#E49A02] px-4 py-3 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-40"><Play size={16} /> {compatibility.valid ? 'Probar ejercicio' : 'Corregí la compatibilidad para probar'}</button>
+            <button type="button" disabled={!compatibility.valid} onClick={() => void startPreview()} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#E49A02] px-4 py-3 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-40"><Play size={16} /> {compatibility.valid ? 'Probar ejercicio' : 'Corregí la compatibilidad para probar'}</button>
           </div>
         </div>
       </aside>
-      {playing && compatibility.valid && <ExercisePlayer config={config} onExit={() => setPlaying(false)} onSkip={() => setPlaying(false)} onComplete={() => setPlaying(false)} />}
+      {playing && compatibility.valid && <ExercisePlayer config={config} preparationSeconds={config.displayMode === 'vr_box' ? 20 : undefined} onExit={closePreview} onSkip={closePreview} onComplete={closePreview} />}
     </div>
   )
 }

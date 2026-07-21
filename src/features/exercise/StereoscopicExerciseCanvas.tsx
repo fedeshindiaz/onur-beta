@@ -50,6 +50,5 @@ export function StereoscopicExerciseCanvas({ config, paused = false }: { config:
   return <div className="absolute inset-0 grid grid-cols-2 bg-black" aria-label="Vista estereoscópica para visor de celular">
     <canvas ref={leftRef} className="h-full w-full border-r-2 border-black" aria-label="Vista izquierda"/>
     <canvas ref={rightRef} className="h-full w-full border-l-2 border-black" aria-label="Vista derecha"/>
-    <div className="pointer-events-none absolute left-1/2 top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/45"/>
   </div>
 }

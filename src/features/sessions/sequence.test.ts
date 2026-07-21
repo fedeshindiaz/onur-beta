@@ -25,6 +25,7 @@ describe('secuencia de equipamiento VR Box', () => {
     ['repeticiones y luego VR', [repetitions, standardTimed, vrBox], { mixesRepetitionsAndVrBox: true, optimizedForVrBox: true, visorChanges: 2 }],
     ['VR y luego repeticiones', [vrBox, repetitions], { mixesRepetitionsAndVrBox: true, optimizedForVrBox: false, visorChanges: 2 }],
     ['VR intercalado', [vrBox, repetitions, vrBox], { mixesRepetitionsAndVrBox: true, optimizedForVrBox: false, visorChanges: 4 }],
+    ['VR intercalado con tarea 2D temporizada', [vrBox, standardTimed, vrBox], { mixesRepetitionsAndVrBox: false, mixesVrBoxAndNonVrBox: true, optimizedForVrBox: false, visorChanges: 4 }],
   ])('analiza %s', (_label, exercises, expected) => expect(analyzeSessionSequence(exercises)).toMatchObject(expected))
 
   it('conserva el orden relativo dentro de cada bloque al optimizar', () => {
@@ -35,5 +36,38 @@ describe('secuencia de equipamiento VR Box', () => {
     expect(ordered.map((exercise) => exercise.name)).toEqual([
       'Marcha asistida', 'Sentarse y pararse', 'Sacadas 2D', 'Seguimiento 2D', 'Optocinético VR', 'Optocinético VR',
     ])
+  })
+
+  it('recorre exhaustivamente 1092 secuencias posibles de hasta seis ejercicios', () => {
+    const variants = [repetitions, standardTimed, vrBox]
+    let checked = 0
+    for (let length = 1; length <= 6; length += 1) {
+      const combinations = 3 ** length
+      for (let encoded = 0; encoded < combinations; encoded += 1) {
+        let value = encoded
+        const exercises = Array.from({ length }, () => {
+          const item = variants[value % variants.length]
+          value = Math.floor(value / variants.length)
+          return item
+        })
+        const analysis = analyzeSessionSequence(exercises)
+        let expectedChanges = 0
+        let wearing = false
+        for (const exercise of exercises) {
+          const needsVisor = exercise.displayMode === 'vr_box'
+          if (needsVisor !== wearing) expectedChanges += 1
+          wearing = needsVisor
+        }
+        if (wearing) expectedChanges += 1
+        expect(analysis.visorChanges).toBe(expectedChanges)
+
+        const ordered = orderExercisesForVrBox(exercises)
+        const categories = ordered.map((exercise) => exercise.displayMode === 'vr_box' ? 2 : exercise.doseMode === 'repetitions' ? 0 : 1)
+        expect(categories).toEqual([...categories].sort((a, b) => a - b))
+        expect(analyzeSessionSequence(ordered).optimizedForVrBox).toBe(true)
+        checked += 1
+      }
+    }
+    expect(checked).toBe(1092)
   })
 })

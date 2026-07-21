@@ -66,8 +66,8 @@ Decimotercer incremento técnico ejecutable:
 - reproductor continuo con pausa, omitir, salir, fullscreen y controles auto-ocultables;
 - tiempo activo sin contar pausas ni descansos y metrónomo configurable;
 - salida 2D, VR Box con dos vistas sincronizadas y Quest navegador BETA desde el mismo panel;
-- VR Box temporizado sin botones ni mirada, con transiciones guiadas de 20 segundos para colocar y retirar el visor;
-- advertencia y reordenamiento recomendado cuando una sesión mezcla repeticiones con un bloque VR Box;
+- VR Box como presentación binocular 2D temporizada, sin botones, mirada, seguimiento de cabeza ni metrónomo, con transiciones guiadas de 20 segundos y comprobación de fusión;
+- advertencia y reordenamiento recomendado cuando una sesión mezcla cualquier tarea sin visor con un bloque VR Box;
 - controles de postura, superficie y supervisión, con bloqueos domiciliarios para tareas de mayor riesgo;
 - catálogo de 33 fuentes y compuerta validada para futuros borradores clínicamente gobernados;
 - sesión domiciliaria de demostración;

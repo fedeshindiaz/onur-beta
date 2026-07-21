@@ -15,6 +15,11 @@ describe('avance del reproductor', () => {
     const onComplete = vi.fn()
     render(<ExercisePlayer config={{ ...applyExercisePurpose(defaultExerciseConfig, 'optokinetic'), displayMode: 'vr_box', doseMode: 'time', advanceMode: 'automatic', durationSeconds: 1, preparationSeconds: 0 }} onExit={vi.fn()} onComplete={onComplete}/>)
 
+    expect(screen.getByText('Vista VR')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Pausar' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Pantalla completa' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Salir' })).not.toBeInTheDocument()
+
     await act(async () => { vi.advanceTimersByTime(1_000) })
     expect(onComplete).toHaveBeenCalledTimes(1)
     expect(onComplete.mock.calls[0][1]).toMatchObject({ doseMode: 'time', completion: 'target_completed' })

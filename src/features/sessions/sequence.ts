@@ -4,6 +4,7 @@ export const VR_BOX_TRANSITION_SECONDS = 20
 
 export interface SessionSequenceAnalysis {
   mixesRepetitionsAndVrBox: boolean
+  mixesVrBoxAndNonVrBox: boolean
   optimizedForVrBox: boolean
   visorChanges: number
 }
@@ -11,7 +12,8 @@ export interface SessionSequenceAnalysis {
 export function analyzeSessionSequence(exercises: ExerciseConfig[]): SessionSequenceAnalysis {
   const hasRepetitions = exercises.some((exercise) => exercise.doseMode === 'repetitions')
   const hasVrBox = exercises.some((exercise) => exercise.displayMode === 'vr_box')
-  const lastRepetitionIndex = exercises.reduce((last, exercise, index) => exercise.doseMode === 'repetitions' ? index : last, -1)
+  const hasNonVrBox = exercises.some((exercise) => exercise.displayMode !== 'vr_box')
+  const lastNonVrBoxIndex = exercises.reduce((last, exercise, index) => exercise.displayMode !== 'vr_box' ? index : last, -1)
   const firstVrBoxIndex = exercises.findIndex((exercise) => exercise.displayMode === 'vr_box')
   let visorChanges = 0
   let wearingVisor = false
@@ -25,7 +27,8 @@ export function analyzeSessionSequence(exercises: ExerciseConfig[]): SessionSequ
 
   return {
     mixesRepetitionsAndVrBox: hasRepetitions && hasVrBox,
-    optimizedForVrBox: !hasRepetitions || !hasVrBox || firstVrBoxIndex > lastRepetitionIndex,
+    mixesVrBoxAndNonVrBox: hasVrBox && hasNonVrBox,
+    optimizedForVrBox: !hasVrBox || !hasNonVrBox || firstVrBoxIndex > lastNonVrBoxIndex,
     visorChanges,
   }
 }

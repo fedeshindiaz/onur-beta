@@ -17,7 +17,7 @@ El `plan_definition` se guarda como JSON versionado dentro de `session_plans`. L
 - En dosis por repeticiones, informa “objetivo completo”, una cantidad parcial o “no pude completar”.
 - El descanso tiene cuenta regresiva; al llegar a cero muestra “Iniciar siguiente fase”.
 - Los ejercicios VR Box son siempre temporizados y avanzan automáticamente.
-- Puede pausar, omitir o salir. Si sale, la reproducción posterior comienza desde el principio.
+- Fuera de VR Box puede pausar, omitir o salir. Dentro de VR Box no aparecen controles: la fase termina automáticamente y, ante malestar, la persona debe retirar el visor.
 - Antes y después registra escalas descriptivas. Estas no activan recomendaciones automáticas.
 - Si termina sin conexión, el resultado queda pendiente en el dispositivo y se sincroniza al volver internet.
 
@@ -26,7 +26,7 @@ Las asignaciones antiguas que no poseen `advanceMode` conservan continuidad auto
 ## Pantalla, VR Box y Quest
 
 - Pantalla 2D: confirmación táctil, mouse o teclado.
-- VR Box: no usa botones, mirada ni controles externos. Antes de colocarlo se confirma en la pantalla normal y comienza una preparación automática de 20 segundos.
+- VR Box: presentación binocular 2D sin anclaje espacial, seguimiento de cabeza ni corrección óptica por modelo. No usa botones, mirada, controles externos ni metrónomo. Antes de colocarlo se confirma en la pantalla normal y comienza una preparación automática de 20 segundos con marcador de fusión.
 - Quest navegador BETA: controlador, manos o selección compatible del navegador.
 
 RVO x1, RVO x2 y el objetivo recordado solo se habilitan en una pantalla 2D inmóvil. VR Box fija el lienzo a la cabeza y Quest navegador todavía no ofrece a la aplicación un anclaje espacial WebXR verificado. Los visores quedan reservados para seguimiento, sacadas, optocinético, habituación visual o una configuración Libre explícita con cabeza quieta. Estas tareas oculomotoras no se presentan como equivalentes a la adaptación del RVO.
@@ -35,7 +35,9 @@ RVO x2 usa un blanco móvil y una consigna de movimiento cefálico en sentido op
 
 El modo Libre puede guardarse como predeterminado aun cuando no satisfaga las reglas clínicas de una finalidad cerrada. La asignación sigue bloqueando combinaciones técnicamente inexequibles y condiciones domiciliarias sin la supervisión necesaria.
 
-Las repeticiones se realizan con el celular fuera del visor. Si la sesión mezcla ambos tipos, el constructor advierte y ofrece ordenar primero las repeticiones y luego un único bloque VR. Cada entrada o salida de VR agrega 20 segundos; también se retira el visor antes del autorreporte final.
+Las repeticiones y cualquier tarea 2D se realizan con el celular fuera del visor. Si la sesión mezcla ambos modos, el constructor advierte y ofrece ordenar primero todas las tareas sin visor y luego un único bloque VR. Cada entrada o salida de VR agrega 20 segundos; también se retira el visor antes del autorreporte final.
+
+VR Box queda restringido a seguimiento, sacadas, optocinético, habituación visual o Libre visual; siempre por tiempo, con avance automático, sentado y en superficie firme. Antes de empezar, el paciente debe percibir los dos marcadores como uno solo y nítido. Ver doble, ver borroso o no poder fusionarlos impide iniciar esa modalidad.
 
 No se habilitan tareas físicas dentro de VR Box ni Quest: deben ejecutarse fuera del visor, con el entorno visible. Las superficies inestables requieren ayudante entrenado o supervisión directa; la marcha domiciliaria no se asigna como independiente.
 

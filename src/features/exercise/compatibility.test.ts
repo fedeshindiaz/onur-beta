@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { analyzeExerciseCompatibility, applyExercisePurpose } from './compatibility'
-import { defaultExerciseConfig, type ExerciseConfig, type ExercisePurpose } from './types'
+import { analyzeExerciseCompatibility, applyExercisePurpose, isVrBoxPurposeSupported } from './compatibility'
+import { defaultExerciseConfig, type CognitiveTaskMode, type ExerciseAdvanceMode, type ExerciseConfig, type ExerciseDoseMode, type ExercisePosture, type ExercisePurpose, type ExerciseSurface, type MotionDirection } from './types'
 
 function exercise(purpose: ExercisePurpose, overrides: Partial<ExerciseConfig> = {}) {
   return { ...applyExercisePurpose(defaultExerciseConfig, purpose), ...overrides }
@@ -88,6 +88,12 @@ describe('coherencia clínica y espacial de ejercicios', () => {
     expect(applyExercisePurpose(defaultExerciseConfig, 'guided_functional')).toMatchObject({ kind: 'guided_physical', displayMode: 'standard', doseMode: 'repetitions', advanceMode: 'manual' })
   })
 
+  it('actualiza el nombre al cambiar de finalidad para no rotular mal la plantilla', () => {
+    expect(applyExercisePurpose(defaultExerciseConfig, 'optokinetic').name).toBe('Estimulación optocinética')
+    expect(applyExercisePurpose(defaultExerciseConfig, 'saccades').name).toBe('Sacadas visuales')
+    expect(applyExercisePurpose(defaultExerciseConfig, 'custom_free').name).toBe('Libre · configuración profesional')
+  })
+
   it('modo Libre no aplica las reglas clínicas de RVO, pero mantiene límites técnicos de VR Box', () => {
     const arbitrary = exercise('custom_free', { objectMode: 'saccades', backgroundType: 'spiral', backgroundSpeed: 80 })
     expect(analyzeExerciseCompatibility(arbitrary)).toMatchObject({ valid: true })
@@ -108,5 +114,50 @@ describe('coherencia clínica y espacial de ejercicios', () => {
     const analysis = analyzeExerciseCompatibility(dualTask)
     expect(analysis.valid).toBe(true)
     expect(analysis.clinicalNote).toContain('no una prueba diagnóstica')
+  })
+
+  it('verifica exhaustivamente las combinaciones operativas de VR Box', () => {
+    const purposes = Object.keys({
+      gaze_stabilization: 1, gaze_stabilization_x2: 1, gaze_substitution_remembered: 1,
+      smooth_pursuit: 1, saccades: 1, optokinetic: 1, visual_habituation: 1,
+      cognitive_visual: 1, guided_functional: 1, custom_free: 1,
+    }) as ExercisePurpose[]
+    const doses: ExerciseDoseMode[] = ['time', 'repetitions']
+    const advances: ExerciseAdvanceMode[] = ['automatic', 'manual']
+    const postures: ExercisePosture[] = ['seated', 'standing', 'walking']
+    const surfaces: ExerciseSurface[] = ['firm', 'unstable']
+    const cognition: CognitiveTaskMode[] = ['none', 'rare_target']
+    const metronomes = [false, true]
+    let checked = 0
+
+    for (const purpose of purposes) for (const doseMode of doses) for (const advanceMode of advances) {
+      for (const posture of postures) for (const surface of surfaces) for (const cognitiveTaskMode of cognition) for (const metronomeEnabled of metronomes) {
+        const configured = exercise(purpose, { displayMode: 'vr_box', doseMode, advanceMode, posture, surface, cognitiveTaskMode, metronomeEnabled })
+        const expected = isVrBoxPurposeSupported(purpose)
+          && doseMode === 'time' && advanceMode === 'automatic'
+          && posture === 'seated' && surface === 'firm'
+          && cognitiveTaskMode === 'none' && !metronomeEnabled
+        expect(analyzeExerciseCompatibility(configured).valid, JSON.stringify({ purpose, doseMode, advanceMode, posture, surface, cognitiveTaskMode, metronomeEnabled })).toBe(expected)
+        checked += 1
+      }
+    }
+    expect(checked).toBe(960)
+  })
+
+  it('verifica todas las direcciones de los fondos móviles compatibles con VR Box', () => {
+    const linear: MotionDirection[] = ['left', 'right', 'up', 'down', 'up_left', 'up_right', 'down_left', 'down_right']
+    const rotational: MotionDirection[] = ['clockwise', 'counterclockwise']
+    const directions = [...linear, ...rotational]
+    const patterns = ['bars', 'checkerboard', 'dots', 'spiral'] as const
+    let checked = 0
+
+    for (const purpose of ['optokinetic', 'visual_habituation'] as const) for (const backgroundType of patterns) for (const backgroundDirection of directions) {
+      const analysis = analyzeExerciseCompatibility(exercise(purpose, {
+        displayMode: 'vr_box', doseMode: 'time', advanceMode: 'automatic', backgroundType, backgroundDirection,
+      }))
+      expect(analysis.valid, JSON.stringify({ purpose, backgroundType, backgroundDirection })).toBe(backgroundType === 'spiral' ? rotational.includes(backgroundDirection) : linear.includes(backgroundDirection))
+      checked += 1
+    }
+    expect(checked).toBe(80)
   })
 })

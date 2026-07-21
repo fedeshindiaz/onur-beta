@@ -27,7 +27,10 @@ registerSW({
   immediate: true,
   onNeedReload: reloadWhenSessionIsSafe,
   onRegisteredSW: (_serviceWorkerUrl, registration) => {
-    if (registration) window.setInterval(() => void registration.update(), 60 * 60 * 1_000)
+    if (registration) {
+      void registration.update()
+      window.setInterval(() => void registration.update(), 60 * 60 * 1_000)
+    }
   },
 })
 

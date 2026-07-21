@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calculateSaccadePosition, calculateTrackingPosition } from './engine'
+import { calculateSaccadePosition, calculateTrackingPosition, clampObjectPosition } from './engine'
 import { cognitiveInstruction, cognitiveStepAt, cognitiveSymbolAtStep, isCognitiveTargetStep } from './cognitive'
 import { applyExercisePurpose } from './compatibility'
 import { defaultExerciseConfig } from './types'
@@ -31,6 +31,11 @@ describe('motor de posiciones del ejercicio', () => {
     const first = calculateSaccadePosition(3.2, 1000, 500, 0.8, 'random', 30)
     const second = calculateSaccadePosition(3.2, 1000, 500, 0.8, 'random', 30)
     expect(first).toEqual(second)
+  })
+
+  it('mantiene el blanco completo dentro de cada mitad del visor', () => {
+    expect(clampObjectPosition({ x: -20, y: 500 }, 320, 180, 90)).toEqual({ x: 47, y: 133 })
+    expect(clampObjectPosition({ x: 160, y: 90 }, 320, 180, 90)).toEqual({ x: 160, y: 90 })
   })
 
   it.each([

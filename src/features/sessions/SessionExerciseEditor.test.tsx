@@ -5,6 +5,7 @@ import { defaultExerciseConfig, type ExerciseConfig } from '../exercise/types'
 import { SessionExerciseEditor } from './SessionExerciseEditor'
 
 vi.mock('../exercise/ExerciseCanvas', () => ({ ExerciseCanvas: () => <div>Vista visual</div> }))
+vi.mock('../exercise/StereoscopicExerciseCanvas', () => ({ StereoscopicExerciseCanvas: () => <div>Vista binocular VR</div> }))
 vi.mock('../exercise/ExercisePlayer', () => ({ ExercisePlayer: () => <div>Reproductor</div> }))
 
 afterEach(cleanup)
@@ -25,6 +26,8 @@ describe('creación de ejercicios', () => {
     expect(screen.getByLabelText('Avance')).toHaveValue('automatic')
     expect(screen.getByText(/No usa botones, mirada ni controles externos/)).toBeInTheDocument()
     expect(screen.getByText('Configuración coherente')).toBeInTheDocument()
+    expect(screen.getByText('Vista binocular VR')).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: 'Metrónomo' })).toBeDisabled()
   })
 
   it('Quest conserva dosis por tiempo o repeticiones desde el navegador', () => {

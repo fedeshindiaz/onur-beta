@@ -24,4 +24,13 @@ describe('plan práctico de ejecución', () => {
     const config = { ...defaultExerciseConfig, cognitiveTaskMode: 'go_no_go' as const, cognitiveResponseMode: 'screen_tap' as const, advanceMode: 'manual' as const }
     expect(buildExerciseExecutionPlan(config, 'home').feasibility).toBe('not_executable')
   })
+
+  it('explica una ejecución VR Box sin controles ni falsa promesa de anclaje espacial', () => {
+    const config = { ...applyExercisePurpose(defaultExerciseConfig, 'optokinetic'), displayMode: 'vr_box' as const, doseMode: 'time' as const, advanceMode: 'automatic' as const }
+    const plan = buildExerciseExecutionPlan(config, 'home')
+    expect(plan.feasibility).toBe('ready')
+    expect(plan.finish).toContain('termina automáticamente')
+    expect(plan.warnings.join(' ')).toContain('presentación binocular 2D')
+    expect(plan.warnings.join(' ')).toContain('fusionen en uno solo')
+  })
 })

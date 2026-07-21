@@ -44,14 +44,14 @@ Fondo y objeto usan parámetros independientes. Los movimientos se calculan como
 - pausa, continuación, omisión, salida y pantalla completa;
 - preparación inicial una sola vez;
 - tiempo activo sin pausas ni descansos;
-- metrónomo configurable;
+- metrónomo configurable fuera de VR Box;
 - confirmación táctil, mouse o teclado en pantalla 2D;
-- VR Box con dos vistas sincronizadas, exclusivamente para ejercicios por tiempo y con finalización automática;
+- VR Box con dos vistas sincronizadas, exclusivamente para ejercicios por tiempo, sentado en superficie firme y con finalización automática;
 - Quest en navegador BETA con selección mediante controlador, manos o puntero compatible.
 
-Antes de entrar a VR Box aparece un aviso en pantalla normal. Al confirmar, comienza una transición de 20 segundos para colocar el celular y el visor. Al terminar el bloque VR se reservan otros 20 segundos para retirarlos. No se implementa ningún mecanismo de confirmación dentro del visor.
+Antes de entrar a VR Box aparece un aviso en pantalla normal. Al confirmar, comienza una transición de 20 segundos para colocar el celular y el visor. Cada mitad muestra el mismo marcador de fusión: la persona debe percibir uno solo, nítido y cómodo; si lo ve doble o borroso, debe retirar el visor y no comenzar. Durante el estímulo no se superponen controles, textos ni contadores no duplicados. Al terminar el bloque VR se reservan otros 20 segundos para retirarlo. No se implementa ningún mecanismo de confirmación dentro del visor.
 
-Cuando una sesión mezcla repeticiones y VR Box, el constructor recomienda realizar primero las repeticiones y dejar los ejercicios temporizados VR al final. Si se conserva otro orden, se inserta una transición por cada cambio de equipamiento.
+Cuando una sesión mezcla cualquier tarea sin visor y VR Box, el constructor recomienda realizar primero todas las fases 2D o manuales y dejar un único bloque VR al final. Esto incluye tareas 2D temporizadas, no solo repeticiones. Si se conserva otro orden, se inserta una transición por cada cambio de equipamiento.
 
 Quest navegador todavía no equivale a una escena WebXR controlada por la aplicación. Por ese motivo, una sesión Quest debe contener únicamente ejercicios Quest: la versión actual no transfiere una ejecución activa entre el visor y otro dispositivo.
 
@@ -76,18 +76,19 @@ En VR Box, el lienzo del celular acompaña la cabeza. En Quest, la aplicación a
 
 `custom_free` permite conservar como plantilla cualquier combinación de fondo, objeto, trayectoria, colores, amplitud, frecuencia, dosis, postura y dispositivo, incluso si no cumple las reglas de una finalidad clínica cerrada. La biblioteca no bloquea su guardado. La interfaz lo identifica en amarillo como configuración profesional no validada y no infiere que sea RVO, sustitución, habituación u optocinético.
 
-Guardar y asignar son operaciones distintas. Al crear una sesión se mantienen los límites técnicos de VR Box (tiempo y avance automático), la postura sentada en visores, las reglas de ayuda para superficie inestable o marcha domiciliaria y la exclusividad de dispositivo en Quest.
+Guardar y asignar son operaciones distintas. Al crear una sesión se mantienen los límites técnicos de VR Box (tiempo, avance automático, sin metrónomo, postura sentada y superficie firme), las reglas de ayuda para superficie inestable o marcha domiciliaria y la exclusividad de dispositivo en Quest.
 
 ## Límites clínicos y técnicos
 
 - Los rangos de velocidad, frecuencia, amplitud y diagonal son controles técnicos, no dosis clínicamente validadas.
 - El generador visual no mide técnica, postura, velocidad cefálica ni repeticiones reales.
-- El sonido puede requerir una primera interacción si el navegador bloquea audio automático.
-- VR Box duplica el estímulo 2D; no simula profundidad ni seguimiento de cabeza.
+- El sonido puede requerir una primera interacción si el navegador bloquea audio automático; por ese motivo el metrónomo se deshabilita en VR Box.
+- VR Box duplica el estímulo 2D; no simula profundidad, no sigue la cabeza y no aplica corrección de lente específica del modelo de visor.
+- El blanco se limita a la zona visible de cada mitad para evitar que su tamaño o amplitud lo recorten en el borde.
 - Quest navegador muestra el lienzo 2D; el código actual no solicita `XRSession`, poses ni espacios de referencia WebXR.
 - Las tareas físicas se bloquean en ambos visores, incluso con supervisión, porque el entorno queda oculto y el reproductor no controla la ejecución corporal.
 - Se requieren pruebas físicas en celulares, VR Box, tablets, HDMI y Meta Quest antes del piloto.
 
 ## Pruebas
 
-Las funciones de seguimiento y sacadas se prueban separadas del Canvas, incluidos ambos ejes diagonales. Las posiciones aleatorias son deterministas. La matriz automática cubre las diez finalidades en Pantalla 2D, VR Box y Quest, además de modo Libre, tareas cognitivas, dosis, avance, preparación, confirmación de fases y trazabilidad de repeticiones. El reproductor vuelve a validar una configuración heredada antes de mostrarla al paciente.
+Las funciones de seguimiento y sacadas se prueban separadas del Canvas, incluidos ambos ejes diagonales. Las posiciones aleatorias son deterministas y el blanco se mantiene completo dentro de cada vista. La matriz automática recorre 960 combinaciones operativas de VR Box, 80 combinaciones de patrón/dirección y 1092 secuencias de hasta seis ejercicios, además de las pruebas del flujo, preparación, confirmación y trazabilidad. El reproductor vuelve a validar una configuración heredada antes de mostrarla al paciente.

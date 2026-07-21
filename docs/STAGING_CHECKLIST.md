@@ -64,7 +64,7 @@ Este checklist debe completarse antes de cargar datos reales o iniciar un piloto
 - [ ] Los auto-reportes no disparan ramas, alertas clínicas ni recomendaciones automáticas.
 - [ ] Pausas y descansos no aumentan el tiempo activo.
 - [ ] Probar audio del metrónomo y su pausa en cada navegador objetivo.
-- [ ] Probar VR Box en horizontal: aviso previo, pantalla completa, transición de 20 segundos, centrado binocular, finalización automática y retiro del visor.
+- [ ] Probar VR Box real en horizontal: aviso previo, pantalla completa, transición de 20 segundos, marcador fusionado en una sola imagen nítida, amplitud sin recortes, ausencia de controles superpuestos, finalización automática y retiro del visor.
 - [ ] Probar Quest navegador; no presentar esa salida como WebXR inmersiva.
 - [ ] La confirmación de uso se solicita por versión y queda auditada.
 - [ ] Probar la matriz definida de teléfonos, navegadores y HDMI.

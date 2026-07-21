@@ -6,6 +6,15 @@ export interface Point {
   y: number
 }
 
+export function clampObjectPosition(position: Point, width: number, height: number, objectSize: number): Point {
+  const radius = Math.max(objectSize / 2, 1)
+  const margin = Math.min(radius + 2, Math.max(1, Math.min(width, height) / 2))
+  return {
+    x: Math.min(Math.max(position.x, margin), Math.max(margin, width - margin)),
+    y: Math.min(Math.max(position.y, margin), Math.max(margin, height - margin)),
+  }
+}
+
 function positiveModulo(value: number, divisor: number) {
   return ((value % divisor) + divisor) % divisor
 }
@@ -217,6 +226,8 @@ export function renderExerciseFrame(
       config.objectAmplitude,
     )
   }
+
+  objectPosition = clampObjectPosition(objectPosition, width, height, config.objectSize)
 
   const cognitiveSymbol = config.cognitiveTaskMode === 'none'
     ? 'circle'

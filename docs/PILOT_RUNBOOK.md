@@ -92,7 +92,7 @@ Probar y documentar:
 - toque para mostrar controles, pausa, omitir y salir;
 - pérdida y recuperación de red justo al finalizar.
 
-En VR Box comprobar tamaño, centrado y separación visual antes de colocar el teléfono. No describir Quest navegador como WebXR.
+En VR Box comprobar en el equipo real: orientación horizontal, fusión del marcador en una sola imagen, nitidez, centrado, amplitud sin recortes, ausencia de textos/controles superpuestos y retiro inmediato ante visión doble o borrosa. La salida es binocular 2D y no incluye corrección óptica específica del visor. No describir Quest navegador como WebXR.
 
 ## 6. Criterio de entrada a piloto
 

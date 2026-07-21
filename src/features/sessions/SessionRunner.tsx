@@ -124,11 +124,12 @@ function VrBoxTransitionScreen({ direction, seconds, nextLabel, onComplete, onEx
     </div>
   </div>
 
-  const instruction = direction === 'put_on' ? 'Colocá el celular en el VR Box y acomodá el visor.' : 'Retirá el visor y sacá el celular para continuar.'
+  const instruction = direction === 'put_on' ? 'Ajustá el visor hasta ver un único + nítido. Si ves doble o borroso, retiralo y no comiences.' : 'Retirá el visor y sacá el celular para continuar.'
   const content = (duplicate = false) => <div className="flex h-full flex-col items-center justify-center px-5 text-center" aria-hidden={duplicate || undefined}>
     <Glasses className="text-[#E49A02]" size={30}/>
     <p className="mt-4 text-[9px] font-black uppercase tracking-[.16em] text-[#E49A02]">{direction === 'put_on' ? 'Colocar visor' : 'Retirar visor'}</p>
     <p className="mt-3 text-5xl font-black tabular-nums">{remaining}</p>
+    {direction === 'put_on' && <div className="mt-3 grid size-8 place-items-center rounded-full border-2 border-white text-lg font-black text-white">+</div>}
     <p className="mt-4 max-w-xs text-[10px] font-bold leading-4 text-white/70">{instruction}</p>
   </div>
 
@@ -196,7 +197,7 @@ export function SessionRunner({ session, onFinish, onExit }: { session: SessionA
   const total = session.exercises.reduce((count, exercise) => count + exercise.rounds, 0)
   const preparationSeconds = progress === 1 && unit.config.displayMode !== 'vr_box' ? unit.config.preparationSeconds : 0
   return <>
-    <div className="fixed left-4 top-20 z-[110] rounded-full bg-black/55 px-3 py-2 text-[10px] font-black text-white backdrop-blur">{unit.label} · {progress}/{total}</div>
+    {unit.config.displayMode !== 'vr_box' && <div className="fixed left-4 top-20 z-[110] rounded-full bg-black/55 px-3 py-2 text-[10px] font-black text-white backdrop-blur">{unit.label} · {progress}/{total}</div>}
     <ExercisePlayer key={index} config={{ ...unit.config, rounds: 1 }} preparationSeconds={preparationSeconds} onComplete={(seconds, report) => advance(seconds, report)} onSkip={(seconds, report) => advance(seconds, report ?? { doseMode: unit.config.doseMode, completion: 'skipped' })} onExit={onExit}/>
   </>
 }

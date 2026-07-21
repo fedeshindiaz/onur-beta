@@ -26,6 +26,36 @@ export const exercisePurposeLabels: Record<ExercisePurpose, string> = {
   custom_free: 'Libre · configuración profesional no validada',
 }
 
+export const exercisePurposeDefaultNames: Record<ExercisePurpose, string> = {
+  gaze_stabilization: 'RVO X1 · Punto fijo 2D',
+  gaze_stabilization_x2: 'RVO X2 · Blanco y cabeza opuestos',
+  gaze_substitution_remembered: 'Objetivo recordado · sustitución',
+  smooth_pursuit: 'Seguimiento ocular suave',
+  saccades: 'Sacadas visuales',
+  optokinetic: 'Estimulación optocinética',
+  visual_habituation: 'Habituación a movimiento visual',
+  cognitive_visual: 'Tarea cognitivo-visual',
+  guided_functional: 'Tarea funcional guiada',
+  custom_free: 'Libre · configuración profesional',
+}
+
+export const vrBoxPurposeCompatibility: Record<ExercisePurpose, { supported: boolean; reason: string }> = {
+  gaze_stabilization: { supported: false, reason: 'El blanco acompaña al celular y a la cabeza; no queda fijo en el ambiente.' },
+  gaze_stabilization_x2: { supported: false, reason: 'El movimiento del blanco no puede interpretarse respecto de una pantalla inmóvil.' },
+  gaze_substitution_remembered: { supported: false, reason: 'Necesita una referencia estable, abrir/cerrar los ojos y confirmar cada repetición.' },
+  smooth_pursuit: { supported: true, reason: 'El blanco se mueve respecto de los ojos mientras la cabeza permanece quieta.' },
+  saccades: { supported: true, reason: 'El blanco cambia de posición respecto de los ojos mientras la cabeza permanece quieta.' },
+  optokinetic: { supported: true, reason: 'El patrón se mueve respecto de los ojos y no necesita estar anclado al ambiente.' },
+  visual_habituation: { supported: true, reason: 'El campo visual móvil puede presentarse como estímulo binocular 2D.' },
+  cognitive_visual: { supported: false, reason: 'La consigna y la respuesta necesitan una pantalla accesible fuera del visor.' },
+  guided_functional: { supported: false, reason: 'El visor oculta el entorno necesario para realizar la tarea física.' },
+  custom_free: { supported: true, reason: 'Admite estímulos visuales técnicamente ejecutables, sin equivalencia clínica automática.' },
+}
+
+export function isVrBoxPurposeSupported(purpose: ExercisePurpose) {
+  return vrBoxPurposeCompatibility[purpose].supported
+}
+
 const purposeInstructions: Record<ExercisePurpose, string> = {
   gaze_stabilization: 'Mantené el blanco nítido mientras movés la cabeza según la indicación profesional.',
   gaze_stabilization_x2: 'Mantené nítido el blanco y mové la cabeza en la dirección opuesta a su recorrido.',
@@ -40,7 +70,7 @@ const purposeInstructions: Record<ExercisePurpose, string> = {
 }
 
 export function applyExercisePurpose(config: ExerciseConfig, purpose: ExercisePurpose): ExerciseConfig {
-  const common = { ...config, purpose, patientInstruction: purposeInstructions[purpose] }
+  const common = { ...config, purpose, name: exercisePurposeDefaultNames[purpose], patientInstruction: purposeInstructions[purpose] }
   if (purpose === 'guided_functional') {
     return {
       ...common,
@@ -142,6 +172,14 @@ export function analyzeExerciseCompatibility(config: ExerciseConfig): ExerciseCo
   const free = config.purpose === 'custom_free'
   const cognitive = config.cognitiveTaskMode !== 'none'
   const headMovementPurpose = ['gaze_stabilization', 'gaze_stabilization_x2', 'gaze_substitution_remembered'].includes(config.purpose)
+  const rotationalDirection = config.backgroundDirection === 'clockwise' || config.backgroundDirection === 'counterclockwise'
+
+  if (!free && config.backgroundType === 'spiral' && !rotationalDirection) {
+    issues.push(issue('spiral-direction', 'La espiral representa una rotación y no admite una dirección lineal o diagonal.', 'Elegí sentido horario o antihorario.'))
+  }
+  if (!free && config.backgroundType !== 'solid' && config.backgroundType !== 'spiral' && rotationalDirection) {
+    issues.push(issue('linear-pattern-direction', 'Barras, damero y puntos se desplazan linealmente y no admiten sentido horario o antihorario.', 'Elegí una dirección horizontal, vertical o diagonal.'))
+  }
 
   if (free) {
     if (config.kind !== 'visual_stimulus') issues.push(issue('free-kind', 'El modo Libre de este constructor reproduce un estímulo visual.', 'Elegí estímulo visual o usá la finalidad funcional para una tarea física.'))
@@ -210,8 +248,13 @@ export function analyzeExerciseCompatibility(config: ExerciseConfig): ExerciseCo
     issues.push(issue('headset-posture', `Los estímulos visuales en ${deviceName} están limitados a posición sentada en esta versión.`, 'Elegí posición sentada o usá Pantalla 2D.'))
   }
 
+  if (headset && config.kind === 'visual_stimulus' && config.surface !== 'firm') {
+    issues.push(issue('headset-surface', `Los estímulos visuales en ${deviceName} requieren una superficie firme en esta versión.`, 'Elegí superficie firme o usá Pantalla 2D.'))
+  }
+
   if (config.displayMode === 'vr_box' && config.doseMode !== 'time') issues.push(issue('vr-dose', 'VR Box solo admite ejercicios por tiempo porque el paciente no puede confirmar repeticiones con el celular dentro del visor.', 'Elegí Por tiempo o Pantalla 2D.'))
   if (config.displayMode === 'vr_box' && config.advanceMode !== 'automatic') issues.push(issue('vr-advance', 'VR Box debe finalizar automáticamente porque no usa botones, mirada ni controles externos.', 'Elegí avance automático.'))
+  if (config.displayMode === 'vr_box' && config.metronomeEnabled) issues.push(issue('vr-metronome', 'El audio del navegador puede quedar bloqueado después de colocar el celular en VR Box y no es necesario para estos estímulos visuales.', 'Desactivá el metrónomo en VR Box.'))
 
   let explanation = 'La configuración técnica coincide con el objetivo seleccionado.'
   if (config.purpose === 'gaze_stabilization' && config.displayMode === 'standard') explanation = 'El blanco queda fijo en una pantalla inmóvil mientras el paciente mueve la cabeza: la referencia espacial es coherente con RVO x1.'
