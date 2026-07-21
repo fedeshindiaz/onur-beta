@@ -1,13 +1,17 @@
-import { Accessibility, CircleCheck, Eye, Play, ShieldAlert } from 'lucide-react'
+import { Accessibility, BookOpen, CircleCheck, ClipboardCheck, Eye, Play, ShieldAlert } from 'lucide-react'
 import { useState } from 'react'
+import { clinicalSources } from '../clinicalGeneration/catalog'
+import { cognitiveInstruction, cognitiveSymbolLabels, cognitiveTaskLabel } from '../exercise/cognitive'
 import { ExerciseCanvas } from '../exercise/ExerciseCanvas'
 import { analyzeExerciseCompatibility, applyExercisePurpose, exercisePurposeLabels } from '../exercise/compatibility'
+import { buildExerciseExecutionPlan, type ExerciseSetting } from '../exercise/execution'
 import { ExercisePlayer } from '../exercise/ExercisePlayer'
-import type { BackgroundType, ExerciseConfig, ExercisePurpose, LinearMotionDirection, MotionDirection, ObjectDirection, PreparationSeconds } from '../exercise/types'
+import type { BackgroundType, CognitiveResponseMode, CognitiveSymbol, CognitiveTaskMode, ExerciseConfig, ExercisePurpose, LinearMotionDirection, MotionDirection, ObjectDirection, PreparationSeconds } from '../exercise/types'
 
 interface SessionExerciseEditorProps {
   config: ExerciseConfig
   isFirst?: boolean
+  setting?: ExerciseSetting
   onChange: (config: ExerciseConfig) => void
 }
 
@@ -22,13 +26,20 @@ const objectDirectionLabels: Record<ObjectDirection, string> = {
   horizontal: 'Horizontal', vertical: 'Vertical', diagonal_down: 'Diagonal ↖ ↘', diagonal_up: 'Diagonal ↙ ↗',
 }
 
-export function SessionExerciseEditor({ config, isFirst = false, onChange }: SessionExerciseEditorProps) {
+export function SessionExerciseEditor({ config, isFirst = false, setting = 'unspecified', onChange }: SessionExerciseEditorProps) {
   const [playing, setPlaying] = useState(false)
   const set = <Key extends keyof ExerciseConfig>(key: Key, value: ExerciseConfig[Key]) => onChange({ ...config, [key]: value })
   const directions: MotionDirection[] = config.backgroundType === 'spiral' ? ['clockwise', 'counterclockwise'] : linearDirections
   const isPhysical = config.kind === 'guided_physical'
   const isFree = config.purpose === 'custom_free'
   const compatibility = analyzeExerciseCompatibility(config)
+  const execution = buildExerciseExecutionPlan(config, setting)
+  const cognitive = config.cognitiveTaskMode !== 'none'
+  const evidenceSourceIds = new Set<string>(['SRC-001'])
+  if (config.purpose === 'optokinetic' || config.purpose === 'visual_habituation') evidenceSourceIds.add('SRC-022')
+  if (config.displayMode !== 'standard') evidenceSourceIds.add('SRC-023')
+  if (cognitive) { evidenceSourceIds.add('SRC-032'); evidenceSourceIds.add('SRC-033') }
+  const evidenceSources = clinicalSources.filter((source) => evidenceSourceIds.has(source.id))
   const setKind = (kind: ExerciseConfig['kind']) => onChange(applyExercisePurpose(config, kind === 'guided_physical' ? 'guided_functional' : 'gaze_stabilization'))
   const setPurpose = (purpose: ExercisePurpose) => onChange(applyExercisePurpose(config, purpose))
   const setBackgroundType = (backgroundType: BackgroundType) => onChange({
@@ -41,6 +52,20 @@ export function SessionExerciseEditor({ config, isFirst = false, onChange }: Ses
   const setDisplayMode = (displayMode: ExerciseConfig['displayMode']) => onChange(displayMode === 'vr_box'
     ? { ...config, displayMode, doseMode: 'time', advanceMode: 'automatic' }
     : { ...config, displayMode })
+  const setCognitiveTask = (cognitiveTaskMode: CognitiveTaskMode) => {
+    if (cognitiveTaskMode === 'none') return onChange({ ...config, cognitiveTaskMode })
+    onChange({
+      ...config,
+      cognitiveTaskMode,
+      displayMode: 'standard',
+      doseMode: 'time',
+      advanceMode: 'manual',
+      posture: 'seated',
+      surface: 'firm',
+      objectEnabled: true,
+      cognitiveResponseMode: cognitiveTaskMode === 'rare_target' ? 'count_at_end' : config.cognitiveResponseMode === 'count_at_end' ? 'verbal' : config.cognitiveResponseMode,
+    })
+  }
 
   return (
     <div className="grid gap-5 xl:grid-cols-[1fr_.9fr]">
@@ -61,6 +86,7 @@ export function SessionExerciseEditor({ config, isFirst = false, onChange }: Ses
               <option value="saccades">{exercisePurposeLabels.saccades}</option>
               <option value="optokinetic">{exercisePurposeLabels.optokinetic}</option>
               <option value="visual_habituation">{exercisePurposeLabels.visual_habituation}</option>
+              <option value="cognitive_visual">{exercisePurposeLabels.cognitive_visual}</option>
               <option value="custom_free">{exercisePurposeLabels.custom_free}</option>
             </>}</select></label>
           <label className="mt-4 block text-xs font-black text-[#2F2F2F]">Instrucción para el paciente<textarea rows={3} className="mt-2 w-full rounded-2xl border border-[#E9E7E7] bg-white p-3 text-sm font-normal" value={config.patientInstruction} onChange={(event) => set('patientInstruction', event.target.value)} /></label>
@@ -95,6 +121,21 @@ export function SessionExerciseEditor({ config, isFirst = false, onChange }: Ses
               {isFree && <label className="text-xs font-black text-[#2F2F2F]">Color del blanco<input aria-label="Color del blanco" type="color" className="mt-2 h-11 w-full rounded-xl border border-[#E9E7E7] bg-white p-1" value={config.objectColor} onChange={(event) => set('objectColor', event.target.value)} /></label>}
             </div>
           </section>
+
+          <section className="rounded-2xl border border-[#E9E7E7] bg-white p-5">
+            <div className="flex items-start justify-between gap-3"><div><h3 className="font-black text-[#171717]">Tarea cognitiva opcional</h3><p className="mt-1 text-[11px] leading-5 text-[#747474]">Se agrega sobre el estímulo visual actual. No diagnostica atención, inhibición ni memoria.</p></div>{cognitive && <span className="rounded-full bg-[#FFF7E8] px-3 py-1 text-[10px] font-black text-[#A36B00]">{cognitiveTaskLabel(config)}</span>}</div>
+            <label className="mt-4 block text-xs font-black text-[#2F2F2F]">Tipo de tarea cognitiva<select className={input} value={config.cognitiveTaskMode} onChange={(event) => setCognitiveTask(event.target.value as CognitiveTaskMode)}><option value="none">Sin tarea cognitiva</option><option value="rare_target">Detección de objetivo raro</option><option value="go_no_go">Go/No-Go</option><option value="short_memory">Memoria breve</option></select></label>
+            {cognitive && <div className="mt-4 space-y-4 rounded-2xl border border-[#E8CE99] bg-[#FFFDF8] p-4">
+              <div className="rounded-xl bg-[#171717] p-4 text-white"><p className="text-[10px] font-black uppercase tracking-[.14em] text-[#EFB33A]">Consigna que verá el paciente</p><p className="mt-2 text-sm font-black leading-6">{cognitiveInstruction(config)}</p></div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {config.cognitiveTaskMode !== 'short_memory' && <label className="text-xs font-black text-[#2F2F2F]">Figura objetivo<select className={input} value={config.cognitiveTargetSymbol} onChange={(event) => set('cognitiveTargetSymbol', event.target.value as CognitiveSymbol)}>{(Object.entries(cognitiveSymbolLabels) as [CognitiveSymbol, string][]).map(([symbol, label]) => <option key={symbol} value={symbol}>{label[0].toUpperCase() + label.slice(1)}</option>)}</select></label>}
+                <label className="text-xs font-black text-[#2F2F2F]">Cambio de figura: cada {config.cognitiveStimulusSeconds.toFixed(1)} s<input type="range" min="1" max="5" step="0.5" className="mt-4 w-full accent-[#E49A02]" value={config.cognitiveStimulusSeconds} onChange={(event) => set('cognitiveStimulusSeconds', Number(event.target.value))} /></label>
+                {config.cognitiveTaskMode === 'short_memory' && <label className="text-xs font-black text-[#2F2F2F]">Comparar con<select className={input} value={config.cognitiveMemorySpan} onChange={(event) => set('cognitiveMemorySpan', Number(event.target.value) as 1 | 2 | 3)}><option value="1">La figura anterior</option><option value="2">Dos posiciones atrás</option><option value="3">Tres posiciones atrás</option></select></label>}
+                {config.cognitiveTaskMode !== 'rare_target' && <label className="text-xs font-black text-[#2F2F2F]">Forma de responder<select className={input} value={config.cognitiveResponseMode} onChange={(event) => set('cognitiveResponseMode', event.target.value as CognitiveResponseMode)}><option value="verbal">Respuesta verbal</option><option value="screen_tap" disabled={config.displayMode !== 'standard' || ['gaze_stabilization', 'gaze_stabilization_x2', 'gaze_substitution_remembered'].includes(config.purpose)}>Tocar botón en pantalla</option></select></label>}
+              </div>
+              <p className="text-[11px] leading-5 text-[#8A5B00]">Comenzá con la tarea cognitiva aislada, ritmo lento y memoria de una posición. Combinarla con RVO, seguimiento o sacadas es una doble tarea y requiere comprobar antes la ejecución aislada.</p>
+            </div>}
+          </section>
         </>}
 
         {isFree && <section className="rounded-2xl border border-[#E8CE99] bg-[#FFFDF8] p-5">
@@ -118,7 +159,7 @@ export function SessionExerciseEditor({ config, isFirst = false, onChange }: Ses
 
         <section className="rounded-2xl border border-[#E9E7E7] bg-white p-5">
           <h3 className="font-black text-[#171717]">Dispositivo y confirmación</h3>
-          <label className="mt-4 block text-xs font-black text-[#2F2F2F]">Modo<select className={input} value={config.displayMode} onChange={(event) => setDisplayMode(event.target.value as ExerciseConfig['displayMode'])}><option value="standard">Pantalla 2D</option><option value="vr_box" disabled={['gaze_stabilization', 'gaze_stabilization_x2', 'gaze_substitution_remembered'].includes(config.purpose) || isPhysical}>VR Box · estímulo visual sin anclaje</option><option value="quest_browser" disabled={['gaze_stabilization', 'gaze_stabilization_x2', 'gaze_substitution_remembered'].includes(config.purpose) || isPhysical}>Meta Quest · navegador sin anclaje</option></select></label>
+          <label className="mt-4 block text-xs font-black text-[#2F2F2F]">Modo<select className={input} value={config.displayMode} onChange={(event) => setDisplayMode(event.target.value as ExerciseConfig['displayMode'])}><option value="standard">Pantalla 2D</option><option value="vr_box" disabled={['gaze_stabilization', 'gaze_stabilization_x2', 'gaze_substitution_remembered'].includes(config.purpose) || isPhysical || cognitive}>VR Box · estímulo visual sin anclaje</option><option value="quest_browser" disabled={['gaze_stabilization', 'gaze_stabilization_x2', 'gaze_substitution_remembered'].includes(config.purpose) || isPhysical || cognitive}>Meta Quest · navegador sin anclaje</option></select></label>
           <p className="mt-3 text-[11px] leading-5 text-[#747474]">{config.displayMode === 'standard' ? 'La pantalla debe permanecer inmóvil. El paciente puede confirmar con controles visibles.' : config.displayMode === 'vr_box' ? 'VR Box duplica el estímulo para ambos ojos y solo admite ejercicios por tiempo. No usa botones, mirada ni controles externos.' : 'Quest usa el navegador 2D actual y sus controles, pero todavía no ancla objetos al ambiente mediante WebXR.'}</p>
           {config.displayMode === 'vr_box' && <p className="mt-3 rounded-xl bg-[#FFF7E8] p-3 text-[11px] font-bold leading-5 text-[#8A5B00]">La sesión agregará una pantalla previa y 20 segundos para colocar el celular en el visor, y otros 20 segundos para retirarlo antes de volver a una tarea manual.</p>}
           <div role={compatibility.valid ? 'status' : 'alert'} className={`mt-4 rounded-2xl border p-4 ${isFree ? 'border-[#E8CE99] bg-[#FFF7E8] text-[#8A5B00]' : compatibility.valid ? 'border-[#B9D9C5] bg-[#F0F8F3] text-[#28613D]' : 'border-[#eccfd2] bg-[#fceced] text-[#9A3842]'}`}>
@@ -130,6 +171,19 @@ export function SessionExerciseEditor({ config, isFirst = false, onChange }: Ses
         </section>
 
         <section className="rounded-2xl border border-[#E9E7E7] bg-white p-5">
+          <div className="flex items-center gap-2"><ClipboardCheck size={18} className="text-[#E49A02]"/><h3 className="font-black text-[#171717]">Plan de ejecución</h3><span className={`ml-auto rounded-full px-3 py-1 text-[10px] font-black ${execution.feasibility === 'ready' ? 'bg-[#F0F8F3] text-[#28613D]' : execution.feasibility === 'not_executable' ? 'bg-[#fceced] text-[#9A3842]' : 'bg-[#FFF7E8] text-[#8A5B00]'}`}>{execution.feasibilityLabel}</span></div>
+          <p className="mt-2 text-[11px] leading-5 text-[#747474]">Revisá primero cómo se hará realmente. Una buena idea clínica no alcanza si la persona no puede prepararla, comprenderla, responder o terminarla de forma segura.</p>
+          <dl className="mt-4 grid gap-3 text-xs sm:grid-cols-2"><div className="rounded-xl bg-[#F7F6F4] p-3"><dt className="font-black text-[#2F2F2F]">Material</dt><dd className="mt-1 leading-5 text-[#747474]">{execution.equipment.join(' · ')}</dd></div><div className="rounded-xl bg-[#F7F6F4] p-3"><dt className="font-black text-[#2F2F2F]">Preparación</dt><dd className="mt-1 leading-5 text-[#747474]">{execution.setup}</dd></div><div className="rounded-xl bg-[#F7F6F4] p-3"><dt className="font-black text-[#2F2F2F]">Respuesta</dt><dd className="mt-1 leading-5 text-[#747474]">{execution.response}</dd></div><div className="rounded-xl bg-[#F7F6F4] p-3"><dt className="font-black text-[#2F2F2F]">Cómo termina</dt><dd className="mt-1 leading-5 text-[#747474]">{execution.finish}</dd></div></dl>
+          {execution.warnings.length > 0 && <ul className="mt-4 space-y-2 rounded-xl bg-[#FFF7E8] p-4 text-[11px] font-bold leading-5 text-[#8A5B00]">{execution.warnings.map((warning) => <li key={warning}>• {warning}</li>)}</ul>}
+        </section>
+
+        <section className="rounded-2xl border border-[#E9E7E7] bg-white p-5">
+          <div className="flex items-center gap-2"><BookOpen size={18} className="text-[#E49A02]"/><h3 className="font-black text-[#171717]">Fundamento y límites</h3></div>
+          <p className="mt-3 text-[11px] leading-5 text-[#747474]">{cognitive ? 'La evidencia apoya explorar doble tarea en adultos mayores y reconoce interferencia cognitivo-motora en trastornos vestibulares, pero no valida estas tres configuraciones como prueba diagnóstica ni como progresión automática. La transferencia a RVO digital es indirecta y requiere criterio profesional.' : 'Los rangos del constructor son controles técnicos, no una dosis universal. La finalidad, dosis, progresión y criterios de detención deben quedar indicados y revisados por el profesional.'}</p>
+          <div className="mt-3 flex flex-wrap gap-2">{evidenceSources.map((source) => <a key={source.id} href={source.url} target="_blank" rel="noreferrer" title={source.title} className="rounded-full border border-[#E8CE99] bg-[#FFF7E8] px-3 py-2 text-[10px] font-black text-[#8A5B00]">{source.id} · {source.year}</a>)}</div>
+        </section>
+
+        <section className="rounded-2xl border border-[#E9E7E7] bg-white p-5">
           <h3 className="font-black text-[#171717]">Dosis y avance</h3>
           {isFirst && <div className="mt-4 rounded-xl border border-[#E8CE99] bg-[#FFF7E8] p-4">
             <p className="text-xs font-black text-[#2F2F2F]">Preparación antes de comenzar</p>
@@ -138,16 +192,17 @@ export function SessionExerciseEditor({ config, isFirst = false, onChange }: Ses
           </div>}
           <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl bg-[#F7F6F4] p-1">
             <button type="button" onClick={() => set('doseMode', 'time')} aria-pressed={config.doseMode === 'time'} className={`h-10 rounded-lg text-xs font-black ${config.doseMode === 'time' ? 'bg-white text-[#E49A02] shadow-sm' : 'text-[#747474]'}`}>Por tiempo</button>
-            <button type="button" disabled={config.displayMode === 'vr_box'} onClick={() => onChange({ ...config, doseMode: 'repetitions', advanceMode: 'manual' })} aria-pressed={config.doseMode === 'repetitions'} className={`h-10 rounded-lg text-xs font-black disabled:cursor-not-allowed disabled:opacity-35 ${config.doseMode === 'repetitions' ? 'bg-white text-[#E49A02] shadow-sm' : 'text-[#747474]'}`}>Por repeticiones</button>
+            <button type="button" disabled={config.displayMode === 'vr_box' || cognitive} onClick={() => onChange({ ...config, doseMode: 'repetitions', advanceMode: 'manual' })} aria-pressed={config.doseMode === 'repetitions'} className={`h-10 rounded-lg text-xs font-black disabled:cursor-not-allowed disabled:opacity-35 ${config.doseMode === 'repetitions' ? 'bg-white text-[#E49A02] shadow-sm' : 'text-[#747474]'}`}>Por repeticiones</button>
           </div>
           <div className="mt-4 grid grid-cols-3 gap-3">
             {config.doseMode === 'time' ? <label className="text-xs font-black text-[#2F2F2F]">Ejercicio<span className="relative block"><input type="number" min="10" max="300" className={input} value={config.durationSeconds} onChange={(event) => set('durationSeconds', Number(event.target.value))} /><span className="absolute bottom-3 right-3 text-[10px] text-[#747474]">s</span></span></label> : <label className="text-xs font-black text-[#2F2F2F]">Objetivo<span className="relative block"><input type="number" min="1" max="100" className={input} value={config.targetRepetitions} onChange={(event) => set('targetRepetitions', Number(event.target.value))} /><span className="absolute bottom-3 right-3 text-[10px] text-[#747474]">rep.</span></span></label>}
             <label className="text-xs font-black text-[#2F2F2F]">Descanso<span className="relative block"><input type="number" min="0" max="180" className={input} value={config.restSeconds} onChange={(event) => set('restSeconds', Number(event.target.value))} /><span className="absolute bottom-3 right-3 text-[10px] text-[#747474]">s</span></span></label>
             <label className="text-xs font-black text-[#2F2F2F]">Vueltas<input type="number" min="1" max="10" className={input} value={config.rounds} onChange={(event) => set('rounds', Number(event.target.value))} /></label>
           </div>
-          <label className="mt-4 block text-xs font-black text-[#2F2F2F]">Avance<select disabled={config.displayMode === 'vr_box'} className={`${input} disabled:bg-[#F7F6F4] disabled:text-[#747474]`} value={config.advanceMode} onChange={(event) => set('advanceMode', event.target.value as ExerciseConfig['advanceMode'])}><option value="manual">Confirmación manual</option><option value="automatic" disabled={config.doseMode === 'repetitions'}>Automático al terminar el tiempo</option></select></label>
+          <label className="mt-4 block text-xs font-black text-[#2F2F2F]">Avance<select disabled={config.displayMode === 'vr_box' || cognitive} className={`${input} disabled:bg-[#F7F6F4] disabled:text-[#747474]`} value={config.advanceMode} onChange={(event) => set('advanceMode', event.target.value as ExerciseConfig['advanceMode'])}><option value="manual">Confirmación manual</option><option value="automatic" disabled={config.doseMode === 'repetitions' || cognitive}>Automático al terminar el tiempo</option></select></label>
           {config.doseMode === 'repetitions' && <p className="mt-3 text-[11px] leading-5 text-[#747474]">La aplicación no contará movimientos: el paciente informará si completó el objetivo o cuántas repeticiones realizó.</p>}
-          <div className="mt-5 flex items-center gap-4"><label className="inline-flex items-center gap-2 text-xs font-black text-[#2F2F2F]"><input type="checkbox" checked={config.metronomeEnabled} onChange={(event) => set('metronomeEnabled', event.target.checked)} className="size-4 accent-[#E49A02]" /> Metrónomo</label>{config.metronomeEnabled && <label className="flex-1 text-xs font-black text-[#2F2F2F]">{config.metronomeHz.toFixed(1)} Hz<input type="range" min="0.2" max="3" step="0.1" value={config.metronomeHz} onChange={(event) => set('metronomeHz', Number(event.target.value))} className="mt-2 w-full accent-[#E49A02]" /></label>}</div>
+          <div className="mt-5 flex items-center gap-4"><label className="inline-flex items-center gap-2 text-xs font-black text-[#2F2F2F]"><input type="checkbox" disabled={config.purpose === 'cognitive_visual'} checked={config.metronomeEnabled} onChange={(event) => set('metronomeEnabled', event.target.checked)} className="size-4 accent-[#E49A02] disabled:opacity-35" /> Metrónomo</label>{config.metronomeEnabled && <label className="flex-1 text-xs font-black text-[#2F2F2F]">{config.metronomeHz.toFixed(1)} señales/s · {Math.round(config.metronomeHz * 60)} BPM<input type="range" min="0.2" max="3" step="0.1" value={config.metronomeHz} onChange={(event) => set('metronomeHz', Number(event.target.value))} className="mt-2 w-full accent-[#E49A02]" /></label>}</div>
+          {config.metronomeEnabled && <p className="mt-3 text-[11px] leading-5 text-[#747474]">Cada señal sonora indica el cambio acordado por el profesional. Señales/s y BPM describen el metrónomo; no miden velocidad cefálica ni equivalen automáticamente a ciclos completos.</p>}
         </section>
       </div>
 

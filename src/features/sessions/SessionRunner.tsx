@@ -167,6 +167,13 @@ export function SessionRunner({ session, onFinish, onExit }: { session: SessionA
         dose_mode: report?.doseMode ?? unit.config.doseMode, display_mode: unit.config.displayMode,
         active_seconds: Math.max(0, Math.round(activeSeconds)), target_repetitions: report?.targetRepetitions,
         reported_repetitions: report?.reportedRepetitions, completion,
+        cognitive_mode: report?.cognitive?.mode,
+        cognitive_response_mode: report?.cognitive?.responseMode,
+        cognitive_target_events: report?.cognitive?.targetEvents,
+        cognitive_response_count: report?.cognitive?.responseCount,
+        cognitive_correct_responses: report?.cognitive?.correctResponses,
+        cognitive_false_alarms: report?.cognitive?.falseAlarms,
+        cognitive_reported_count: report?.cognitive?.reportedCount,
       })
     } else if (unit?.type === 'vr_box_transition') {
       eventLogRef.current.push({ type: unit.direction === 'put_on' ? 'vr_box_put_on' : 'vr_box_take_off', at: new Date().toISOString(), active_seconds: unit.seconds })

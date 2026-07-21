@@ -21,6 +21,7 @@ export const exercisePurposeLabels: Record<ExercisePurpose, string> = {
   saccades: 'Sacadas',
   optokinetic: 'Estimulación optocinética',
   visual_habituation: 'Habituación a movimiento visual',
+  cognitive_visual: 'Tarea cognitivo-visual',
   guided_functional: 'Tarea física o funcional guiada',
   custom_free: 'Libre · configuración profesional no validada',
 }
@@ -33,6 +34,7 @@ const purposeInstructions: Record<ExercisePurpose, string> = {
   saccades: 'Mantené la cabeza quieta y llevá la mirada al blanco cada vez que cambie de posición.',
   optokinetic: 'Sentado y con la cabeza quieta, observá el patrón en movimiento sin perseguir un punto particular.',
   visual_habituation: 'Sentado y con la cabeza quieta, observá el movimiento visual durante el tiempo indicado.',
+  cognitive_visual: 'Mantené la cabeza quieta, observá cada figura y respondé según la consigna cognitiva.',
   guided_functional: 'Realizá la tarea indicada fuera de cualquier visor y con la supervisión prescripta.',
   custom_free: 'Realizá el ejercicio exactamente como fue indicado por el profesional.',
 }
@@ -83,6 +85,24 @@ export function applyExercisePurpose(config: ExerciseConfig, purpose: ExercisePu
   if (purpose === 'custom_free') {
     return { ...common, kind: 'visual_stimulus' }
   }
+  if (purpose === 'cognitive_visual') {
+    return {
+      ...common,
+      kind: 'visual_stimulus',
+      displayMode: 'standard',
+      doseMode: 'time',
+      advanceMode: 'manual',
+      posture: 'seated',
+      surface: 'firm',
+      backgroundType: 'solid',
+      backgroundSpeed: 0,
+      objectEnabled: true,
+      objectMode: 'fixed',
+      metronomeEnabled: false,
+      cognitiveTaskMode: config.cognitiveTaskMode === 'none' ? 'rare_target' : config.cognitiveTaskMode,
+      cognitiveResponseMode: config.cognitiveTaskMode === 'go_no_go' || config.cognitiveTaskMode === 'short_memory' ? config.cognitiveResponseMode : 'count_at_end',
+    }
+  }
   if (purpose === 'smooth_pursuit') {
     return {
       ...common,
@@ -120,6 +140,8 @@ export function analyzeExerciseCompatibility(config: ExerciseConfig): ExerciseCo
   const headset = config.displayMode === 'vr_box' || config.displayMode === 'quest_browser'
   const deviceName = config.displayMode === 'vr_box' ? 'VR Box' : 'Meta Quest en modo navegador'
   const free = config.purpose === 'custom_free'
+  const cognitive = config.cognitiveTaskMode !== 'none'
+  const headMovementPurpose = ['gaze_stabilization', 'gaze_stabilization_x2', 'gaze_substitution_remembered'].includes(config.purpose)
 
   if (free) {
     if (config.kind !== 'visual_stimulus') issues.push(issue('free-kind', 'El modo Libre de este constructor reproduce un estímulo visual.', 'Elegí estímulo visual o usá la finalidad funcional para una tarea física.'))
@@ -165,6 +187,25 @@ export function analyzeExerciseCompatibility(config: ExerciseConfig): ExerciseCo
     if (config.objectEnabled) issues.push(issue('visual-fixation', 'El blanco fijo puede suprimir o distraer del estímulo de campo visual.', 'Ocultá el blanco para que el patrón móvil sea el estímulo principal.'))
   }
 
+  if (config.purpose === 'cognitive_visual') {
+    if (!cognitive) issues.push(issue('cognitive-missing', 'La finalidad cognitivo-visual necesita una tarea cognitiva definida.', 'Elegí objetivo raro, Go/No-Go o memoria breve.'))
+    if (config.displayMode !== 'standard') issues.push(issue('cognitive-purpose-headset', 'La tarea cognitivo-visual se implementa en Pantalla 2D para presentar la consigna y registrar la respuesta de forma clara.', 'Usá Pantalla 2D.'))
+    if (!config.objectEnabled || config.objectMode !== 'fixed') issues.push(issue('cognitive-purpose-target', 'La tarea cognitivo-visual aislada necesita figuras visibles en una posición estable.', 'Activá el blanco y elegí comportamiento Fijo.'))
+    if (config.backgroundType !== 'solid' || config.backgroundSpeed > 0) issues.push(issue('cognitive-purpose-background', 'La tarea cognitiva inicial necesita un fondo simple para no añadir una segunda demanda visual.', 'Usá fondo de color sólido y velocidad 0.'))
+    if (config.posture !== 'seated' || config.surface !== 'firm') issues.push(issue('cognitive-purpose-position', 'La tarea cognitiva inicial está diseñada sentado y en superficie firme.', 'Elegí postura sentada y superficie firme.'))
+    if (config.metronomeEnabled) issues.push(issue('cognitive-purpose-metronome', 'La tarea cognitiva aislada no necesita una señal rítmica adicional.', 'Desactivá el metrónomo.'))
+  }
+
+  if (cognitive) {
+    if (config.kind !== 'visual_stimulus') issues.push(issue('cognitive-physical', 'Esta versión no presenta figuras cognitivas durante una tarea física porque obliga a dividir la mirada entre la pantalla y el entorno.', 'Usá una tarea cognitivo-visual sentada o planificá la doble tarea presencial fuera de la plataforma.'))
+    if (config.displayMode !== 'standard') issues.push(issue('cognitive-headset', 'Las tareas cognitivas necesitan mostrar la consigna y registrar o confirmar la respuesta; el flujo actual no lo resuelve de forma fiable dentro del visor.', 'Usá Pantalla 2D.'))
+    if (!config.objectEnabled) issues.push(issue('cognitive-object', 'La tarea cognitiva necesita figuras visibles.', 'Activá el blanco.'))
+    if (config.doseMode !== 'time' || config.advanceMode !== 'manual') issues.push(issue('cognitive-completion', 'La tarea cognitiva necesita una fase temporizada y confirmación final para registrar la respuesta.', 'Elegí Por tiempo y Confirmación manual.'))
+    if (config.cognitiveTaskMode === 'rare_target' && config.cognitiveResponseMode !== 'count_at_end') issues.push(issue('cognitive-count', 'La detección de objetivo raro se completa informando el total observado.', 'Elegí Contar e informar al terminar.'))
+    if (config.cognitiveResponseMode === 'screen_tap' && headMovementPurpose) issues.push(issue('cognitive-touch-head', 'Tocar la pantalla mientras se mueve la cabeza interrumpe la posición de ejecución y agrega una tarea manual no controlada.', 'Elegí respuesta verbal o usá una tarea cognitivo-visual aislada.'))
+    if (config.cognitiveStimulusSeconds < 0.75 || config.cognitiveStimulusSeconds > 6) issues.push(issue('cognitive-pace', 'El intervalo de las figuras está fuera del rango técnico implementado.', 'Elegí un intervalo entre 0,75 y 6 segundos.'))
+  }
+
   if (headset && config.kind === 'visual_stimulus' && config.posture !== 'seated') {
     issues.push(issue('headset-posture', `Los estímulos visuales en ${deviceName} están limitados a posición sentada en esta versión.`, 'Elegí posición sentada o usá Pantalla 2D.'))
   }
@@ -178,6 +219,7 @@ export function analyzeExerciseCompatibility(config: ExerciseConfig): ExerciseCo
   if (config.purpose === 'gaze_substitution_remembered' && config.displayMode === 'standard') explanation = 'El blanco estable permite mirar, cerrar los ojos, girar la cabeza y comprobar la precisión al reabrirlos.'
   if ((config.purpose === 'smooth_pursuit' || config.purpose === 'saccades') && headset) explanation = `El blanco se mueve respecto de los ojos dentro de ${deviceName}; el paciente debe mantener la cabeza quieta.`
   if ((config.purpose === 'optokinetic' || config.purpose === 'visual_habituation') && headset) explanation = `El patrón se mueve respecto de los ojos dentro de ${deviceName}; no necesita estar anclado al ambiente y se realiza sentado, con la cabeza quieta.`
+  if (config.purpose === 'cognitive_visual' && config.displayMode === 'standard') explanation = 'Las figuras se presentan en una pantalla inmóvil, sentado, con una consigna y una respuesta definidas antes de comenzar.'
   if (config.purpose === 'guided_functional' && config.displayMode === 'standard') explanation = 'La tarea se realiza fuera del visor, con el entorno visible y confirmación manual cuando corresponde.'
   if (free) explanation = issues.length === 0
     ? 'Modo Libre: la configuración puede guardarse y ejecutarse, pero la plataforma no valida su equivalencia con un protocolo clínico.'
@@ -189,8 +231,10 @@ export function analyzeExerciseCompatibility(config: ExerciseConfig): ExerciseCo
       ? '“RVO x3” es un alias docente no estandarizado. La tarea se registra como sustitución por objetivo recordado, no como una adaptación tres veces mayor ni como progresión automática de RVO x2.'
       : config.purpose === 'smooth_pursuit' || config.purpose === 'saccades'
     ? 'No debe presentarse como sustituto de la estabilización de mirada: el seguimiento y las sacadas con la cabeza quieta no equivalen a un ejercicio de adaptación del RVO.'
-    : config.purpose === 'optokinetic' || config.purpose === 'visual_habituation'
+      : config.purpose === 'optokinetic' || config.purpose === 'visual_habituation'
       ? 'La intensidad y el tiempo deben respetar el techo de síntomas y las reglas de detención definidas por el profesional.'
+      : config.purpose === 'cognitive_visual' || cognitive
+        ? 'La tarea cognitiva es un recurso de entrenamiento y doble tarea, no una prueba diagnóstica. Su combinación con una tarea vestibular requiere dominio previo de la tarea aislada.'
       : undefined
 
   if (issues.length > 0 && !free) explanation = 'La finalidad declarada, el estímulo y el dispositivo no representan la misma tarea.'

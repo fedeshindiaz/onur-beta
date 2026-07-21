@@ -40,7 +40,7 @@ export function ExerciseBuilderPage() {
               <p className="truncate text-xs font-black text-[#2F2F2F]">{template.name}</p>
               <p className="mt-1 text-[10px] text-[#747474]">{doseLabel(template.config)} × {template.config.rounds} · {template.config.advanceMode === 'manual' ? 'avance manual' : 'avance automático'}</p>
             </button>
-            <button type="button" onClick={() => deleteTemplate.mutate(template.id)} className="grid size-8 place-items-center rounded-xl text-[#a94952]" aria-label={`Eliminar ${template.name}`}><Trash2 size={15}/></button>
+            {template.id.startsWith('template-') ? <span className="rounded-full bg-[#F7F6F4] px-2 py-1 text-[9px] font-black text-[#747474]">Base</span> : <button type="button" onClick={() => deleteTemplate.mutate(template.id)} className="grid size-8 place-items-center rounded-xl text-[#a94952]" aria-label={`Eliminar ${template.name}`}><Trash2 size={15}/></button>}
           </div>)}
         </div>
       </section>

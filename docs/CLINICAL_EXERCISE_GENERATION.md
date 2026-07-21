@@ -4,8 +4,8 @@
 
 La plataforma incorpora la base segura para un generador de borradores, no una prescripción automática:
 
-- catálogo versionado de 31 fuentes en `src/features/clinicalGeneration/catalog.ts`;
-- taxonomía cerrada de 12 categorías;
+- catálogo versionado de 33 fuentes en `src/features/clinicalGeneration/catalog.ts`;
+- taxonomía cerrada de 14 categorías;
 - compuerta previa de autorización, datos clínicos y alertas;
 - rechazo recursivo de valores `COMPLETAR_*`, `PENDIENTE` o `TBD`;
 - validación estricta del JSON generado, de los códigos taxonómicos y de cada `source_id`;
@@ -51,5 +51,7 @@ El ejemplo con `clinician_authorized=false` y campos `COMPLETAR_*` debe quedar b
 - `SRC-029`: DOI `10.1016/j.arcped.2024.02.006`; no extrapolar dosis adulta y no recomendar exposición optocinética/VR a niños o adolescentes jóvenes sin regla pediátrica específica.
 - `SRC-030`: enlace vigente del CDC revisado el 19 de julio de 2026.
 - `SRC-031`: ensayo piloto multicéntrico 2026 que describe RVO x1/x2 horizontal, vertical y diagonal; DOI `10.3389/fneur.2025.1687181`, PMID `41561330`.
+- `SRC-032`: revisión sistemática sobre doble tarea cognitivo-motora en personas con trastornos vestibulares; identifica el interés clínico y también la falta de un protocolo uniforme, PMID `31283530`.
+- `SRC-033`: revisión sistemática y metaanálisis sobre doble tarea y equilibrio en adultos mayores; evidencia indirecta para el módulo cognitivo de la plataforma, PMID `38364709`.
 
 La biblioteca debe revisarse como mínimo una vez al año y cuando aparezca una guía relevante nueva.

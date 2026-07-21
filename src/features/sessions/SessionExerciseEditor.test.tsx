@@ -99,4 +99,26 @@ describe('creación de ejercicios', () => {
     fireEvent.change(screen.getByLabelText('Fondo'), { target: { value: backgroundType } })
     expect(screen.getByLabelText('Fondo')).toHaveValue(backgroundType)
   })
+
+  it.each([
+    ['rare_target', /Contá mentalmente cuántas veces/],
+    ['go_no_go', /Decí “sí” solamente/],
+    ['short_memory', /Decí “igual” solamente/],
+  ])('configura %s con consigna previa, tiempo y confirmación manual', (mode, instruction) => {
+    render(<EditorHarness/>)
+    fireEvent.change(screen.getByLabelText('Tipo de tarea cognitiva'), { target: { value: mode } })
+    expect(screen.getAllByText(instruction).length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByRole('button', { name: 'Por repeticiones' })).toBeDisabled()
+    expect(screen.getByLabelText('Avance')).toBeDisabled()
+    expect(screen.getByLabelText('Avance')).toHaveValue('manual')
+    expect(screen.getByRole('option', { name: /VR Box/ })).toBeDisabled()
+  })
+
+  it('habilita respuesta táctil en tarea cognitiva aislada pero no durante RVO', () => {
+    render(<EditorHarness/>)
+    fireEvent.change(screen.getByLabelText('Tipo de tarea cognitiva'), { target: { value: 'go_no_go' } })
+    expect(screen.getByRole('option', { name: 'Tocar botón en pantalla' })).toBeDisabled()
+    fireEvent.change(screen.getByLabelText('Objetivo del ejercicio'), { target: { value: 'cognitive_visual' } })
+    expect(screen.getByRole('option', { name: 'Tocar botón en pantalla' })).not.toBeDisabled()
+  })
 })

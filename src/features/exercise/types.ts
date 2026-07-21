@@ -7,18 +7,32 @@ export type SaccadePattern = ObjectDirection | 'random'
 export type ExerciseDisplayMode = 'standard' | 'vr_box' | 'quest_browser'
 export type PreparationSeconds = 0 | 5 | 10 | 20
 export type ExerciseKind = 'visual_stimulus' | 'guided_physical'
-export type ExercisePurpose = 'gaze_stabilization' | 'gaze_stabilization_x2' | 'gaze_substitution_remembered' | 'smooth_pursuit' | 'saccades' | 'optokinetic' | 'visual_habituation' | 'guided_functional' | 'custom_free'
+export type ExercisePurpose = 'gaze_stabilization' | 'gaze_stabilization_x2' | 'gaze_substitution_remembered' | 'smooth_pursuit' | 'saccades' | 'optokinetic' | 'visual_habituation' | 'cognitive_visual' | 'guided_functional' | 'custom_free'
 export type ExerciseDoseMode = 'time' | 'repetitions'
 export type ExerciseAdvanceMode = 'automatic' | 'manual'
 export type ExercisePosture = 'seated' | 'standing' | 'walking'
 export type ExerciseSurface = 'firm' | 'unstable'
 export type ExerciseSupervision = 'independent_after_approval' | 'trained_helper' | 'direct_clinician'
+export type CognitiveTaskMode = 'none' | 'rare_target' | 'go_no_go' | 'short_memory'
+export type CognitiveResponseMode = 'count_at_end' | 'verbal' | 'screen_tap'
+export type CognitiveSymbol = 'circle' | 'square' | 'triangle' | 'diamond' | 'star'
+
+export interface CognitivePerformanceReport {
+  mode: Exclude<CognitiveTaskMode, 'none'>
+  responseMode: CognitiveResponseMode
+  targetEvents: number
+  responseCount?: number
+  correctResponses?: number
+  falseAlarms?: number
+  reportedCount?: number
+}
 
 export interface ExerciseCompletionReport {
   doseMode: ExerciseDoseMode
   completion: 'target_completed' | 'partial' | 'skipped'
   targetRepetitions?: number
   reportedRepetitions?: number
+  cognitive?: CognitivePerformanceReport
 }
 
 export interface ExerciseConfig {
@@ -54,6 +68,11 @@ export interface ExerciseConfig {
   rounds: number
   metronomeEnabled: boolean
   metronomeHz: number
+  cognitiveTaskMode: CognitiveTaskMode
+  cognitiveTargetSymbol: CognitiveSymbol
+  cognitiveResponseMode: CognitiveResponseMode
+  cognitiveStimulusSeconds: number
+  cognitiveMemorySpan: 1 | 2 | 3
 }
 
 export const defaultExerciseConfig: ExerciseConfig = {
@@ -89,6 +108,11 @@ export const defaultExerciseConfig: ExerciseConfig = {
   rounds: 3,
   metronomeEnabled: false,
   metronomeHz: 1,
+  cognitiveTaskMode: 'none',
+  cognitiveTargetSymbol: 'diamond',
+  cognitiveResponseMode: 'count_at_end',
+  cognitiveStimulusSeconds: 2.5,
+  cognitiveMemorySpan: 1,
 }
 
 export function inferExercisePurpose(config: Partial<ExerciseConfig>): ExercisePurpose {

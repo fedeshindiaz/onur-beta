@@ -12,6 +12,7 @@ const config = (overrides: Partial<ExerciseConfig> = {}): ExerciseConfig => ({ .
 const optokinetic = (overrides: Partial<ExerciseConfig> = {}): ExerciseConfig => ({ ...applyExercisePurpose(defaultExerciseConfig, 'optokinetic'), ...overrides })
 const physical = (overrides: Partial<ExerciseConfig> = {}): ExerciseConfig => ({ ...applyExercisePurpose(defaultExerciseConfig, 'guided_functional'), ...overrides })
 const free = (overrides: Partial<ExerciseConfig> = {}): ExerciseConfig => ({ ...applyExercisePurpose(defaultExerciseConfig, 'custom_free'), ...overrides })
+const cognitive = (overrides: Partial<ExerciseConfig> = {}): ExerciseConfig => ({ ...applyExercisePurpose(defaultExerciseConfig, 'cognitive_visual'), ...overrides })
 
 describe('validación de sesión',()=>{
   it.each([
@@ -23,6 +24,7 @@ describe('validación de sesión',()=>{
     ['físico sentado independiente', physical({ doseMode: 'repetitions', posture: 'seated' })],
     ['físico de pie con ayudante', physical({ posture: 'standing', supervision: 'trained_helper' })],
     ['marcha domiciliaria con ayudante', physical({ posture: 'walking', supervision: 'trained_helper' })],
+    ['objetivo raro cognitivo sentado', cognitive()],
   ])('acepta %s', (_label, exercise) => expect(validateSession(session([exercise]))).toEqual({}))
 
   it('rechaza una fecha final anterior',()=>expect(validateSession({...session([defaultExerciseConfig]),availableUntil:'2026-07-15'}).availableUntil).toBeTruthy())
@@ -37,6 +39,8 @@ describe('validación de sesión',()=>{
     ['RVO x1 dentro de VR Box', config({ displayMode: 'vr_box', advanceMode: 'automatic' }), 'acompaña la cabeza'],
     ['RVO x1 dentro de Quest', config({ displayMode: 'quest_browser' }), 'no inicia una sesión WebXR'],
     ['tarea física dentro de VR Box', physical({ displayMode: 'vr_box', doseMode: 'time', advanceMode: 'automatic' }), 'oculta el entorno'],
+    ['tarea cognitiva dentro de VR Box', cognitive({ displayMode: 'vr_box', advanceMode: 'automatic' }), 'cognitivo-visual'],
+    ['Go/No-Go táctil durante RVO x1', config({ cognitiveTaskMode: 'go_no_go', cognitiveResponseMode: 'screen_tap', advanceMode: 'manual' }), 'Tocar la pantalla'],
   ])('rechaza %s', (_label, exercise, message) => expect(validateSession(session([exercise])).exercises).toContain(message))
 
   it('bloquea tareas físicas en visor incluso con supervisión presencial', () => {

@@ -7,7 +7,7 @@ El mismo modelo admite dos tipos de contenido:
 - `visual_stimulus`: fondo y blanco visual configurables;
 - `guided_physical`: consigna física, postura, superficie y supervisión explícitas.
 
-Además, cada ejercicio declara una finalidad obligatoria: estabilización de mirada RVO x1 o x2, sustitución por objetivo recordado, seguimiento ocular suave, sacadas, estimulación optocinética, habituación a movimiento visual, tarea física/funcional o modo Libre. La finalidad gobierna los parámetros compatibles; el nombre del ejercicio por sí solo no determina su comportamiento.
+Además, cada ejercicio declara una finalidad obligatoria: estabilización de mirada RVO x1 o x2, sustitución por objetivo recordado, seguimiento ocular suave, sacadas, estimulación optocinética, habituación a movimiento visual, tarea cognitivo-visual, tarea física/funcional o modo Libre. La finalidad gobierna los parámetros compatibles; el nombre del ejercicio por sí solo no determina su comportamiento.
 
 El nombre `RVO x3` aparece en algunos materiales docentes para el objetivo recordado, pero no se usa como una tercera ganancia de adaptación. La plataforma lo muestra como alias y lo registra clínicamente como sustitución: mirar el blanco, cerrar los ojos, girar la cabeza imaginando que la mirada permanece en él y reabrirlos para comprobar la precisión.
 
@@ -22,6 +22,20 @@ El motor usa Canvas 2D y `requestAnimationFrame`. El tiempo de animación se acu
 Fondos: color sólido, barras optocinéticas, espiral, damero y campo de puntos. Barras, damero y puntos admiten traslación horizontal, vertical y en cuatro direcciones diagonales. La espiral solo admite rotación horaria o antihoraria.
 
 Objetos: blanco fijo, seguimiento suave sinusoidal y sacadas horizontales, verticales, en ambos ejes diagonales o pseudoaleatorias deterministas.
+
+## Plan de ejecución y tareas cognitivas
+
+Antes de guardar o asignar, el editor muestra un plan práctico: material, preparación, respuesta esperada, forma de finalización y advertencias de logística. La modalidad de la sesión se incorpora al análisis; una combinación que no pueda realizarse en domicilio se bloquea o se deriva a revisión presencial. Este análisis no reemplaza el criterio clínico.
+
+Las tareas cognitivas son una capa opcional de los estímulos visuales:
+
+- objetivo raro: las figuras cambian, la persona cuenta la figura acordada y escribe el total al finalizar;
+- Go/No-Go: responde verbalmente o toca el botón solamente ante la figura objetivo;
+- memoria breve: compara la figura actual con una, dos o tres posiciones anteriores y responde solo cuando coinciden.
+
+La consigna completa aparece antes del ejercicio y el temporizador no comienza hasta que la persona confirma que la comprendió. Las secuencias de figuras son deterministas. En respuesta táctil se registran aciertos y respuestas fuera del objetivo; en conteo se conserva el total informado y la cantidad real de eventos presentados. Estos registros describen la ejecución de la tarea y no constituyen una evaluación diagnóstica.
+
+La configuración inicial es pantalla 2D, sentado, superficie firme, ritmo lento, una sola tarea y memoria de una posición. Las tareas cognitivas se bloquean en VR Box y Quest en esta versión porque no existe un flujo fiable para leer la consigna y confirmar la respuesta. También se bloquea tocar la pantalla durante RVO x1, RVO x2 u objetivo recordado, porque altera la posición de ejecución. La combinación con una tarea vestibular u oculomotora se identifica como doble tarea y exige comprobar previamente la tarea aislada.
 
 Fondo y objeto usan parámetros independientes. Los movimientos se calculan como funciones continuas del tiempo o pasos por Hz, de modo que el patrón no termina antes de la fase.
 
@@ -52,6 +66,7 @@ Quest navegador todavía no equivale a una escena WebXR controlada por la aplica
 | Sacadas | Sí | Sí | Sí | Mantener cabeza quieta y cambiar la mirada |
 | Optocinético | Sí | Sí | Sí | Sentado, cabeza quieta, observar el patrón móvil |
 | Habituación visual | Sí | Sí | Sí | Sentado, cabeza quieta, observar el movimiento dosificado |
+| Tarea cognitivo-visual | Sí | No | No | Sentado, comprender la consigna y responder según el estímulo |
 | Tarea física o funcional | Sí | No | No | Ejecutar fuera del visor con el entorno visible |
 | Libre | Según configuración | Según límites técnicos | Según límites técnicos | Definido y revisado por el profesional |
 
@@ -75,4 +90,4 @@ Guardar y asignar son operaciones distintas. Al crear una sesión se mantienen l
 
 ## Pruebas
 
-Las funciones de seguimiento y sacadas se prueban separadas del Canvas, incluidos ambos ejes diagonales. Las posiciones aleatorias son deterministas. La matriz automática cubre las nueve finalidades en Pantalla 2D, VR Box y Quest, además de modo Libre, dosis, avance, preparación, confirmación de fases y trazabilidad de repeticiones. El reproductor vuelve a validar una configuración heredada antes de mostrarla al paciente.
+Las funciones de seguimiento y sacadas se prueban separadas del Canvas, incluidos ambos ejes diagonales. Las posiciones aleatorias son deterministas. La matriz automática cubre las diez finalidades en Pantalla 2D, VR Box y Quest, además de modo Libre, tareas cognitivas, dosis, avance, preparación, confirmación de fases y trazabilidad de repeticiones. El reproductor vuelve a validar una configuración heredada antes de mostrarla al paciente.

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { analyzeExerciseCompatibility } from '../exercise/compatibility'
+import { buildExerciseExecutionPlan } from '../exercise/execution'
 import type { ExerciseConfig } from '../exercise/types'
 
 export const cycleFormSchema = z.object({
@@ -45,6 +46,11 @@ export function validateSession(values: SessionFormValues) {
   if (incompatibleIndex >= 0) {
     const analysis = analyzeExerciseCompatibility(values.exercises[incompatibleIndex])
     setExerciseError(`Ejercicio ${incompatibleIndex + 1}: ${analysis.issues[0].message} ${analysis.issues[0].correction}`)
+  }
+  const impossibleExecutionIndex = values.exercises.findIndex((exercise) => buildExerciseExecutionPlan(exercise, values.mode).feasibility === 'not_executable')
+  if (impossibleExecutionIndex >= 0) {
+    const plan = buildExerciseExecutionPlan(values.exercises[impossibleExecutionIndex], values.mode)
+    setExerciseError(`Ejercicio ${impossibleExecutionIndex + 1}: ${plan.warnings[0] ?? 'La ejecución no es viable en la modalidad seleccionada.'}`)
   }
   return errors
 }

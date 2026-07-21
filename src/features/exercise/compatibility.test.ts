@@ -29,6 +29,9 @@ describe('coherencia clínica y espacial de ejercicios', () => {
     ['visual_habituation', 'standard', true],
     ['visual_habituation', 'vr_box', true],
     ['visual_habituation', 'quest_browser', true],
+    ['cognitive_visual', 'standard', true],
+    ['cognitive_visual', 'vr_box', false],
+    ['cognitive_visual', 'quest_browser', false],
     ['guided_functional', 'standard', true],
     ['guided_functional', 'vr_box', false],
     ['guided_functional', 'quest_browser', false],
@@ -81,6 +84,7 @@ describe('coherencia clínica y espacial de ejercicios', () => {
     expect(applyExercisePurpose(defaultExerciseConfig, 'smooth_pursuit')).toMatchObject({ kind: 'visual_stimulus', objectEnabled: true, objectMode: 'tracking', backgroundSpeed: 0 })
     expect(applyExercisePurpose(defaultExerciseConfig, 'saccades')).toMatchObject({ kind: 'visual_stimulus', objectEnabled: true, objectMode: 'saccades', backgroundSpeed: 0 })
     expect(applyExercisePurpose(defaultExerciseConfig, 'optokinetic')).toMatchObject({ kind: 'visual_stimulus', objectEnabled: false, backgroundType: 'bars' })
+    expect(applyExercisePurpose(defaultExerciseConfig, 'cognitive_visual')).toMatchObject({ kind: 'visual_stimulus', displayMode: 'standard', doseMode: 'time', advanceMode: 'manual', cognitiveTaskMode: 'rare_target' })
     expect(applyExercisePurpose(defaultExerciseConfig, 'guided_functional')).toMatchObject({ kind: 'guided_physical', displayMode: 'standard', doseMode: 'repetitions', advanceMode: 'manual' })
   })
 
@@ -90,5 +94,19 @@ describe('coherencia clínica y espacial de ejercicios', () => {
     const impossibleInVr = analyzeExerciseCompatibility({ ...arbitrary, displayMode: 'vr_box', doseMode: 'repetitions', advanceMode: 'manual' })
     expect(impossibleInVr.valid).toBe(false)
     expect(impossibleInVr.issues.map((item) => item.code)).toEqual(expect.arrayContaining(['vr-dose', 'vr-advance']))
+  })
+
+  it('bloquea tareas cognitivas dentro de visores y la respuesta táctil durante RVO', () => {
+    const cognitive = exercise('cognitive_visual')
+    expect(analyzeExerciseCompatibility({ ...cognitive, displayMode: 'vr_box', advanceMode: 'automatic' }).issues.some((item) => item.code === 'cognitive-headset')).toBe(true)
+    const dualTask = exercise('gaze_stabilization', { cognitiveTaskMode: 'go_no_go', cognitiveResponseMode: 'screen_tap', doseMode: 'time', advanceMode: 'manual' })
+    expect(analyzeExerciseCompatibility(dualTask).issues.some((item) => item.code === 'cognitive-touch-head')).toBe(true)
+  })
+
+  it('admite una doble tarea verbal en pantalla 2D pero conserva la nota de revisión', () => {
+    const dualTask = exercise('gaze_stabilization', { cognitiveTaskMode: 'go_no_go', cognitiveResponseMode: 'verbal', doseMode: 'time', advanceMode: 'manual' })
+    const analysis = analyzeExerciseCompatibility(dualTask)
+    expect(analysis.valid).toBe(true)
+    expect(analysis.clinicalNote).toContain('no una prueba diagnóstica')
   })
 })

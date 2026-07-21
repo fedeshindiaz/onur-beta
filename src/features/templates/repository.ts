@@ -12,7 +12,7 @@ export interface ExerciseTemplateRecord {
 
 const STORAGE_KEY = 'onur-demo-exercise-templates-v1'
 const SEED_VERSION_KEY = 'onur-demo-exercise-templates-seed-version'
-const SEED_VERSION = '2'
+const SEED_VERSION = '3'
 const seedDate = '2026-07-20T00:00:00.000Z'
 
 const rvoX2Horizontal = {
@@ -31,12 +31,43 @@ const rememberedTarget = {
   targetRepetitions: 10,
   rounds: 1,
 }
+const cognitiveBase = {
+  ...applyExercisePurpose(defaultExerciseConfig, 'cognitive_visual'),
+  durationSeconds: 45,
+  restSeconds: 20,
+  rounds: 1,
+  cognitiveStimulusSeconds: 2.5,
+}
+const rareTarget = {
+  ...cognitiveBase,
+  name: 'Atención · contar rombos',
+  cognitiveTaskMode: 'rare_target' as const,
+  cognitiveTargetSymbol: 'diamond' as const,
+  cognitiveResponseMode: 'count_at_end' as const,
+}
+const goNoGo = {
+  ...cognitiveBase,
+  name: 'Inhibición · Go/No-Go verbal',
+  cognitiveTaskMode: 'go_no_go' as const,
+  cognitiveTargetSymbol: 'star' as const,
+  cognitiveResponseMode: 'verbal' as const,
+}
+const shortMemory = {
+  ...cognitiveBase,
+  name: 'Memoria breve · comparar con la anterior',
+  cognitiveTaskMode: 'short_memory' as const,
+  cognitiveResponseMode: 'verbal' as const,
+  cognitiveMemorySpan: 1 as const,
+}
 
 const seed: ExerciseTemplateRecord[] = [
   { id: 'template-rvo-bars', name: 'RVO X1 · Punto fijo 2D', config: defaultExerciseConfig, createdAt: '2026-07-16T00:00:00.000Z', updatedAt: '2026-07-16T00:00:00.000Z' },
   { id: 'template-rvo-x2-horizontal', name: rvoX2Horizontal.name, config: rvoX2Horizontal, createdAt: seedDate, updatedAt: seedDate },
   { id: 'template-rvo-x2-diagonal', name: rvoX2Diagonal.name, config: rvoX2Diagonal, createdAt: seedDate, updatedAt: seedDate },
   { id: 'template-remembered-target', name: rememberedTarget.name, config: rememberedTarget, createdAt: seedDate, updatedAt: seedDate },
+  { id: 'template-cognitive-rare-target', name: rareTarget.name, config: rareTarget, createdAt: seedDate, updatedAt: seedDate },
+  { id: 'template-cognitive-go-no-go', name: goNoGo.name, config: goNoGo, createdAt: seedDate, updatedAt: seedDate },
+  { id: 'template-cognitive-short-memory', name: shortMemory.name, config: shortMemory, createdAt: seedDate, updatedAt: seedDate },
 ]
 
 function normalizeTemplate(item: ExerciseTemplateRecord) {
@@ -81,7 +112,9 @@ export async function listExerciseTemplates(): Promise<ExerciseTemplateRecord[]>
   if (!isSupabaseConfigured || !supabase) return read().sort((a, b) => a.name.localeCompare(b.name))
   const { data, error } = await supabase.from('exercise_templates').select('*').order('name')
   if (error) throw error
-  return (data ?? []).map(fromRow)
+  const stored = (data ?? []).map(fromRow)
+  const storedIds = new Set(stored.map((item) => item.id))
+  return [...stored, ...seed.filter((item) => !storedIds.has(item.id))].sort((a, b) => a.name.localeCompare(b.name))
 }
 
 export async function saveExerciseTemplate(config: ExerciseConfig): Promise<ExerciseTemplateRecord> {

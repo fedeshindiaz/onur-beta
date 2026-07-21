@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { calculateSaccadePosition, calculateTrackingPosition } from './engine'
+import { cognitiveInstruction, cognitiveStepAt, cognitiveSymbolAtStep, isCognitiveTargetStep } from './cognitive'
+import { applyExercisePurpose } from './compatibility'
+import { defaultExerciseConfig } from './types'
 
 describe('motor de posiciones del ejercicio', () => {
   it('mantiene el seguimiento vertical centrado en el eje horizontal', () => {
@@ -39,5 +42,25 @@ describe('motor de posiciones del ejercicio', () => {
     expect(first.x).toBeLessThan(500)
     expect(second.x).toBeGreaterThan(500)
     expect(Math.sign(second.y - 250)).toBe(ySign)
+  })
+
+  it('presenta un objetivo raro determinista una vez cada cinco figuras', () => {
+    const config = { ...applyExercisePurpose(defaultExerciseConfig, 'cognitive_visual'), cognitiveTaskMode: 'rare_target' as const, cognitiveTargetSymbol: 'diamond' as const }
+    const targets = Array.from({ length: 15 }, (_, step) => isCognitiveTargetStep(config, step))
+    expect(targets.filter(Boolean)).toHaveLength(3)
+    expect(cognitiveSymbolAtStep(config, 3)).toBe('diamond')
+    expect(cognitiveStepAt(5.1, 2.5)).toBe(2)
+  })
+
+  it('genera coincidencias controladas para memoria breve', () => {
+    const config = { ...applyExercisePurpose(defaultExerciseConfig, 'cognitive_visual'), cognitiveTaskMode: 'short_memory' as const, cognitiveMemorySpan: 1 as const }
+    expect(isCognitiveTargetStep(config, 3)).toBe(true)
+    expect(cognitiveSymbolAtStep(config, 3)).toBe(cognitiveSymbolAtStep(config, 2))
+  })
+
+  it('usa el artículo correcto en la consigna de cada figura', () => {
+    const config = { ...applyExercisePurpose(defaultExerciseConfig, 'cognitive_visual'), cognitiveTaskMode: 'go_no_go' as const, cognitiveTargetSymbol: 'star' as const, cognitiveResponseMode: 'verbal' as const }
+    expect(cognitiveInstruction(config)).toContain('la estrella')
+    expect(cognitiveInstruction({ ...config, cognitiveTargetSymbol: 'diamond' })).toContain('el rombo')
   })
 })

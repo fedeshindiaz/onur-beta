@@ -1,4 +1,5 @@
-import type { ExerciseConfig, LinearMotionDirection, MotionDirection, ObjectDirection, SaccadePattern } from './types'
+import { cognitiveStepAt, cognitiveSymbolAtStep } from './cognitive'
+import type { CognitiveSymbol, ExerciseConfig, LinearMotionDirection, MotionDirection, ObjectDirection, SaccadePattern } from './types'
 
 export interface Point {
   x: number
@@ -217,11 +218,37 @@ export function renderExerciseFrame(
     )
   }
 
-  context.beginPath()
+  const cognitiveSymbol = config.cognitiveTaskMode === 'none'
+    ? 'circle'
+    : cognitiveSymbolAtStep(config, cognitiveStepAt(elapsedSeconds, config.cognitiveStimulusSeconds))
   context.fillStyle = config.objectColor
   context.shadowColor = 'rgba(0,0,0,0.22)'
   context.shadowBlur = Math.max(6, config.objectSize * 0.25)
-  context.arc(objectPosition.x, objectPosition.y, config.objectSize / 2, 0, Math.PI * 2)
+  drawObjectShape(context, cognitiveSymbol, objectPosition, config.objectSize)
   context.fill()
   context.shadowBlur = 0
+}
+
+function drawObjectShape(context: CanvasRenderingContext2D, symbol: CognitiveSymbol, position: Point, size: number) {
+  const radius = size / 2
+  context.beginPath()
+  if (symbol === 'circle') {
+    context.arc(position.x, position.y, radius, 0, Math.PI * 2)
+    return
+  }
+  if (symbol === 'square') {
+    context.rect(position.x - radius, position.y - radius, size, size)
+    return
+  }
+  const sides = symbol === 'triangle' ? 3 : symbol === 'diamond' ? 4 : 10
+  const rotation = symbol === 'diamond' ? Math.PI / 4 : -Math.PI / 2
+  for (let index = 0; index < sides; index += 1) {
+    const angle = rotation + (index * Math.PI * 2) / sides
+    const pointRadius = symbol === 'star' && index % 2 === 1 ? radius * 0.44 : radius
+    const x = position.x + Math.cos(angle) * pointRadius
+    const y = position.y + Math.sin(angle) * pointRadius
+    if (index === 0) context.moveTo(x, y)
+    else context.lineTo(x, y)
+  }
+  context.closePath()
 }

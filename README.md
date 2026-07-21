@@ -69,7 +69,7 @@ Decimotercer incremento técnico ejecutable:
 - VR Box temporizado sin botones ni mirada, con transiciones guiadas de 20 segundos para colocar y retirar el visor;
 - advertencia y reordenamiento recomendado cuando una sesión mezcla repeticiones con un bloque VR Box;
 - controles de postura, superficie y supervisión, con bloqueos domiciliarios para tareas de mayor riesgo;
-- catálogo de 31 fuentes y compuerta validada para futuros borradores clínicamente gobernados;
+- catálogo de 33 fuentes y compuerta validada para futuros borradores clínicamente gobernados;
 - sesión domiciliaria de demostración;
 - PWA instalable;
 - esquema PostgreSQL/Supabase con RLS;

@@ -20,6 +20,13 @@ export interface SessionEventLogEntry {
   target_repetitions?: number
   reported_repetitions?: number
   completion?: string
+  cognitive_mode?: string
+  cognitive_response_mode?: string
+  cognitive_target_events?: number
+  cognitive_response_count?: number
+  cognitive_correct_responses?: number
+  cognitive_false_alarms?: number
+  cognitive_reported_count?: number
   skipped_exercises?: number
 }
 

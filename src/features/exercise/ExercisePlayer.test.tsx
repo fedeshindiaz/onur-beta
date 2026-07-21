@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ExercisePlayer } from './ExercisePlayer'
 import { applyExercisePurpose } from './compatibility'
@@ -7,7 +7,7 @@ import { defaultExerciseConfig } from './types'
 vi.mock('./ExerciseCanvas', () => ({ ExerciseCanvas: () => <div>Vista visual</div> }))
 vi.mock('./StereoscopicExerciseCanvas', () => ({ StereoscopicExerciseCanvas: () => <div>Vista VR</div> }))
 
-afterEach(() => vi.useRealTimers())
+afterEach(() => { cleanup(); vi.useRealTimers() })
 
 describe('avance del reproductor', () => {
   it('finaliza automáticamente un ejercicio VR Box por tiempo', async () => {
@@ -49,5 +49,40 @@ describe('avance del reproductor', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('el blanco está unido al celular y acompaña la cabeza')
     fireEvent.click(screen.getByRole('button', { name: 'Salir y avisar al profesional' }))
     expect(onExit).toHaveBeenCalledOnce()
+  })
+
+  it('muestra la consigna antes de iniciar y registra el conteo de objetivo raro', async () => {
+    vi.useFakeTimers()
+    const onComplete = vi.fn()
+    const config = { ...applyExercisePurpose(defaultExerciseConfig, 'cognitive_visual'), durationSeconds: 1, preparationSeconds: 0 as const, cognitiveStimulusSeconds: 1 }
+    render(<ExercisePlayer config={config} onExit={vi.fn()} onComplete={onComplete}/>)
+    expect(screen.getByText('Consigna antes de comenzar')).toBeInTheDocument()
+    expect(screen.getByText(/Contá mentalmente cuántas veces/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /Entendí la consigna/ }))
+    await act(async () => { vi.advanceTimersByTime(1_000) })
+    fireEvent.change(screen.getByLabelText('Total que contaste'), { target: { value: '2' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar respuesta y continuar' }))
+    expect(onComplete.mock.calls[0][1]).toMatchObject({ cognitive: { mode: 'rare_target', responseMode: 'count_at_end', reportedCount: 2 } })
+  })
+
+  it('registra aciertos y respuestas fuera del objetivo en Go/No-Go táctil', async () => {
+    vi.useFakeTimers()
+    const onComplete = vi.fn()
+    const config = { ...applyExercisePurpose(defaultExerciseConfig, 'cognitive_visual'), cognitiveTaskMode: 'go_no_go' as const, cognitiveResponseMode: 'screen_tap' as const, durationSeconds: 3, preparationSeconds: 0 as const, cognitiveStimulusSeconds: 1 }
+    render(<ExercisePlayer config={config} onExit={vi.fn()} onComplete={onComplete}/>)
+    fireEvent.click(screen.getByRole('button', { name: /Entendí la consigna/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Responder' }))
+    await act(async () => { vi.advanceTimersByTime(2_000) })
+    fireEvent.click(screen.getByRole('button', { name: 'Responder' }))
+    await act(async () => { vi.advanceTimersByTime(1_000) })
+    fireEvent.click(screen.getByRole('button', { name: 'Continuar' }))
+    expect(onComplete.mock.calls[0][1]).toMatchObject({ cognitive: { mode: 'go_no_go', responseMode: 'screen_tap', responseCount: 2, correctResponses: 1, falseAlarms: 1 } })
+  })
+
+  it('presenta una consigna verbal implementable para memoria breve', () => {
+    const config = { ...applyExercisePurpose(defaultExerciseConfig, 'cognitive_visual'), cognitiveTaskMode: 'short_memory' as const, cognitiveResponseMode: 'verbal' as const, cognitiveMemorySpan: 1 as const, preparationSeconds: 0 as const }
+    render(<ExercisePlayer config={config} onExit={vi.fn()}/>)
+    expect(screen.getByText(/Decí “igual” solamente cuando la figura actual/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Responder' })).not.toBeInTheDocument()
   })
 })

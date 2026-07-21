@@ -44,6 +44,8 @@ export const clinicalSources: readonly ClinicalSource[] = [
   { id: 'SRC-029', priority: 'pediatric_governance', year: 2024, title: 'French Society guidelines for vestibular rehabilitation in children', doi: '10.1016/j.arcped.2024.02.006', pmid: '38697883', url: 'https://pubmed.ncbi.nlm.nih.gov/38697883/' },
   { id: 'SRC-030', priority: 'safety', year: 2026, title: 'Signs and Symptoms of Stroke', url: 'https://www.cdc.gov/stroke/signs-symptoms/index.html' },
   { id: 'SRC-031', priority: 'treatment_modality', year: 2026, title: 'Effectiveness of three vestibular rehabilitation exercises for treating acute unilateral peripheral vestibular dysfunction: a multicenter randomized study', doi: '10.3389/fneur.2025.1687181', pmid: '41561330', url: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC12812630/' },
+  { id: 'SRC-032', priority: 'treatment_modality', year: 2020, title: 'Psychometric Properties of Cognitive-Motor Dual-Task Studies With the Aim of Developing a Test Protocol for Persons With Vestibular Disorders: A Systematic Review', doi: '10.1097/AUD.0000000000000748', pmid: '31283530', url: 'https://pubmed.ncbi.nlm.nih.gov/31283530/' },
+  { id: 'SRC-033', priority: 'treatment_modality', year: 2024, title: 'Effect of dual-task training on balance in older adults: A systematic review and meta-analysis', doi: '10.1016/j.archger.2024.105368', pmid: '38364709', url: 'https://pubmed.ncbi.nlm.nih.gov/38364709/' },
 ]
 
 export const clinicalSourceIds = new Set(clinicalSources.map((source) => source.id))
@@ -53,6 +55,7 @@ export const exerciseTaxonomy = [
   'HABITUATION_MOVEMENT', 'HABITUATION_VISUAL_OKS', 'BALANCE_STATIC',
   'BALANCE_DYNAMIC', 'GAIT_HEAD_MOTION', 'GAIT_DUAL_TASK', 'ENDURANCE_WALKING',
   'FUNCTIONAL_EXPOSURE', 'VR_IMMERSIVE_OR_NONIMMERSIVE',
+  'COGNITIVE_VISUAL_SINGLE_TASK', 'COGNITIVE_MOTOR_DUAL_TASK',
 ] as const
 
 export type ExerciseTaxonomyCode = typeof exerciseTaxonomy[number]

@@ -1,5 +1,6 @@
-import { Accessibility, Check, Clock3, Expand, LogOut, Pause, Play, ShieldAlert, SkipForward } from 'lucide-react'
+import { Accessibility, Check, Clock3, Expand, LogOut, Pause, Play, ShieldAlert, SkipForward, Target } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { cognitiveInstruction, cognitiveResponseModeFor, cognitiveStepAt, cognitiveSymbolPhrase, cognitiveTaskLabel, isCognitiveTargetStep } from './cognitive'
 import { ExerciseCanvas } from './ExerciseCanvas'
 import { analyzeExerciseCompatibility } from './compatibility'
 import { StereoscopicExerciseCanvas } from './StereoscopicExerciseCanvas'
@@ -24,14 +25,32 @@ function PhysicalStage({ config }: { config: ExerciseConfig }) {
   return <div className={`absolute inset-0 bg-[radial-gradient(circle_at_center,#17343a_0%,#081113_64%)] ${vrBox ? 'grid grid-cols-2 divide-x divide-white/10' : ''}`}>{content()}{vrBox && content(true)}</div>
 }
 
-function CompletionPanel({ config, onTarget, onPartial, onSkip }: { config: ExerciseConfig; onTarget: () => void; onPartial: (repetitions: number) => void; onSkip: () => void }) {
-  const [partial, setPartial] = useState(false)
-  const [reported, setReported] = useState(Math.max(1, config.targetRepetitions - 1))
-  const repetitions = config.doseMode === 'repetitions'
-  return <div className="w-full max-w-md rounded-3xl border border-white/12 bg-black/72 p-5 text-center shadow-2xl backdrop-blur-md sm:p-7"><Check className="mx-auto text-[#E49A02]" size={36}/><p className="mt-4 text-xs font-black uppercase tracking-[.16em] text-[#E49A02]">Confirmación manual</p><h2 className="mt-3 text-xl font-black sm:text-2xl">{repetitions ? `¿Terminaste las ${config.targetRepetitions} repeticiones?` : 'El tiempo terminó'}</h2><p className="mt-2 text-xs leading-5 text-white/60">La siguiente fase no comenzará hasta que la confirmes.</p>{partial && repetitions ? <div className="mt-5"><label className="text-xs font-black text-white/75">Repeticiones realizadas aproximadamente<input type="number" min="1" max={Math.max(1, config.targetRepetitions - 1)} value={reported} onChange={(event) => setReported(Math.min(Math.max(1, Number(event.target.value)), Math.max(1, config.targetRepetitions - 1)))} className="mt-2 h-12 w-full rounded-xl border border-white/16 bg-white/10 px-4 text-center text-lg font-black text-white"/></label><button type="button" onClick={() => onPartial(reported)} className="mt-4 h-12 w-full rounded-xl bg-[#E49A02] text-sm font-black text-white">Confirmar y continuar</button><button type="button" onClick={() => setPartial(false)} className="mt-3 text-xs font-bold text-white/55">Volver</button></div> : <div className="mt-6 space-y-3"><button type="button" onClick={onTarget} className="h-13 w-full rounded-xl bg-[#E49A02] px-4 text-sm font-black text-white">{repetitions ? `Completé las ${config.targetRepetitions}` : 'Continuar'}</button>{repetitions && <button type="button" onClick={() => setPartial(true)} className="h-12 w-full rounded-xl bg-white/12 px-4 text-xs font-black">Hice menos</button>}<button type="button" onClick={onSkip} className="text-xs font-bold text-white/55">No pude completar</button></div>}</div>
+function CognitiveBriefing({ config, onStart }: { config: ExerciseConfig; onStart: () => void }) {
+  return <div className="absolute inset-0 z-50 grid place-items-center overflow-y-auto bg-[#0b1214]/94 p-5">
+    <div className="w-full max-w-xl rounded-3xl border border-white/12 bg-[#171717] p-6 text-white shadow-2xl sm:p-8">
+      <Target className="text-[#E49A02]" size={42}/>
+      <p className="mt-5 text-xs font-black uppercase tracking-[.16em] text-[#E49A02]">Consigna antes de comenzar</p>
+      <h2 className="mt-3 text-2xl font-black">{cognitiveTaskLabel(config)}</h2>
+      <div className="mt-5 space-y-4">
+        <div className="rounded-2xl bg-white/[0.07] p-4"><p className="text-[10px] font-black uppercase tracking-[.12em] text-white/45">Tarea principal</p><p className="mt-2 text-sm font-bold leading-6">{config.patientInstruction}</p></div>
+        <div className="rounded-2xl border border-[#E49A02]/35 bg-[#E49A02]/10 p-4"><p className="text-[10px] font-black uppercase tracking-[.12em] text-[#EFB33A]">Tarea cognitiva</p><p className="mt-2 text-base font-black leading-6">{cognitiveInstruction(config)}</p></div>
+        <p className="text-xs leading-5 text-white/60">Realizalo sentado, con la pantalla inmóvil. No necesitás tarjetas, lápiz ni otro material. Si no comprendés la consigna, no comiences y consultá al profesional.</p>
+      </div>
+      <button type="button" onClick={onStart} className="mt-6 h-14 w-full rounded-2xl bg-[#E49A02] text-sm font-black text-white">Entendí la consigna · comenzar</button>
+    </div>
+  </div>
 }
 
-function CompletionOverlay({ config, onTarget, onPartial, onSkip }: { config: ExerciseConfig; onTarget: () => void; onPartial: (repetitions: number) => void; onSkip: () => void }) {
+function CompletionPanel({ config, onTarget, onPartial, onSkip }: { config: ExerciseConfig; onTarget: (reportedCount?: number) => void; onPartial: (repetitions: number) => void; onSkip: () => void }) {
+  const [partial, setPartial] = useState(false)
+  const [reported, setReported] = useState(Math.max(1, config.targetRepetitions - 1))
+  const [cognitiveCount, setCognitiveCount] = useState(0)
+  const repetitions = config.doseMode === 'repetitions'
+  const rareTarget = config.cognitiveTaskMode === 'rare_target'
+  return <div className="w-full max-w-md rounded-3xl border border-white/12 bg-black/72 p-5 text-center shadow-2xl backdrop-blur-md sm:p-7"><Check className="mx-auto text-[#E49A02]" size={36}/><p className="mt-4 text-xs font-black uppercase tracking-[.16em] text-[#E49A02]">Confirmación manual</p><h2 className="mt-3 text-xl font-black sm:text-2xl">{rareTarget ? `¿Cuántas veces viste ${cognitiveSymbolPhrase(config.cognitiveTargetSymbol)}?` : repetitions ? `¿Terminaste las ${config.targetRepetitions} repeticiones?` : 'El tiempo terminó'}</h2><p className="mt-2 text-xs leading-5 text-white/60">La siguiente fase no comenzará hasta que la confirmes.</p>{rareTarget ? <div className="mt-5"><label className="text-xs font-black text-white/75">Total que contaste<input autoFocus type="number" min="0" max="999" value={cognitiveCount} onChange={(event) => setCognitiveCount(Math.min(999, Math.max(0, Number(event.target.value))))} className="mt-2 h-14 w-full rounded-xl border border-white/16 bg-white/10 px-4 text-center text-2xl font-black text-white"/></label><button type="button" onClick={() => onTarget(cognitiveCount)} className="mt-4 h-12 w-full rounded-xl bg-[#E49A02] text-sm font-black text-white">Guardar respuesta y continuar</button><button type="button" onClick={onSkip} className="mt-4 block w-full text-xs font-bold text-white/55">No pude completar</button></div> : partial && repetitions ? <div className="mt-5"><label className="text-xs font-black text-white/75">Repeticiones realizadas aproximadamente<input type="number" min="1" max={Math.max(1, config.targetRepetitions - 1)} value={reported} onChange={(event) => setReported(Math.min(Math.max(1, Number(event.target.value)), Math.max(1, config.targetRepetitions - 1)))} className="mt-2 h-12 w-full rounded-xl border border-white/16 bg-white/10 px-4 text-center text-lg font-black text-white"/></label><button type="button" onClick={() => onPartial(reported)} className="mt-4 h-12 w-full rounded-xl bg-[#E49A02] text-sm font-black text-white">Confirmar y continuar</button><button type="button" onClick={() => setPartial(false)} className="mt-3 text-xs font-bold text-white/55">Volver</button></div> : <div className="mt-6 space-y-3"><button type="button" onClick={() => onTarget()} className="h-13 w-full rounded-xl bg-[#E49A02] px-4 text-sm font-black text-white">{repetitions ? `Completé las ${config.targetRepetitions}` : 'Continuar'}</button>{repetitions && <button type="button" onClick={() => setPartial(true)} className="h-12 w-full rounded-xl bg-white/12 px-4 text-xs font-black">Hice menos</button>}<button type="button" onClick={onSkip} className="text-xs font-bold text-white/55">No pude completar</button></div>}</div>
+}
+
+function CompletionOverlay({ config, onTarget, onPartial, onSkip }: { config: ExerciseConfig; onTarget: (reportedCount?: number) => void; onPartial: (repetitions: number) => void; onSkip: () => void }) {
   const vrBox = config.displayMode === 'vr_box'
   if (!vrBox) return <div className="absolute inset-0 z-50 grid place-items-center bg-black/48 p-5"><CompletionPanel config={config} onTarget={onTarget} onPartial={onPartial} onSkip={onSkip}/></div>
   return <div className="absolute inset-0 z-50 grid grid-cols-2 divide-x divide-white/10 bg-[#171717]"><div className="grid place-items-center p-3"><CompletionPanel config={config} onTarget={onTarget} onPartial={onPartial} onSkip={onSkip}/></div><div className="grid place-items-center p-3" aria-hidden="true"><CompletionPanel config={config} onTarget={onTarget} onPartial={onPartial} onSkip={onSkip}/></div></div>
@@ -44,16 +63,47 @@ function CompatibleExercisePlayer({ config, onExit, onSkip, onComplete, preparat
   const [remainingSeconds, setRemainingSeconds] = useState(config.durationSeconds)
   const [activeSeconds, setActiveSeconds] = useState(0)
   const [completionOpen, setCompletionOpen] = useState(false)
+  const [briefingOpen, setBriefingOpen] = useState(config.cognitiveTaskMode !== 'none')
   const [activityVersion, setActivityVersion] = useState(0)
   const containerRef = useRef<HTMLDivElement>(null)
   const completedRef = useRef(false)
+  const cognitiveTargetStepsRef = useRef(new Set<number>())
+  const cognitiveResponseStepsRef = useRef(new Set<number>())
+  const cognitiveCorrectRef = useRef(0)
+  const cognitiveFalseAlarmsRef = useRef(0)
   const preparing = preparationRemaining > 0
   const timedFinished = config.doseMode === 'time' && remainingSeconds <= 0
-  const inactive = paused || preparing || completionOpen || timedFinished
+  const inactive = paused || preparing || briefingOpen || completionOpen || timedFinished
 
   useEffect(() => { containerRef.current?.focus() }, [])
   useEffect(() => { if (paused || !preparing) return; const timeout = window.setTimeout(() => setPreparationRemaining((remaining) => Math.max(0, remaining - 1)), 1000); return () => window.clearTimeout(timeout) }, [paused, preparing, preparationRemaining])
   useEffect(() => { if (inactive) return; const interval = window.setInterval(() => { setActiveSeconds((seconds) => seconds + 0.25); if (config.doseMode === 'time') setRemainingSeconds((remaining) => Math.max(0, remaining - 0.25)) }, 250); return () => window.clearInterval(interval) }, [config.doseMode, inactive])
+  useEffect(() => {
+    if (inactive || config.cognitiveTaskMode === 'none') return
+    const step = cognitiveStepAt(activeSeconds, config.cognitiveStimulusSeconds)
+    if (isCognitiveTargetStep(config, step)) cognitiveTargetStepsRef.current.add(step)
+  }, [activeSeconds, config, inactive])
+
+  const cognitiveReport = (reportedCount?: number) => config.cognitiveTaskMode === 'none' ? undefined : {
+    mode: config.cognitiveTaskMode,
+    responseMode: cognitiveResponseModeFor(config),
+    targetEvents: cognitiveTargetStepsRef.current.size,
+    responseCount: config.cognitiveResponseMode === 'screen_tap' ? cognitiveResponseStepsRef.current.size : undefined,
+    correctResponses: config.cognitiveResponseMode === 'screen_tap' ? cognitiveCorrectRef.current : undefined,
+    falseAlarms: config.cognitiveResponseMode === 'screen_tap' ? cognitiveFalseAlarmsRef.current : undefined,
+    reportedCount,
+  }
+
+  const registerCognitiveResponse = () => {
+    if (inactive || config.cognitiveTaskMode === 'none' || config.cognitiveResponseMode !== 'screen_tap') return
+    const step = cognitiveStepAt(activeSeconds, config.cognitiveStimulusSeconds)
+    if (cognitiveResponseStepsRef.current.has(step)) return
+    cognitiveResponseStepsRef.current.add(step)
+    if (isCognitiveTargetStep(config, step)) {
+      cognitiveTargetStepsRef.current.add(step)
+      cognitiveCorrectRef.current += 1
+    } else cognitiveFalseAlarmsRef.current += 1
+  }
 
   const finish = (report: ExerciseCompletionReport) => {
     if (completedRef.current) return
@@ -66,7 +116,7 @@ function CompatibleExercisePlayer({ config, onExit, onSkip, onComplete, preparat
 
   useEffect(() => {
     if (!timedFinished || completedRef.current) return
-    if (config.displayMode === 'vr_box' || config.advanceMode === 'automatic') finish({ doseMode: 'time', completion: 'target_completed' })
+    if (config.displayMode === 'vr_box' || config.advanceMode === 'automatic') finish({ doseMode: 'time', completion: 'target_completed', cognitive: cognitiveReport() })
     else setCompletionOpen(true)
     // finish depende del tiempo activo actual; el efecto solo se dispara al alcanzar cero.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -87,8 +137,12 @@ function CompatibleExercisePlayer({ config, onExit, onSkip, onComplete, preparat
     if (config.displayMode === 'vr_box') return
     if ((event.key !== 'Enter' && event.key !== ' ') || preparing || paused) return
     event.preventDefault()
+    if (briefingOpen) { setBriefingOpen(false); return }
     if (completionOpen) {
-      finish({ doseMode: config.doseMode, completion: 'target_completed', targetRepetitions: config.doseMode === 'repetitions' ? config.targetRepetitions : undefined, reportedRepetitions: config.doseMode === 'repetitions' ? config.targetRepetitions : undefined })
+      if (config.cognitiveTaskMode === 'rare_target') return
+      finish({ doseMode: config.doseMode, completion: 'target_completed', targetRepetitions: config.doseMode === 'repetitions' ? config.targetRepetitions : undefined, reportedRepetitions: config.doseMode === 'repetitions' ? config.targetRepetitions : undefined, cognitive: cognitiveReport() })
+    } else if (config.cognitiveResponseMode === 'screen_tap' && config.cognitiveTaskMode !== 'none') {
+      registerCognitiveResponse()
     } else if (config.doseMode === 'repetitions') {
       setCompletionOpen(true)
     }
@@ -97,15 +151,17 @@ function CompatibleExercisePlayer({ config, onExit, onSkip, onComplete, preparat
 
   return <div ref={containerRef} className="fixed inset-0 z-[100] overflow-hidden bg-[#081113] text-white" onPointerMove={showControls} onPointerDown={showControls} onKeyDown={handleKeyDown} role="application" aria-label={`Reproductor: ${config.name}`} tabIndex={-1}>
     {config.kind === 'guided_physical' ? <PhysicalStage config={config}/> : config.displayMode === 'vr_box' ? <StereoscopicExerciseCanvas config={config} paused={inactive}/> : <ExerciseCanvas config={config} paused={inactive} className="absolute inset-0 size-full"/>}
+    {briefingOpen && <CognitiveBriefing config={config} onStart={() => setBriefingOpen(false)}/>}
     {preparing && <PreparationOverlay remaining={preparationRemaining} vrBox={config.displayMode === 'vr_box'}/>}
     <div className={`absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-3 bg-gradient-to-b from-black/72 to-transparent p-5 transition-opacity duration-300 sm:p-7 ${controlsVisible ? 'opacity-100' : 'pointer-events-none opacity-0'}`}><div className="max-w-[70vw] rounded-2xl bg-black/48 px-4 py-2 backdrop-blur"><p className="truncate text-xs font-black">{config.name}{config.displayMode === 'vr_box' ? ' · VR celular' : config.displayMode === 'quest_browser' ? ' · Quest navegador BETA' : ''}</p>{config.displayMode !== 'vr_box' && <p className="mt-1 line-clamp-2 text-[10px] leading-4 text-white/70">{config.patientInstruction}</p>}</div><div className="flex shrink-0 items-center gap-2"><button type="button" onClick={requestFullscreen} className="grid size-10 place-items-center rounded-full bg-black/48 backdrop-blur" aria-label="Pantalla completa"><Expand size={17}/></button><span className="rounded-full bg-black/48 px-4 py-2 text-xs font-black tabular-nums backdrop-blur">{config.doseMode === 'time' ? formattedTime : `${config.targetRepetitions} rep.`}</span></div></div>
-    <div className={`absolute inset-x-0 bottom-0 z-30 flex flex-wrap items-center justify-center gap-3 bg-gradient-to-t from-black/78 to-transparent p-7 transition-opacity duration-300 ${controlsVisible ? 'opacity-100' : 'pointer-events-none opacity-0'}`}><button type="button" onClick={() => setPaused((value) => !value)} className="grid size-13 place-items-center rounded-full bg-white text-[#171717] shadow-lg" aria-label={paused ? 'Continuar' : 'Pausar'}>{paused ? <Play size={20}/> : <Pause size={20}/>}</button>{config.doseMode === 'repetitions' && !preparing && <button type="button" onClick={() => setCompletionOpen(true)} className="inline-flex h-12 items-center gap-2 rounded-full bg-[#E49A02] px-5 text-xs font-black shadow-lg"><Check size={17}/> Informar finalización</button>}{onSkip && <button type="button" onClick={() => finish({ doseMode: config.doseMode, completion: 'skipped', targetRepetitions: config.doseMode === 'repetitions' ? config.targetRepetitions : undefined })} className="inline-flex h-12 items-center gap-2 rounded-full bg-white/16 px-5 text-xs font-black backdrop-blur"><SkipForward size={17}/> Omitir</button>}<button type="button" onClick={onExit} className="inline-flex h-12 items-center gap-2 rounded-full bg-[#c74750] px-5 text-xs font-black shadow-lg"><LogOut size={17}/> Salir</button></div>
+    {config.cognitiveTaskMode !== 'none' && config.cognitiveResponseMode === 'screen_tap' && !inactive && <button type="button" onClick={registerCognitiveResponse} className="absolute right-5 top-1/2 z-40 h-20 -translate-y-1/2 rounded-2xl bg-[#E49A02] px-5 text-sm font-black text-white shadow-2xl sm:right-8">Responder</button>}
+    <div className={`absolute inset-x-0 bottom-0 z-30 flex flex-wrap items-center justify-center gap-3 bg-gradient-to-t from-black/78 to-transparent p-7 transition-opacity duration-300 ${controlsVisible ? 'opacity-100' : 'pointer-events-none opacity-0'}`}><button type="button" onClick={() => setPaused((value) => !value)} className="grid size-13 place-items-center rounded-full bg-white text-[#171717] shadow-lg" aria-label={paused ? 'Continuar' : 'Pausar'}>{paused ? <Play size={20}/> : <Pause size={20}/>}</button>{config.doseMode === 'repetitions' && !preparing && <button type="button" onClick={() => setCompletionOpen(true)} className="inline-flex h-12 items-center gap-2 rounded-full bg-[#E49A02] px-5 text-xs font-black shadow-lg"><Check size={17}/> Informar finalización</button>}{onSkip && <button type="button" onClick={() => finish({ doseMode: config.doseMode, completion: 'skipped', targetRepetitions: config.doseMode === 'repetitions' ? config.targetRepetitions : undefined, cognitive: cognitiveReport() })} className="inline-flex h-12 items-center gap-2 rounded-full bg-white/16 px-5 text-xs font-black backdrop-blur"><SkipForward size={17}/> Omitir</button>}<button type="button" onClick={onExit} className="inline-flex h-12 items-center gap-2 rounded-full bg-[#c74750] px-5 text-xs font-black shadow-lg"><LogOut size={17}/> Salir</button></div>
     {paused && <div className="pointer-events-none absolute inset-0 z-40 grid place-items-center bg-black/22"><span className="rounded-full bg-black/60 px-5 py-3 text-sm font-black backdrop-blur">{preparing ? 'Preparación en pausa' : 'Ejercicio en pausa'}</span></div>}
     {completionOpen && <CompletionOverlay
       config={config}
-      onTarget={() => finish({ doseMode: config.doseMode, completion: 'target_completed', targetRepetitions: config.doseMode === 'repetitions' ? config.targetRepetitions : undefined, reportedRepetitions: config.doseMode === 'repetitions' ? config.targetRepetitions : undefined })}
-      onPartial={(reportedRepetitions) => finish({ doseMode: 'repetitions', completion: 'partial', targetRepetitions: config.targetRepetitions, reportedRepetitions })}
-      onSkip={() => finish({ doseMode: config.doseMode, completion: 'skipped', targetRepetitions: config.doseMode === 'repetitions' ? config.targetRepetitions : undefined })}
+      onTarget={(reportedCount) => finish({ doseMode: config.doseMode, completion: 'target_completed', targetRepetitions: config.doseMode === 'repetitions' ? config.targetRepetitions : undefined, reportedRepetitions: config.doseMode === 'repetitions' ? config.targetRepetitions : undefined, cognitive: cognitiveReport(reportedCount) })}
+      onPartial={(reportedRepetitions) => finish({ doseMode: 'repetitions', completion: 'partial', targetRepetitions: config.targetRepetitions, reportedRepetitions, cognitive: cognitiveReport() })}
+      onSkip={() => finish({ doseMode: config.doseMode, completion: 'skipped', targetRepetitions: config.doseMode === 'repetitions' ? config.targetRepetitions : undefined, cognitive: cognitiveReport() })}
     />}
   </div>
 }
