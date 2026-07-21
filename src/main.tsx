@@ -14,6 +14,15 @@ const reloadWhenSessionIsSafe = () => {
   window.location.reload()
 }
 
+if ('serviceWorker' in navigator) {
+  let updateReloadScheduled = false
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (updateReloadScheduled) return
+    updateReloadScheduled = true
+    reloadWhenSessionIsSafe()
+  })
+}
+
 registerSW({
   immediate: true,
   onNeedReload: reloadWhenSessionIsSafe,
