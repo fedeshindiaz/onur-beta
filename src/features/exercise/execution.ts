@@ -21,7 +21,7 @@ export function buildExerciseExecutionPlan(config: ExerciseConfig, setting: Exer
   const cognitive = config.cognitiveTaskMode !== 'none'
   const warnings: string[] = []
   const equipment = config.displayMode === 'vr_box'
-    ? ['Celular compatible en orientación horizontal', 'VR Box preparado y abierto', 'Silla estable sobre superficie firme']
+    ? ['Celular compatible en orientación horizontal', config.cardboardEnabled ? 'Visor compatible con Cardboard preparado y abierto' : 'VR Box preparado y abierto', 'Silla estable sobre superficie firme']
     : config.displayMode === 'quest_browser'
       ? ['Meta Quest con navegador abierto', 'Silla estable']
       : config.kind === 'guided_physical'
@@ -30,7 +30,8 @@ export function buildExerciseExecutionPlan(config: ExerciseConfig, setting: Exer
 
   let feasibility: ExecutionFeasibility = 'ready'
   if (config.displayMode === 'vr_box') {
-    warnings.push('Es una presentación binocular 2D: no sigue la cabeza, no ancla el estímulo al ambiente y no corrige la óptica específica de cada modelo de visor.')
+    warnings.push(`${config.cardboardEnabled ? 'Cardboard' : 'VR Box'} usa una presentación binocular 2D: no sigue la cabeza, no ancla el estímulo al ambiente y no corrige la óptica específica de cada modelo de visor.`)
+    if (config.cardboardEnabled) warnings.push('La primera versión Cardboard adapta la preparación y el formato binocular, pero no interpreta códigos QR del visor ni aplica una distorsión genérica sin calibración.')
     warnings.push('Antes de comenzar, comprobar que los dos marcadores se fusionen en uno solo, nítido y cómodo. Si se ven dobles o borrosos, retirar el visor.')
   }
   if (config.displayMode !== 'standard' && cognitive) {

@@ -19,6 +19,7 @@ describe('validación de sesión',()=>{
     ['pantalla 2D por tiempo', config()],
     ['pantalla 2D por repeticiones', config({ doseMode: 'repetitions', advanceMode: 'manual' })],
     ['VR Box visual por tiempo', optokinetic({ displayMode: 'vr_box', doseMode: 'time', advanceMode: 'automatic' })],
+    ['Cardboard visual por tiempo', optokinetic({ displayMode: 'vr_box', cardboardEnabled: true, doseMode: 'time', advanceMode: 'automatic' })],
     ['físico sentado independiente', physical({ doseMode: 'repetitions', posture: 'seated' })],
     ['físico de pie con ayudante', physical({ posture: 'standing', supervision: 'trained_helper' })],
     ['marcha domiciliaria con ayudante', physical({ posture: 'walking', supervision: 'trained_helper' })],
@@ -66,6 +67,12 @@ describe('validación de sesión',()=>{
   it('bloquea tareas físicas en visor incluso con supervisión presencial', () => {
     const exercise = physical({ displayMode: 'vr_box', posture: 'standing', supervision: 'direct_clinician', doseMode: 'time', advanceMode: 'automatic' })
     expect(validateSession(session([exercise], 'in_person')).exercises).toContain('oculta el entorno')
+  })
+
+  it('no mezcla VR Box y Cardboard dentro de una misma sesión', () => {
+    const vrBox = optokinetic({ displayMode: 'vr_box', doseMode: 'time', advanceMode: 'automatic' })
+    const cardboard = optokinetic({ displayMode: 'vr_box', cardboardEnabled: true, doseMode: 'time', advanceMode: 'automatic' })
+    expect(validateSession(session([vrBox, cardboard])).exercises).toContain('único perfil de visor')
   })
 
   it('no mezcla Quest con ejercicios para otro dispositivo', () => {

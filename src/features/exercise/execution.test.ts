@@ -33,4 +33,12 @@ describe('plan práctico de ejecución', () => {
     expect(plan.warnings.join(' ')).toContain('presentación binocular 2D')
     expect(plan.warnings.join(' ')).toContain('fusionen en uno solo')
   })
+
+  it('identifica Cardboard sin prometer calibración óptica o seguimiento de cabeza', () => {
+    const config = { ...applyExercisePurpose(defaultExerciseConfig, 'optokinetic'), displayMode: 'vr_box' as const, cardboardEnabled: true, doseMode: 'time' as const, advanceMode: 'automatic' as const }
+    const plan = buildExerciseExecutionPlan(config, 'home')
+    expect(plan.equipment).toContain('Visor compatible con Cardboard preparado y abierto')
+    expect(plan.warnings.join(' ')).toContain('no interpreta códigos QR')
+    expect(plan.warnings.join(' ')).toContain('no sigue la cabeza')
+  })
 })

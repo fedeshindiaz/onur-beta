@@ -41,6 +41,7 @@ export interface ExerciseConfig {
   purpose: ExercisePurpose
   patientInstruction: string
   displayMode: ExerciseDisplayMode
+  cardboardEnabled: boolean
   doseMode: ExerciseDoseMode
   targetRepetitions: number
   advanceMode: ExerciseAdvanceMode
@@ -81,6 +82,7 @@ export const defaultExerciseConfig: ExerciseConfig = {
   purpose: 'gaze_stabilization',
   patientInstruction: 'Mantené el blanco nítido mientras movés la cabeza según la indicación profesional.',
   displayMode: 'standard',
+  cardboardEnabled: false,
   doseMode: 'time',
   targetRepetitions: 10,
   advanceMode: 'manual',
@@ -132,6 +134,7 @@ export function normalizeExerciseConfig(config: Partial<ExerciseConfig>, legacyP
     ...defaultExerciseConfig,
     ...config,
     purpose: inferExercisePurpose(config),
+    cardboardEnabled: config.cardboardEnabled === true,
     preparationSeconds,
     // Las asignaciones antiguas continúan automáticamente; las nuevas usan el valor manual del predeterminado.
     advanceMode: config.advanceMode ?? 'automatic',

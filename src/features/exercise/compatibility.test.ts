@@ -66,6 +66,22 @@ describe('coherencia clínica y espacial de ejercicios', () => {
     expect(analysis.explanation).toContain('cabeza quieta')
   })
 
+  it('habilita Cardboard únicamente sobre el mismo grupo seguro de VR Box', () => {
+    for (const purpose of ['smooth_pursuit', 'saccades', 'optokinetic', 'visual_habituation', 'custom_free'] as const) {
+      const analysis = analyzeExerciseCompatibility(exercise(purpose, { displayMode: 'vr_box', cardboardEnabled: true, doseMode: 'time', advanceMode: 'automatic' }))
+      expect(analysis.valid, purpose).toBe(true)
+    }
+    for (const purpose of ['gaze_stabilization', 'gaze_stabilization_x2', 'gaze_substitution_remembered', 'cognitive_visual', 'guided_functional'] as const) {
+      const analysis = analyzeExerciseCompatibility(exercise(purpose, { displayMode: 'vr_box', cardboardEnabled: true, doseMode: 'time', advanceMode: 'automatic' }))
+      expect(analysis.valid, purpose).toBe(false)
+    }
+  })
+
+  it('no permite conservar Cardboard fuera de VR Box', () => {
+    const analysis = analyzeExerciseCompatibility(exercise('smooth_pursuit', { displayMode: 'standard', cardboardEnabled: true }))
+    expect(analysis.issues.some((item) => item.code === 'cardboard-display-mode')).toBe(true)
+  })
+
   it.each(['vr_box', 'quest_browser'] as const)('bloquea tareas físicas en %s', (displayMode) => {
     const analysis = analyzeExerciseCompatibility(exercise('guided_functional', { displayMode, doseMode: 'time', advanceMode: 'automatic' }))
     expect(analysis.valid).toBe(false)
@@ -128,20 +144,21 @@ describe('coherencia clínica y espacial de ejercicios', () => {
     const surfaces: ExerciseSurface[] = ['firm', 'unstable']
     const cognition: CognitiveTaskMode[] = ['none', 'rare_target']
     const metronomes = [false, true]
+    const cardboardProfiles = [false, true]
     let checked = 0
 
     for (const purpose of purposes) for (const doseMode of doses) for (const advanceMode of advances) {
-      for (const posture of postures) for (const surface of surfaces) for (const cognitiveTaskMode of cognition) for (const metronomeEnabled of metronomes) {
-        const configured = exercise(purpose, { displayMode: 'vr_box', doseMode, advanceMode, posture, surface, cognitiveTaskMode, metronomeEnabled })
+      for (const posture of postures) for (const surface of surfaces) for (const cognitiveTaskMode of cognition) for (const metronomeEnabled of metronomes) for (const cardboardEnabled of cardboardProfiles) {
+        const configured = exercise(purpose, { displayMode: 'vr_box', cardboardEnabled, doseMode, advanceMode, posture, surface, cognitiveTaskMode, metronomeEnabled })
         const expected = isVrBoxPurposeSupported(purpose)
           && doseMode === 'time' && advanceMode === 'automatic'
           && posture === 'seated' && surface === 'firm'
           && cognitiveTaskMode === 'none' && !metronomeEnabled
-        expect(analyzeExerciseCompatibility(configured).valid, JSON.stringify({ purpose, doseMode, advanceMode, posture, surface, cognitiveTaskMode, metronomeEnabled })).toBe(expected)
+        expect(analyzeExerciseCompatibility(configured).valid, JSON.stringify({ purpose, cardboardEnabled, doseMode, advanceMode, posture, surface, cognitiveTaskMode, metronomeEnabled })).toBe(expected)
         checked += 1
       }
     }
-    expect(checked).toBe(960)
+    expect(checked).toBe(1920)
   })
 
   it('verifica todas las direcciones de los fondos móviles compatibles con VR Box', () => {

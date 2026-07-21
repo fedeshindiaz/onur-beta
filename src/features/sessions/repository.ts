@@ -16,6 +16,7 @@ export interface SessionEventLogEntry {
   exercise_kind?: string
   dose_mode?: string
   display_mode?: string
+  viewer_profile?: 'vr_box' | 'cardboard'
   active_seconds?: number
   target_repetitions?: number
   reported_repetitions?: number

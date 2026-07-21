@@ -5,6 +5,7 @@ import { analyzeSessionSequence, orderExercisesForVrBox } from './sequence'
 
 const repetitions = { ...defaultExerciseConfig, name: 'Sentarse y pararse', doseMode: 'repetitions' as const, displayMode: 'standard' as const }
 const vrBox = { ...applyExercisePurpose(defaultExerciseConfig, 'optokinetic'), name: 'Optocinético VR', doseMode: 'time' as const, displayMode: 'vr_box' as const, advanceMode: 'automatic' as const }
+const cardboard = { ...vrBox, name: 'Optocinético Cardboard', cardboardEnabled: true }
 const standardTimed = { ...defaultExerciseConfig, name: 'Seguimiento 2D', doseMode: 'time' as const, displayMode: 'standard' as const }
 
 describe('secuencia de equipamiento VR Box', () => {
@@ -16,6 +17,11 @@ describe('secuencia de equipamiento VR Box', () => {
     const ordered = orderExercisesForVrBox([vrBox, repetitions, vrBox])
     expect(ordered.map((exercise) => exercise.name)).toEqual(['Sentarse y pararse', 'Optocinético VR', 'Optocinético VR'])
     expect(analyzeSessionSequence(ordered)).toMatchObject({ optimizedForVrBox: true, visorChanges: 2 })
+  })
+
+  it('detecta el cambio logístico entre VR Box y Cardboard', () => {
+    expect(analyzeSessionSequence([vrBox, cardboard])).toMatchObject({ mixesVrBoxProfiles: true, visorChanges: 4 })
+    expect(analyzeSessionSequence([cardboard, cardboard])).toMatchObject({ mixesVrBoxProfiles: false, visorChanges: 2 })
   })
 
   it.each([

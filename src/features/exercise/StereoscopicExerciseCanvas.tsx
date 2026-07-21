@@ -47,7 +47,8 @@ export function StereoscopicExerciseCanvas({ config, paused = false }: { config:
     return () => { cancelAnimationFrame(animationFrame); observer.disconnect() }
   }, [])
 
-  return <div className="absolute inset-0 grid grid-cols-2 bg-black" aria-label="Vista estereoscópica para visor de celular">
+  const viewerLabel = config.cardboardEnabled ? 'Cardboard' : 'VR Box'
+  return <div className="absolute inset-0 grid grid-cols-2 bg-black" data-viewer-profile={config.cardboardEnabled ? 'cardboard' : 'vr_box'} aria-label={`Vista binocular 2D para ${viewerLabel}`}>
     <canvas ref={leftRef} className="h-full w-full border-r-2 border-black" aria-label="Vista izquierda"/>
     <canvas ref={rightRef} className="h-full w-full border-l-2 border-black" aria-label="Vista derecha"/>
   </div>

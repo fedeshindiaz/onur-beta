@@ -36,6 +36,8 @@ export function validateSession(values: SessionFormValues) {
   if (values.exercises.some((exercise) => exercise.doseMode === 'repetitions' && exercise.advanceMode !== 'manual')) setExerciseError('Los ejercicios por repeticiones requieren confirmación manual.')
   if (values.exercises.some((exercise) => exercise.displayMode === 'vr_box' && exercise.doseMode === 'repetitions')) setExerciseError('VR Box solo admite ejercicios por tiempo; las repeticiones se realizan con el celular fuera del visor.')
   if (values.exercises.some((exercise) => exercise.displayMode === 'vr_box' && exercise.advanceMode !== 'automatic')) setExerciseError('Los ejercicios VR Box deben finalizar automáticamente porque no dependen de botones ni controles externos.')
+  const vrBoxProfiles = new Set(values.exercises.filter((exercise) => exercise.displayMode === 'vr_box').map((exercise) => exercise.cardboardEnabled ? 'cardboard' : 'vr_box'))
+  if (vrBoxProfiles.size > 1) setExerciseError('Una misma sesión no debe alternar entre VR Box y Cardboard. Elegí un único perfil de visor para todo el bloque binocular.')
   if (values.exercises.some((exercise) => (exercise.kind === 'guided_physical' || exercise.purpose === 'custom_free') && exercise.surface === 'unstable' && exercise.supervision === 'independent_after_approval')) setExerciseError('Las superficies inestables requieren un ayudante entrenado o supervisión profesional.')
   if (values.mode === 'home' && values.exercises.some((exercise) => (exercise.kind === 'guided_physical' || exercise.purpose === 'custom_free') && exercise.posture === 'walking' && exercise.supervision === 'independent_after_approval')) setExerciseError('La marcha domiciliaria requiere un ayudante entrenado.')
 

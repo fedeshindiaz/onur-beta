@@ -28,6 +28,11 @@ describe('creación de ejercicios', () => {
     expect(screen.getByText('Configuración coherente')).toBeInTheDocument()
     expect(screen.getByText('Vista binocular VR')).toBeInTheDocument()
     expect(screen.getByRole('checkbox', { name: 'Metrónomo' })).toBeDisabled()
+    const cardboard = screen.getByRole('checkbox', { name: 'Habilitar perfil Cardboard' })
+    expect(cardboard).not.toBeChecked()
+    fireEvent.click(cardboard)
+    expect(cardboard).toBeChecked()
+    expect(screen.getByText(/no interpreta códigos QR/i)).toBeInTheDocument()
   })
 
   it('Quest clínico fuerza dosis por tiempo y avance automático', () => {

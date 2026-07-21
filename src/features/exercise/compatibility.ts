@@ -76,6 +76,7 @@ export function applyExercisePurpose(config: ExerciseConfig, purpose: ExercisePu
       ...common,
       kind: 'guided_physical',
       displayMode: 'standard',
+      cardboardEnabled: false,
       doseMode: 'repetitions',
       advanceMode: 'manual',
     }
@@ -85,6 +86,7 @@ export function applyExercisePurpose(config: ExerciseConfig, purpose: ExercisePu
       ...common,
       kind: 'visual_stimulus',
       displayMode: 'standard',
+      cardboardEnabled: false,
       backgroundSpeed: 0,
       objectEnabled: true,
       objectMode: 'fixed',
@@ -95,6 +97,7 @@ export function applyExercisePurpose(config: ExerciseConfig, purpose: ExercisePu
       ...common,
       kind: 'visual_stimulus',
       displayMode: 'standard',
+      cardboardEnabled: false,
       backgroundSpeed: 0,
       objectEnabled: true,
       objectMode: 'tracking',
@@ -105,6 +108,7 @@ export function applyExercisePurpose(config: ExerciseConfig, purpose: ExercisePu
       ...common,
       kind: 'visual_stimulus',
       displayMode: 'standard',
+      cardboardEnabled: false,
       doseMode: 'repetitions',
       advanceMode: 'manual',
       backgroundSpeed: 0,
@@ -120,6 +124,7 @@ export function applyExercisePurpose(config: ExerciseConfig, purpose: ExercisePu
       ...common,
       kind: 'visual_stimulus',
       displayMode: 'standard',
+      cardboardEnabled: false,
       doseMode: 'time',
       advanceMode: 'manual',
       posture: 'seated',
@@ -173,6 +178,10 @@ export function analyzeExerciseCompatibility(config: ExerciseConfig): ExerciseCo
   const cognitive = config.cognitiveTaskMode !== 'none'
   const headMovementPurpose = ['gaze_stabilization', 'gaze_stabilization_x2', 'gaze_substitution_remembered'].includes(config.purpose)
   const rotationalDirection = config.backgroundDirection === 'clockwise' || config.backgroundDirection === 'counterclockwise'
+
+  if (config.cardboardEnabled && config.displayMode !== 'vr_box') {
+    issues.push(issue('cardboard-display-mode', 'El perfil Cardboard pertenece a la presentación VR Box y no puede aplicarse a una pantalla 2D o a Meta Quest.', 'Elegí VR Box o desactivá Cardboard.'))
+  }
 
   if (!free && config.backgroundType === 'spiral' && !rotationalDirection) {
     issues.push(issue('spiral-direction', 'La espiral representa una rotación y no admite una dirección lineal o diagonal.', 'Elegí sentido horario o antihorario.'))

@@ -71,10 +71,31 @@ describe('SessionRunner', () => {
 
     for (let second = 0; second < 20; second += 1) await act(async () => { vi.advanceTimersByTime(1_000) })
     fireEvent.click(screen.getByRole('button', { name: 'Completar ejercicio' }))
-    expect(screen.getAllByText('Retirar visor')).toHaveLength(2)
+    expect(screen.getAllByText('Retirar VR Box')).toHaveLength(2)
 
     for (let second = 0; second < 20; second += 1) await act(async () => { vi.advanceTimersByTime(1_000) })
     expect(onFinish).toHaveBeenCalledTimes(1)
     expect(onFinish.mock.calls[0][2].map((event: { type: string }) => event.type)).toEqual(['vr_box_put_on', 'exercise_completed', 'vr_box_take_off'])
+  })
+
+  it('nombra y registra Cardboard durante toda la transición', async () => {
+    vi.useFakeTimers()
+    const onFinish = vi.fn()
+    const cardboardSession = { ...session, exercises: [{ ...applyExercisePurpose(defaultExerciseConfig, 'saccades'), name: 'Sacadas Cardboard', displayMode: 'vr_box' as const, cardboardEnabled: true, doseMode: 'time' as const, advanceMode: 'automatic' as const, rounds: 1, restSeconds: 0 }] }
+    render(<SessionRunner session={cardboardSession} onFinish={onFinish} onExit={vi.fn()} />)
+
+    expect(screen.getByText('Preparación de Cardboard')).toBeInTheDocument()
+    expect(screen.getByText(/no requiere escanear un código QR/i)).toBeInTheDocument()
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Comenzar preparación de 20 segundos' })) })
+    for (let second = 0; second < 20; second += 1) await act(async () => { vi.advanceTimersByTime(1_000) })
+    fireEvent.click(screen.getByRole('button', { name: 'Completar ejercicio' }))
+    expect(screen.getAllByText('Retirar Cardboard')).toHaveLength(2)
+    for (let second = 0; second < 20; second += 1) await act(async () => { vi.advanceTimersByTime(1_000) })
+
+    expect(onFinish.mock.calls[0][2]).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: 'vr_box_put_on', viewer_profile: 'cardboard' }),
+      expect.objectContaining({ type: 'exercise_completed', viewer_profile: 'cardboard' }),
+      expect.objectContaining({ type: 'vr_box_take_off', viewer_profile: 'cardboard' }),
+    ]))
   })
 })

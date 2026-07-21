@@ -7,7 +7,8 @@ import { VR_BOX_TRANSITION_SECONDS } from './sequence'
 
 type ExerciseUnit = { type: 'exercise'; config: ExerciseConfig; label: string; exerciseIndex: number; round: number }
 type RestUnit = { type: 'rest'; seconds: number; label: string; nextLabel: string; displayMode: ExerciseDisplayMode; advanceMode: ExerciseConfig['advanceMode'] }
-type VrBoxTransitionUnit = { type: 'vr_box_transition'; direction: 'put_on' | 'take_off'; seconds: number; nextLabel: string }
+type ViewerProfile = 'vr_box' | 'cardboard'
+type VrBoxTransitionUnit = { type: 'vr_box_transition'; direction: 'put_on' | 'take_off'; seconds: number; nextLabel: string; viewerProfile: ViewerProfile }
 type Unit = ExerciseUnit | RestUnit | VrBoxTransitionUnit
 
 function buildUnits(exercises: ExerciseConfig[]): Unit[] {
@@ -19,17 +20,20 @@ function buildUnits(exercises: ExerciseConfig[]): Unit[] {
   })
 
   const units: Unit[] = []
-  let wearingVrBox = false
+  let activeViewer: ViewerProfile | null = null
   phases.forEach((phase, index) => {
-    const needsVrBox = phase.config.displayMode === 'vr_box'
-    if (needsVrBox !== wearingVrBox) {
-      units.push({
-        type: 'vr_box_transition',
-        direction: needsVrBox ? 'put_on' : 'take_off',
-        seconds: VR_BOX_TRANSITION_SECONDS,
-        nextLabel: phase.config.name,
+    const desiredViewer: ViewerProfile | null = phase.config.displayMode === 'vr_box' ? (phase.config.cardboardEnabled ? 'cardboard' : 'vr_box') : null
+    if (activeViewer !== desiredViewer) {
+      if (activeViewer) units.push({
+        type: 'vr_box_transition', direction: 'take_off', seconds: VR_BOX_TRANSITION_SECONDS,
+        nextLabel: desiredViewer ? `Cambio a ${desiredViewer === 'cardboard' ? 'Cardboard' : 'VR Box'}` : phase.config.name,
+        viewerProfile: activeViewer,
       })
-      wearingVrBox = needsVrBox
+      if (desiredViewer) units.push({
+        type: 'vr_box_transition', direction: 'put_on', seconds: VR_BOX_TRANSITION_SECONDS,
+        nextLabel: phase.config.name, viewerProfile: desiredViewer,
+      })
+      activeViewer = desiredViewer
     }
 
     units.push(phase)
@@ -43,7 +47,7 @@ function buildUnits(exercises: ExerciseConfig[]): Unit[] {
     }
   })
 
-  if (wearingVrBox) units.push({ type: 'vr_box_transition', direction: 'take_off', seconds: VR_BOX_TRANSITION_SECONDS, nextLabel: 'Registro final de la sesión' })
+  if (activeViewer) units.push({ type: 'vr_box_transition', direction: 'take_off', seconds: VR_BOX_TRANSITION_SECONDS, nextLabel: 'Registro final de la sesión', viewerProfile: activeViewer })
   return units
 }
 
@@ -79,11 +83,12 @@ function RestScreen({ seconds, label, nextLabel, displayMode, advanceMode, onCom
   return <div className={`fixed inset-0 z-[100] bg-[#171717] text-white ${vrBox ? 'grid grid-cols-2 divide-x divide-white/10' : ''}`}>{content()}{vrBox && content(true)}</div>
 }
 
-function VrBoxTransitionScreen({ direction, seconds, nextLabel, onComplete, onExit }: VrBoxTransitionUnit & { onComplete: () => void; onExit: () => void }) {
+function VrBoxTransitionScreen({ direction, seconds, nextLabel, viewerProfile, onComplete, onExit }: VrBoxTransitionUnit & { onComplete: () => void; onExit: () => void }) {
   const [started, setStarted] = useState(direction === 'take_off')
   const [remaining, setRemaining] = useState(seconds)
   const containerRef = useRef<HTMLDivElement>(null)
   const completedRef = useRef(false)
+  const viewerLabel = viewerProfile === 'cardboard' ? 'Cardboard' : 'VR Box'
 
   useEffect(() => {
     if (!started || remaining <= 0) return
@@ -115,9 +120,10 @@ function VrBoxTransitionScreen({ direction, seconds, nextLabel, onComplete, onEx
   if (!started) return <div ref={containerRef} className="fixed inset-0 z-[120] grid place-items-center bg-[#171717] p-6 text-white">
     <div className="w-full max-w-lg rounded-3xl border border-white/12 bg-white/[0.06] p-7 text-center shadow-2xl">
       <Glasses className="mx-auto text-[#E49A02]" size={52}/>
-      <p className="mt-5 text-xs font-black uppercase tracking-[.16em] text-[#E49A02]">Preparación de VR Box</p>
+      <p className="mt-5 text-xs font-black uppercase tracking-[.16em] text-[#E49A02]">Preparación de {viewerLabel}</p>
       <h2 className="mt-3 text-2xl font-black">El próximo ejercicio usa el visor</h2>
-      <p className="mt-3 text-sm leading-6 text-white/65">Dejá el VR Box abierto y el celular listo. Al continuar tendrás {seconds} segundos para colocarlo en el visor. Después, el ejercicio comenzará solo.</p>
+      <p className="mt-3 text-sm leading-6 text-white/65">Dejá el {viewerLabel} abierto y el celular listo. Al continuar tendrás {seconds} segundos para colocarlo en el visor. Después, el ejercicio comenzará solo.</p>
+      {viewerProfile === 'cardboard' && <p className="mt-3 text-xs leading-5 text-white/55">Esta primera versión usa presentación binocular 2D y no requiere escanear un código QR del visor.</p>}
       <p className="mt-4 rounded-2xl bg-black/25 p-4 text-xs font-bold text-white/75">Próxima fase: {nextLabel}</p>
       <button type="button" onClick={() => void startVrPreparation()} className="mt-6 h-14 w-full rounded-2xl bg-[#E49A02] text-sm font-black text-white">Comenzar preparación de {seconds} segundos</button>
       <button type="button" onClick={onExit} className="mt-4 text-xs font-bold text-white/55">Salir de la sesión</button>
@@ -127,7 +133,7 @@ function VrBoxTransitionScreen({ direction, seconds, nextLabel, onComplete, onEx
   const instruction = direction === 'put_on' ? 'Ajustá el visor hasta ver un único + nítido. Si ves doble o borroso, retiralo y no comiences.' : 'Retirá el visor y sacá el celular para continuar.'
   const content = (duplicate = false) => <div className="flex h-full flex-col items-center justify-center px-5 text-center" aria-hidden={duplicate || undefined}>
     <Glasses className="text-[#E49A02]" size={30}/>
-    <p className="mt-4 text-[9px] font-black uppercase tracking-[.16em] text-[#E49A02]">{direction === 'put_on' ? 'Colocar visor' : 'Retirar visor'}</p>
+    <p className="mt-4 text-[9px] font-black uppercase tracking-[.16em] text-[#E49A02]">{direction === 'put_on' ? `Colocar ${viewerLabel}` : `Retirar ${viewerLabel}`}</p>
     <p className="mt-3 text-5xl font-black tabular-nums">{remaining}</p>
     {direction === 'put_on' && <div className="mt-3 grid size-8 place-items-center rounded-full border-2 border-white text-lg font-black text-white">+</div>}
     <p className="mt-4 max-w-xs text-[10px] font-bold leading-4 text-white/70">{instruction}</p>
@@ -166,6 +172,7 @@ export function SessionRunner({ session, onFinish, onExit }: { session: SessionA
         at: new Date().toISOString(), exercise_index: unit.exerciseIndex, round: unit.round,
         exercise_name: unit.config.name, exercise_kind: unit.config.kind,
         dose_mode: report?.doseMode ?? unit.config.doseMode, display_mode: unit.config.displayMode,
+        viewer_profile: unit.config.displayMode === 'vr_box' ? (unit.config.cardboardEnabled ? 'cardboard' : 'vr_box') : undefined,
         active_seconds: Math.max(0, Math.round(activeSeconds)), target_repetitions: report?.targetRepetitions,
         reported_repetitions: report?.reportedRepetitions, completion,
         cognitive_mode: report?.cognitive?.mode,
@@ -177,7 +184,7 @@ export function SessionRunner({ session, onFinish, onExit }: { session: SessionA
         cognitive_reported_count: report?.cognitive?.reportedCount,
       })
     } else if (unit?.type === 'vr_box_transition') {
-      eventLogRef.current.push({ type: unit.direction === 'put_on' ? 'vr_box_put_on' : 'vr_box_take_off', at: new Date().toISOString(), active_seconds: unit.seconds })
+      eventLogRef.current.push({ type: unit.direction === 'put_on' ? 'vr_box_put_on' : 'vr_box_take_off', at: new Date().toISOString(), active_seconds: unit.seconds, viewer_profile: unit.viewerProfile })
     }
     if (index >= units.length - 1) finishSession()
     else setIndex((value) => value + 1)
