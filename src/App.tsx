@@ -16,6 +16,7 @@ const TreatmentCycleFormPage = lazy(() => import('./pages/TreatmentCycleFormPage
 const SessionBuilderPage = lazy(() => import('./pages/SessionBuilderPage').then((module) => ({ default: module.SessionBuilderPage })))
 const InPersonSessionPage = lazy(() => import('./pages/InPersonSessionPage').then((module) => ({ default: module.InPersonSessionPage })))
 const SessionsPage = lazy(() => import('./pages/SessionsPage').then((module) => ({ default: module.SessionsPage })))
+const QuestStationPage = lazy(() => import('./pages/QuestStationPage').then((module) => ({ default: module.QuestStationPage })))
 const AssessmentFormPage = lazy(() => import('./pages/AssessmentFormPage').then((module) => ({ default: module.AssessmentFormPage })))
 const BapDirectCapturePage = lazy(() => import('./pages/BapDirectCapturePage').then((module) => ({ default: module.BapDirectCapturePage })))
 const EvaluationsPage = lazy(() => import('./pages/EvaluationsPage').then((module) => ({ default: module.EvaluationsPage })))
@@ -49,6 +50,7 @@ const router = createBrowserRouter([
   { path: '/ingresar', element: load(<LoginPage />) },
   { path: '/recuperar-clave', element: load(<ProfessionalPasswordRecoveryPage />) },
   { path: '/restablecer-clave', element: load(<ProfessionalPasswordUpdatePage />) },
+  { path: '/quest', element: load(<QuestStationPage />) },
   {
     path: '/app',
     element: <RequireRole role="professional"><ProfessionalShell /></RequireRole>,

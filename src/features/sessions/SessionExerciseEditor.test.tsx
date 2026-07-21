@@ -10,9 +10,9 @@ vi.mock('../exercise/ExercisePlayer', () => ({ ExercisePlayer: () => <div>Reprod
 
 afterEach(cleanup)
 
-function EditorHarness() {
+function EditorHarness({ setting = 'unspecified' }: { setting?: 'home' | 'in_person' | 'unspecified' }) {
   const [config, setConfig] = useState<ExerciseConfig>(defaultExerciseConfig)
-  return <SessionExerciseEditor config={config} isFirst onChange={setConfig}/>
+  return <SessionExerciseEditor config={config} isFirst setting={setting} onChange={setConfig}/>
 }
 
 describe('creación de ejercicios', () => {
@@ -30,16 +30,16 @@ describe('creación de ejercicios', () => {
     expect(screen.getByRole('checkbox', { name: 'Metrónomo' })).toBeDisabled()
   })
 
-  it('Quest conserva dosis por tiempo o repeticiones desde el navegador', () => {
-    render(<EditorHarness/>)
+  it('Quest clínico fuerza dosis por tiempo y avance automático', () => {
+    render(<EditorHarness setting="in_person"/>)
     fireEvent.change(screen.getByLabelText('Objetivo del ejercicio'), { target: { value: 'saccades' } })
     fireEvent.change(screen.getByLabelText('Modo'), { target: { value: 'quest_browser' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Por repeticiones' }))
 
-    expect(screen.getByRole('button', { name: 'Por repeticiones' })).not.toBeDisabled()
-    expect(screen.getByLabelText('Avance')).not.toBeDisabled()
-    expect(screen.getByLabelText('Avance')).toHaveValue('manual')
-    expect(screen.getByRole('spinbutton', { name: /Objetivo/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Por repeticiones' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Por tiempo' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByLabelText('Avance')).toBeDisabled()
+    expect(screen.getByLabelText('Avance')).toHaveValue('automatic')
+    expect(screen.getByText(/todavía no inicia WebXR/i)).toBeInTheDocument()
   })
 
   it('al elegir ejercicio físico muestra postura, superficie y supervisión', () => {

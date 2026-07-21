@@ -18,8 +18,6 @@ describe('validación de sesión',()=>{
   it.each([
     ['pantalla 2D por tiempo', config()],
     ['pantalla 2D por repeticiones', config({ doseMode: 'repetitions', advanceMode: 'manual' })],
-    ['Quest por tiempo', optokinetic({ displayMode: 'quest_browser', doseMode: 'time', advanceMode: 'automatic' })],
-    ['Quest por repeticiones', optokinetic({ displayMode: 'quest_browser', doseMode: 'repetitions', advanceMode: 'manual' })],
     ['VR Box visual por tiempo', optokinetic({ displayMode: 'vr_box', doseMode: 'time', advanceMode: 'automatic' })],
     ['físico sentado independiente', physical({ doseMode: 'repetitions', posture: 'seated' })],
     ['físico de pie con ayudante', physical({ posture: 'standing', supervision: 'trained_helper' })],
@@ -27,21 +25,43 @@ describe('validación de sesión',()=>{
     ['objetivo raro cognitivo sentado', cognitive()],
   ])('acepta %s', (_label, exercise) => expect(validateSession(session([exercise]))).toEqual({}))
 
+  it('acepta Quest por tiempo dentro de una sesión presencial supervisada', () => {
+    const exercise = optokinetic({ displayMode: 'quest_browser', doseMode: 'time', advanceMode: 'automatic', posture: 'seated', surface: 'firm', supervision: 'direct_clinician' })
+    expect(validateSession(session([exercise], 'in_person'))).toEqual({})
+  })
+
   it('rechaza una fecha final anterior',()=>expect(validateSession({...session([defaultExerciseConfig]),availableUntil:'2026-07-15'}).availableUntil).toBeTruthy())
 
   it.each([
     ['repeticiones dentro de VR Box', optokinetic({ displayMode: 'vr_box', doseMode: 'repetitions', advanceMode: 'manual' }), 'VR Box'],
     ['avance manual dentro de VR Box', optokinetic({ displayMode: 'vr_box', doseMode: 'time', advanceMode: 'manual' }), 'automáticamente'],
+    ['Quest domiciliario', optokinetic({ displayMode: 'quest_browser', doseMode: 'time', advanceMode: 'automatic', posture: 'seated', surface: 'firm', supervision: 'direct_clinician' }), 'solo para sesiones presenciales'],
     ['superficie inestable sin ayuda', physical({ surface: 'unstable', supervision: 'independent_after_approval' }), 'inestables'],
     ['marcha domiciliaria independiente', physical({ posture: 'walking', supervision: 'independent_after_approval' }), 'marcha domiciliaria'],
     ['modo Libre inestable sin ayuda', free({ surface: 'unstable', supervision: 'independent_after_approval' }), 'inestables'],
     ['modo Libre en marcha domiciliaria independiente', free({ posture: 'walking', supervision: 'independent_after_approval' }), 'marcha domiciliaria'],
     ['RVO x1 dentro de VR Box', config({ displayMode: 'vr_box', advanceMode: 'automatic' }), 'acompaña la cabeza'],
-    ['RVO x1 dentro de Quest', config({ displayMode: 'quest_browser' }), 'no inicia una sesión WebXR'],
     ['tarea física dentro de VR Box', physical({ displayMode: 'vr_box', doseMode: 'time', advanceMode: 'automatic' }), 'oculta el entorno'],
     ['tarea cognitiva dentro de VR Box', cognitive({ displayMode: 'vr_box', advanceMode: 'automatic' }), 'cognitivo-visual'],
     ['Go/No-Go táctil durante RVO x1', config({ cognitiveTaskMode: 'go_no_go', cognitiveResponseMode: 'screen_tap', advanceMode: 'manual' }), 'Tocar la pantalla'],
   ])('rechaza %s', (_label, exercise, message) => expect(validateSession(session([exercise])).exercises).toContain(message))
+
+  it('rechaza Quest por repeticiones aun con supervisión presencial', () => {
+    const exercise = optokinetic({ displayMode: 'quest_browser', doseMode: 'repetitions', advanceMode: 'manual', posture: 'seated', surface: 'firm', supervision: 'direct_clinician' })
+    expect(validateSession(session([exercise], 'in_person')).exercises).toContain('por tiempo')
+  })
+
+  it('bloquea RVO x1 en Quest porque el navegador 2D no inicia WebXR', () => {
+    const exercise = config({
+      displayMode: 'quest_browser',
+      doseMode: 'time',
+      advanceMode: 'automatic',
+      posture: 'seated',
+      surface: 'firm',
+      supervision: 'direct_clinician',
+    })
+    expect(validateSession(session([exercise], 'in_person')).exercises).toContain('no inicia una sesión WebXR')
+  })
 
   it('bloquea tareas físicas en visor incluso con supervisión presencial', () => {
     const exercise = physical({ displayMode: 'vr_box', posture: 'standing', supervision: 'direct_clinician', doseMode: 'time', advanceMode: 'automatic' })
@@ -49,7 +69,15 @@ describe('validación de sesión',()=>{
   })
 
   it('no mezcla Quest con ejercicios para otro dispositivo', () => {
-    expect(validateSession(session([optokinetic({ displayMode: 'quest_browser' }), defaultExerciseConfig])).exercises).toContain('exclusivamente ejercicios Quest')
+    const questExercise = optokinetic({
+      displayMode: 'quest_browser',
+      doseMode: 'time',
+      advanceMode: 'automatic',
+      posture: 'seated',
+      surface: 'firm',
+      supervision: 'direct_clinician',
+    })
+    expect(validateSession(session([questExercise, defaultExerciseConfig], 'in_person')).exercises).toContain('exclusivamente ejercicios Quest')
   })
 
   it('ignora condiciones físicas residuales al volver a un estímulo visual', () => {

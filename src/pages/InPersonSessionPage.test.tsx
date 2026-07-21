@@ -1,12 +1,16 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { InPersonSessionPage } from './InPersonSessionPage'
 
 const mocks = vi.hoisted(() => ({
   status: 'assigned' as 'assigned' | 'started',
+  quest: false,
   start: vi.fn(),
   complete: vi.fn(),
+  createQuest: vi.fn(),
+  revokeQuest: vi.fn(),
+  recoveredQuest: null as null | { id: string; status: 'captured'; capturedResult: { activeSeconds: number; skippedExercises: number; eventLog: never[] }; expiresAt: string },
 }))
 
 vi.mock('../features/patients/hooks', () => ({
@@ -18,7 +22,7 @@ vi.mock('../features/sessions/hooks', () => ({
     data: [{
       id: 'assignment-in-person', patientId: 'patient-fictitious', patientName: 'Paciente Ficticio',
       treatmentCycleId: 'cycle-fictitious', sessionPlanId: 'plan-fictitious', title: 'Sesión presencial ficticia',
-      instructions: 'Indicaciones ficticias', mode: 'in_person', exercises: [{ rounds: 1, durationSeconds: 10, restSeconds: 0 }],
+      instructions: 'Indicaciones ficticias', mode: 'in_person', exercises: [{ rounds: 1, durationSeconds: 10, restSeconds: 0, displayMode: mocks.quest ? 'quest_browser' : 'standard' }],
       availableFrom: '2026-07-17T00:00:00.000Z', availableUntil: '', status: mocks.status, createdAt: '2026-07-17T00:00:00.000Z',
       activeSeconds: 0, completedAt: '', initialDiscomfort: null, finalDiscomfort: null, perceivedDifficulty: null, patientComment: '',
     }],
@@ -26,6 +30,10 @@ vi.mock('../features/sessions/hooks', () => ({
   }),
   useStartSupervisedInPersonSession: () => ({ mutateAsync: mocks.start, isPending: false }),
   useCompleteSupervisedInPersonSession: () => ({ mutateAsync: mocks.complete, isPending: false }),
+  useCreateQuestSessionPairing: () => ({ mutateAsync: mocks.createQuest, isPending: false }),
+  useQuestSessionPairing: () => ({ data: { status: 'ready', capturedResult: null }, isError: false }),
+  useQuestSessionPairingForAssignment: () => ({ data: mocks.recoveredQuest, isError: false }),
+  useRevokeQuestSessionPairing: () => ({ mutateAsync: mocks.revokeQuest, isPending: false }),
 }))
 
 vi.mock('../features/sessions/SessionRunner', () => ({
@@ -41,10 +49,16 @@ function renderPage() {
 }
 
 describe('ejecución presencial desde la cuenta profesional', () => {
+  afterEach(cleanup)
+
   beforeEach(() => {
     mocks.status = 'assigned'
+    mocks.quest = false
     mocks.start.mockReset().mockResolvedValue('execution-fictitious')
     mocks.complete.mockReset().mockResolvedValue('execution-fictitious')
+    mocks.createQuest.mockReset().mockResolvedValue({ id: 'pairing-fictitious', code: 'AB12CD34', status: 'ready', expiresAt: '2099-01-01T12:00:00.000Z' })
+    mocks.revokeQuest.mockReset().mockResolvedValue('pairing-fictitious')
+    mocks.recoveredQuest = null
   })
 
   it('exige malestar inicial y completa el flujo con omisión y cierre supervisado', async () => {
@@ -75,5 +89,27 @@ describe('ejecución presencial desde la cuenta profesional', () => {
     mocks.status = 'started'
     renderPage()
     expect(screen.getByRole('button', { name: /reanudar desde el principio/i })).toBeInTheDocument()
+  })
+
+  it('prepara Quest con código temporal sin iniciar sesión como paciente', async () => {
+    mocks.quest = true
+    renderPage()
+    const initialScale = screen.getByRole('group', { name: /malestar antes de comenzar/i })
+    fireEvent.click(within(initialScale).getByRole('button', { name: '2' }))
+    fireEvent.click(screen.getByRole('button', { name: /preparar en Quest/i }))
+
+    await waitFor(() => expect(mocks.start).toHaveBeenCalledWith(expect.objectContaining({ initialDiscomfort: 2 })))
+    await waitFor(() => expect(mocks.createQuest).toHaveBeenCalledWith(expect.objectContaining({ status: 'started' })))
+    expect(await screen.findByText('AB12CD34')).toBeInTheDocument()
+    expect(screen.getByText(/no contiene credenciales/i)).toBeInTheDocument()
+  })
+
+  it('recupera un resultado Quest capturado después de recargar la pantalla profesional', async () => {
+    mocks.status = 'started'
+    mocks.quest = true
+    mocks.recoveredQuest = { id: 'pairing-fictitious', status: 'captured', capturedResult: { activeSeconds: 42, skippedExercises: 0, eventLog: [] }, expiresAt: '2099-01-01T12:00:00.000Z' }
+    renderPage()
+
+    expect(await screen.findByRole('heading', { name: /registrar la experiencia declarada/i })).toBeInTheDocument()
   })
 })

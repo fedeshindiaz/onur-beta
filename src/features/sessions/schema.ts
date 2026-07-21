@@ -40,7 +40,10 @@ export function validateSession(values: SessionFormValues) {
   if (values.mode === 'home' && values.exercises.some((exercise) => (exercise.kind === 'guided_physical' || exercise.purpose === 'custom_free') && exercise.posture === 'walking' && exercise.supervision === 'independent_after_approval')) setExerciseError('La marcha domiciliaria requiere un ayudante entrenado.')
 
   const questExercises = values.exercises.filter((exercise) => exercise.displayMode === 'quest_browser')
+  if (values.mode === 'home' && questExercises.length > 0) setExerciseError('Meta Quest está disponible solo para sesiones presenciales con supervisión profesional directa.')
   if (questExercises.length > 0 && questExercises.length !== values.exercises.length) setExerciseError('Una sesión Meta Quest debe contener exclusivamente ejercicios Quest: esta versión no transfiere una sesión activa entre el visor y otro dispositivo.')
+  if (questExercises.some((exercise) => exercise.supervision !== 'direct_clinician' || exercise.posture !== 'seated' || exercise.surface !== 'firm')) setExerciseError('Los ejercicios Quest iniciales requieren supervisión profesional directa, postura sentada y superficie firme.')
+  if (questExercises.some((exercise) => exercise.doseMode !== 'time' || exercise.advanceMode !== 'automatic')) setExerciseError('La estación Quest inicial ejecuta ejercicios por tiempo y con avance automático.')
 
   const incompatibleIndex = values.exercises.findIndex((exercise) => !analyzeExerciseCompatibility(exercise).valid)
   if (incompatibleIndex >= 0) {

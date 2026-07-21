@@ -1,11 +1,12 @@
-import { CheckCircle2, ChevronLeft, ChevronRight, Clock3, Expand, Pause, Play, Volume2 } from 'lucide-react'
-import { useState } from 'react'
+import { CheckCircle2, ChevronLeft, ChevronRight, Clock3, Copy, Expand, Glasses, Pause, Play, RefreshCw, Volume2, XCircle } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { usePatient } from '../features/patients/hooks'
-import { useCompleteSupervisedInPersonSession, useSessionAssignments, useStartSupervisedInPersonSession } from '../features/sessions/hooks'
+import { useCompleteSupervisedInPersonSession, useCreateQuestSessionPairing, useQuestSessionPairing, useQuestSessionPairingForAssignment, useRevokeQuestSessionPairing, useSessionAssignments, useStartSupervisedInPersonSession } from '../features/sessions/hooks'
 import { ScaleQuestion } from '../features/sessions/ScaleQuestion'
 import { sessionDurationLabel, type SessionEventLogEntry } from '../features/sessions/repository'
 import { SessionRunner } from '../features/sessions/SessionRunner'
+import { isQuestClinicAssignment } from '../features/sessions/questRepository'
 
 type RunnerResult = { activeSeconds: number; skippedExercises: number; eventLog: SessionEventLogEntry[] }
 
@@ -16,14 +17,44 @@ export function InPersonSessionPage() {
   const assignment = assignments.find((item) => item.id === assignmentId)
   const startSupervised = useStartSupervisedInPersonSession(patientId)
   const completeSupervised = useCompleteSupervisedInPersonSession(patientId)
-  const [stage, setStage] = useState<'review' | 'running' | 'feedback' | 'finished'>('review')
+  const createQuestPairing = useCreateQuestSessionPairing()
+  const revokeQuestPairing = useRevokeQuestSessionPairing()
+  const [stage, setStage] = useState<'review' | 'running' | 'quest_waiting' | 'feedback' | 'finished'>('review')
   const [initialDiscomfort, setInitialDiscomfort] = useState<number | null>(null)
   const [finalDiscomfort, setFinalDiscomfort] = useState<number | null>(null)
   const [perceivedDifficulty, setPerceivedDifficulty] = useState<number | null>(null)
   const [patientComment, setPatientComment] = useState('')
   const [professionalObservation, setProfessionalObservation] = useState('')
   const [runnerResult, setRunnerResult] = useState<RunnerResult | null>(null)
+  const [questPairingId, setQuestPairingId] = useState('')
+  const [questPairingCode, setQuestPairingCode] = useState('')
+  const [questPairingExpiresAt, setQuestPairingExpiresAt] = useState('')
   const [error, setError] = useState('')
+  const questPairing = useQuestSessionPairing(questPairingId, stage === 'quest_waiting')
+  const recoverableQuestPairing = useQuestSessionPairingForAssignment(assignmentId, stage === 'review' && assignment?.status === 'started' && Boolean(assignment && isQuestClinicAssignment(assignment)))
+
+  useEffect(() => {
+    const captured = questPairing.data?.capturedResult
+    if (stage !== 'quest_waiting' || !captured) return
+    setRunnerResult(captured)
+    setStage('feedback')
+  }, [questPairing.data?.capturedResult, stage])
+
+  useEffect(() => {
+    const recovered = recoverableQuestPairing.data
+    if (stage !== 'review' || !recovered) return
+    if (recovered.status === 'captured' && recovered.capturedResult) {
+      setQuestPairingId(recovered.id)
+      setRunnerResult(recovered.capturedResult)
+      setStage('feedback')
+      return
+    }
+    if (recovered.status === 'claimed') {
+      setQuestPairingId(recovered.id)
+      setQuestPairingExpiresAt(recovered.expiresAt)
+      setStage('quest_waiting')
+    }
+  }, [recoverableQuestPairing.data, stage])
 
   if (stage === 'running' && assignment) {
     return <SessionRunner session={assignment} onExit={() => setStage('review')} onFinish={(activeSeconds, skippedExercises, eventLog) => {
@@ -65,6 +96,37 @@ export function InPersonSessionPage() {
     }
   }
 
+  const prepareQuest = async () => {
+    if (!assignment || initialDiscomfort === null) {
+      setError('Registrá el malestar inicial declarado por el paciente antes de preparar Quest.')
+      return
+    }
+    try {
+      setError('')
+      await startSupervised.mutateAsync({ assignment, initialDiscomfort })
+      const created = await createQuestPairing.mutateAsync({ ...assignment, status: 'started' })
+      setRunnerResult(null)
+      setQuestPairingId(created.id)
+      setQuestPairingCode(created.code)
+      setQuestPairingExpiresAt(created.expiresAt)
+      setStage('quest_waiting')
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'No fue posible preparar la estación Quest.')
+    }
+  }
+
+  const cancelQuestPairing = async () => {
+    try {
+      setError('')
+      if (questPairingId && ['ready', 'claimed'].includes(questPairing.data?.status ?? 'ready')) await revokeQuestPairing.mutateAsync(questPairingId)
+      setQuestPairingId('')
+      setQuestPairingCode('')
+      setStage('review')
+    } catch {
+      setError('No fue posible cancelar el vínculo Quest. Esperá a que venza antes de generar otro.')
+    }
+  }
+
   const finish = async () => {
     if (!runnerResult || finalDiscomfort === null || perceivedDifficulty === null || !patientComment.trim()) {
       setError('Registrá malestar final, dificultad y el comentario declarado por el paciente.')
@@ -95,6 +157,16 @@ export function InPersonSessionPage() {
       <h1 className="mt-5 text-2xl font-black text-[#171717]">Sesión presencial registrada</h1>
       <p className="mt-3 text-sm leading-6 text-[#747474]">La ejecución quedó identificada como presencial, supervisada y operada por tu cuenta profesional.</p>
       <Link to={`/app/pacientes/${patient.id}`} className="mt-7 inline-flex rounded-2xl bg-[#E49A02] px-5 py-3 text-sm font-black text-white">Volver al perfil</Link>
+    </article> : stage === 'quest_waiting' ? <article className="overflow-hidden rounded-2xl border border-[#E9E7E7] bg-white shadow-[0_20px_48px_rgba(18,50,56,0.08)]">
+      <div className="bg-[#171717] p-7 text-white"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[.16em] text-[#EFB33A]">Estación Quest preparada</p><h1 className="mt-3 text-2xl font-black">{questPairingCode ? 'Ingresá este código en el visor' : 'La ejecución continúa en el visor'}</h1><p className="mt-2 text-sm text-white/65">{questPairingCode ? <>Abrí {window.location.origin}{import.meta.env.BASE_URL}quest en Meta Quest Browser.</> : 'Se recuperó el vínculo después de recargar esta pantalla.'}</p></div><Glasses className="text-[#EFB33A]" size={32}/></div></div>
+      <div className="space-y-5 p-6 sm:p-8">
+        {questPairingCode && <><div className="rounded-2xl bg-[#FFF7E8] p-6 text-center"><p className="text-[10px] font-black uppercase tracking-[.16em] text-[#8A5B00]">Código temporal</p><p className="mt-3 font-mono text-4xl font-black tracking-[.2em] text-[#171717]" aria-label={`Código Quest ${questPairingCode}`}>{questPairingCode}</p><p className="mt-3 text-[11px] font-bold text-[#8A5B00]">Vence a las {questPairingExpiresAt ? new Date(questPairingExpiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</p></div>
+        <button type="button" onClick={() => void navigator.clipboard?.writeText(`${window.location.origin}${import.meta.env.BASE_URL}quest`)} className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-[#E9E7E7] px-4 py-3 text-xs font-black"><Copy size={16}/> Copiar dirección de la estación</button></>}
+        <div className="rounded-2xl bg-[#F7F6F4] p-5"><div className="flex items-center gap-3"><RefreshCw className={`text-[#E49A02] ${questPairing.data?.status === 'claimed' ? '' : 'animate-spin'}`} size={19}/><div><p className="text-sm font-black">{questPairing.data?.status === 'claimed' ? 'El visor cargó la sesión' : 'Esperando al visor'}</p><p className="mt-1 text-xs leading-5 text-[#747474]">{questPairing.data?.status === 'claimed' ? 'La ejecución continúa en Quest. Al terminar aparecerá automáticamente el cierre profesional.' : 'El código no contiene credenciales ni permite abrir la historia clínica.'}</p></div></div></div>
+        {questPairing.isError && <p role="alert" className="rounded-2xl bg-[#fceced] p-4 text-xs font-bold text-[#a94952]">No se pudo consultar la estación. Revisá la conexión antes de continuar.</p>}
+        {['expired', 'revoked'].includes(questPairing.data?.status ?? '') && <p role="alert" className="rounded-2xl bg-[#fceced] p-4 text-xs font-bold text-[#a94952]">El vínculo ya no está activo. Volvé a la preparación para generar uno nuevo.</p>}
+        <button type="button" disabled={revokeQuestPairing.isPending} onClick={() => void cancelQuestPairing()} className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-[#eccfd2] px-4 py-3 text-xs font-black text-[#a94952] disabled:opacity-50"><XCircle size={16}/> Cancelar y volver</button>
+      </div>
     </article> : stage === 'feedback' ? <article className="space-y-5">
       <div className="rounded-2xl bg-[#171717] p-6 text-white">
         <p className="text-xs font-black uppercase tracking-[.16em] text-[#E49A02]">Cierre supervisado</p>
@@ -117,7 +189,7 @@ export function InPersonSessionPage() {
         <div className="mt-4 space-y-3">{[[Expand, 'El reproductor mantiene pantalla completa y controles auto-ocultables.'], [Volume2, 'El audio y el metrónomo conservan la configuración de la asignación.'], [Pause, 'Podés pausar, omitir o salir. Al volver, la sesión se reinicia desde el principio.']].map(([Icon, text]) => { const ItemIcon = Icon as typeof Expand; return <div key={String(text)} className="flex gap-3 rounded-2xl bg-[#F7F6F4] p-4"><ItemIcon className="mt-0.5 shrink-0 text-[#E49A02]" size={18}/><p className="text-xs leading-5 text-[#747474]">{String(text)}</p></div> })}</div>
         <div className="mt-5"><ScaleQuestion label="Malestar antes de comenzar" hint="Registrá lo declarado por el paciente: 0 significa ningún malestar y 10 el mayor malestar imaginable." min={0} max={10} value={initialDiscomfort} onChange={setInitialDiscomfort}/></div>
         <p className="mt-3 text-[11px] leading-5 text-[#747474]">La cuenta profesional permanece autenticada durante toda la ejecución; el paciente no inicia sesión.</p>
-        <button type="button" disabled={startSupervised.isPending} onClick={start} className="mt-6 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#E49A02] text-sm font-black text-white shadow-[0_12px_24px_rgba(11,122,117,0.2)] disabled:opacity-60">{startSupervised.isPending ? 'Iniciando…' : assignment.status === 'started' ? 'Reanudar desde el principio' : 'Comenzar sesión presencial'} <ChevronRight size={18}/></button>
+        {isQuestClinicAssignment(assignment) ? <div className="mt-6 space-y-3"><button type="button" disabled={startSupervised.isPending || createQuestPairing.isPending} onClick={() => void prepareQuest()} className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#E49A02] text-sm font-black text-white shadow-[0_12px_24px_rgba(11,122,117,0.2)] disabled:opacity-60"><Glasses size={18}/>{createQuestPairing.isPending ? 'Preparando Quest…' : 'Preparar en Quest'}</button><button type="button" disabled={startSupervised.isPending} onClick={start} className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-[#E9E7E7] text-xs font-black text-[#2F2F2F] disabled:opacity-60">Ejecutar en esta pantalla <ChevronRight size={17}/></button><p className="text-center text-[11px] leading-5 text-[#747474]">Quest se vincula con un código temporal. El profesional continúa autenticado aquí y el paciente no ingresa credenciales.</p></div> : <button type="button" disabled={startSupervised.isPending} onClick={start} className="mt-6 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#E49A02] text-sm font-black text-white shadow-[0_12px_24px_rgba(11,122,117,0.2)] disabled:opacity-60">{startSupervised.isPending ? 'Iniciando…' : assignment.status === 'started' ? 'Reanudar desde el principio' : 'Comenzar sesión presencial'} <ChevronRight size={18}/></button>}
       </div>
     </article>}
   </div>

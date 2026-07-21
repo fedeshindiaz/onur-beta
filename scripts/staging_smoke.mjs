@@ -13,7 +13,7 @@ const professionalPassword=`Onur!${crypto.randomUUID()}aA1`
 const username=`staging${token.replace(/\D/g,'').slice(-10)}${crypto.randomUUID().replace(/-/g,'').slice(0,6)}`.slice(0,38)
 const temporaryCi='45678901'
 const pin='2468'
-const created={professionalUserId:'',foreignProfessionalUserId:'',patientUserId:'',patientId:'',otherPatientId:'',storagePath:''}
+const created={professionalUserId:'',foreignProfessionalUserId:'',patientUserId:'',patientId:'',otherPatientId:'',questAssignmentId:'',storagePath:''}
 
 function assert(condition,message){if(!condition)throw new Error(message)}
 function assertNoError(result,label){if(result.error)throw new Error(`${label}: ${result.error.message}`);return result.data}
@@ -45,6 +45,7 @@ async function cleanup(){
   }
   const actorIds=[created.patientUserId,created.professionalUserId,created.foreignProfessionalUserId].filter(Boolean)
   if(actorIds.length)await attempt('auditorías',()=>admin.from('audit_events').delete().in('actor_user_id',actorIds))
+  if(created.questAssignmentId)await attempt('auditorías anónimas Quest',()=>admin.from('audit_events').delete().eq('entity_id',created.questAssignmentId))
   if(created.patientUserId)await attempt('identidad paciente',()=>admin.auth.admin.deleteUser(created.patientUserId))
   if(created.foreignProfessionalUserId)await attempt('identidad profesional aislada',()=>admin.auth.admin.deleteUser(created.foreignProfessionalUserId))
   if(created.professionalUserId)await attempt('identidad profesional',()=>admin.auth.admin.deleteUser(created.professionalUserId))
@@ -225,6 +226,33 @@ try{
   assert(supervisedAudits.length===3,'Faltan eventos de inicio, reinicio o cierre presencial.')
   for(const row of supervisedAudits)assert(row.actor_user_id===created.professionalUserId&&row.metadata?.mode==='in_person'&&row.metadata?.supervised===true&&row.metadata?.operated_by===created.professionalUserId,'La auditoría presencial no identifica supervisión y operador.')
   log('permisos, flujo presencial, reinicio, omisión, duplicación y auditoría')
+
+  const questPlanDefinition={mode:'in_person',exercises:[{name:'Optocinético Quest ficticio',displayMode:'quest_browser',doseMode:'time',advanceMode:'automatic',durationSeconds:20,rounds:1,restSeconds:0,posture:'seated',surface:'firm',supervision:'direct_clinician'}]}
+  const questPlan=assertNoError(await professional.from('session_plans').insert({professional_id:created.professionalUserId,title:'Sesión Quest ficticia',instructions:'Supervisión directa ficticia',plan_definition:questPlanDefinition}).select().single(),'crear plan Quest')
+  const questAssignment=assertNoError(await professional.from('session_assignments').insert({patient_id:created.patientId,treatment_cycle_id:cycle.id,session_plan_id:questPlan.id,available_from:new Date(Date.now()-60000).toISOString(),status:'assigned',assigned_by:created.professionalUserId}).select().single(),'asignar sesión Quest')
+  created.questAssignmentId=questAssignment.id
+  assertNoError(await professional.rpc('start_supervised_in_person_session',{target_assignment_id:questAssignment.id,initial_discomfort_input:2}),'iniciar sesión Quest supervisada')
+  const foreignPairing=await foreignProfessional.rpc('create_quest_session_pairing',{target_assignment_id:questAssignment.id})
+  assert(foreignPairing.error,'Un profesional ajeno pudo preparar la estación Quest.')
+  const pairing=assertNoError(await professional.rpc('create_quest_session_pairing',{target_assignment_id:questAssignment.id}),'crear vínculo Quest')
+  assert(/^[0-9A-F]{8}$/.test(pairing.code),'El vínculo Quest no devolvió un código temporal válido.')
+  const questStation=client()
+  const claim=assertNoError(await questStation.rpc('claim_quest_session_pairing',{pairing_code_input:pairing.code}),'reclamar vínculo Quest anónimo')
+  assert(claim.pairingId===pairing.id&&claim.deviceToken&&claim.patientLabel==='Paciente F.','La estación Quest no recibió el vínculo mínimo esperado.')
+  assert(!Object.hasOwn(claim,'fullName')&&!JSON.stringify(claim).includes(created.patientId),'La estación Quest expuso identidad completa o identificadores clínicos del paciente.')
+  const duplicateClaim=await questStation.rpc('claim_quest_session_pairing',{pairing_code_input:pairing.code})
+  assert(duplicateClaim.error,'El código Quest pudo reclamarse una segunda vez.')
+  const wrongCapture=await questStation.rpc('submit_quest_session_capture',{target_pairing_id:pairing.id,device_token_input:'0'.repeat(64),captured_result_input:{activeSeconds:20,skippedExercises:0,eventLog:[]}})
+  assert(wrongCapture.error,'La estación Quest aceptó un resultado con token incorrecto.')
+  assertNoError(await questStation.rpc('submit_quest_session_capture',{target_pairing_id:pairing.id,device_token_input:claim.deviceToken,captured_result_input:{activeSeconds:20,skippedExercises:0,eventLog:[{type:'finished'}]}}),'capturar resultado Quest')
+  const recoveredPairing=assertNoError(await professional.rpc('find_quest_session_pairing_for_assignment',{target_assignment_id:questAssignment.id}),'recuperar resultado Quest')
+  assert(recoveredPairing.status==='captured'&&recoveredPairing.capturedResult?.activeSeconds===20,'El resultado Quest no quedó disponible para revisión profesional.')
+  const questStatusBeforeReview=assertNoError(await professional.from('session_assignments').select('status').eq('id',questAssignment.id).single(),'leer sesión Quest antes del cierre')
+  assert(questStatusBeforeReview.status==='started','Quest completó la asignación sin revisión profesional.')
+  assertNoError(await professional.rpc('complete_supervised_in_person_session',{target_assignment_id:questAssignment.id,active_seconds_input:20,skipped_count_input:0,final_discomfort_input:2,perceived_difficulty_input:1,patient_comment_input:'Comentario Quest ficticio',professional_observation_input:'Observación Quest ficticia',event_log_input:[{type:'finished'}]}),'cerrar Quest después de revisión profesional')
+  const questAudits=assertNoError(await admin.from('audit_events').select('action').eq('entity_id',questAssignment.id).in('action',['quest_session_pairing_created','quest_session_pairing_claimed','quest_session_capture_received','supervised_in_person_session_finished']),'leer auditoría Quest')
+  assert(questAudits.length===4,'Faltan eventos de preparación, reclamo, captura o cierre Quest.')
+  log('código Quest efímero, captura anónima mínima, recuperación y cierre profesional')
 
   const disable=await professional.functions.invoke('manage-patient-account',{body:{patient_id:created.patientId,action:'disable'}});assertNoError(disable,'desactivar cuenta')
   const afterDisable=assertNoError(await patientClient.from('patients').select('id'),'sesión revocada')
