@@ -9,13 +9,32 @@ const patientLoginResponseSchema = z.object({
   must_change_pin: z.boolean(),
 })
 
+export function validateProfessionalCredentials(email: string, password: string): string | null {
+  const normalizedEmail = email.trim()
+  if (!normalizedEmail || !password) return 'Ingresá el correo profesional y la contraseña.'
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) return 'Ingresá un correo profesional válido.'
+  return null
+}
+
+export function validatePatientCredentials(username: string, secret: string): string | null {
+  const normalizedUsername = username.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '')
+  if (!normalizedUsername || !secret) return 'Ingresá el usuario y el PIN o la cédula temporal.'
+  if (!/^[a-z0-9]{4,40}$/.test(normalizedUsername)) return 'El usuario no es válido.'
+  if (!/^(?:\d{4}|\d{6,12})$/.test(secret)) return 'Ingresá un PIN de 4 dígitos o la cédula temporal.'
+  return null
+}
+
 export async function signInProfessional(email: string, password: string): Promise<void> {
+  const validationError = validateProfessionalCredentials(email, password)
+  if (validationError) throw new Error(validationError)
   if (!supabase) throw new Error('Supabase no está configurado.')
-  const { error } = await supabase.auth.signInWithPassword({ email, password })
+  const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password })
   if (error) throw new Error('No fue posible iniciar sesión con esos datos.')
 }
 
 export async function signInPatient(username: string, secret: string): Promise<{ mustChangePin: boolean }> {
+  const validationError = validatePatientCredentials(username, secret)
+  if (validationError) throw new Error(validationError)
   if (!supabase) throw new Error('Supabase no está configurado.')
   const { data, error } = await supabase.functions.invoke('patient-login', {
     body: { username, secret },

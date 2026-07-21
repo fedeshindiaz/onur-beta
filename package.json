@@ -1,7 +1,7 @@
 {
   "name": "onur-beta",
   "private": true,
-  "version": "0.1.0-beta.19",
+  "version": "0.1.0-beta.20",
   "type": "module",
   "scripts": {
     "prepare:ocr": "node scripts/sync_ocr_assets.mjs",
@@ -9,6 +9,7 @@
     "prebuild": "npm run prepare:ocr",
     "dev": "vite",
     "build": "tsc -b && vite build && node scripts/build-sites-worker.mjs",
+    "build:authenticated": "node scripts/build_authenticated.mjs",
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest",
@@ -19,6 +20,7 @@
     "typecheck": "tsc -b --pretty false",
     "staging:dry-run": "bash scripts/deploy_staging.sh --dry-run",
     "staging:deploy": "bash scripts/deploy_staging.sh",
+    "staging:auth-smoke": "node scripts/verify_auth.mjs",
     "staging:smoke": "node scripts/staging_smoke.mjs",
     "admin:create": "node scripts/create_professional.mjs",
     "github:publish": "bash scripts/publish_github.sh",

@@ -2,9 +2,8 @@ import { Check, Eye, EyeOff, LockKeyhole, ShieldCheck, UserRound, UsersRound } f
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Brand } from '../components/Brand'
-import { signInPatient, signInProfessional } from '../lib/auth'
+import { signInPatient, signInProfessional, validatePatientCredentials, validateProfessionalCredentials } from '../lib/auth'
 import { isSupabaseConfigured } from '../lib/supabase'
-import { useAuth } from '../features/auth/AuthProvider'
 
 type LoginMode = 'professional' | 'patient'
 
@@ -16,11 +15,13 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
-  const auth = useAuth()
 
-  const enterDemo = (role: LoginMode) => {
-    auth.enterDemo(role)
-    navigate(role === 'professional' ? '/app' : '/paciente/hoy')
+  const selectMode = (nextMode: LoginMode) => {
+    setMode(nextMode)
+    setIdentifier('')
+    setSecret('')
+    setError(null)
+    setShowSecret(false)
   }
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -28,7 +29,15 @@ export function LoginPage() {
     setError(null)
 
     if (!isSupabaseConfigured) {
-      enterDemo(mode)
+      setError('El servicio de autenticación no está disponible. No se habilitó ningún acceso sin verificar.')
+      return
+    }
+
+    const validationError = mode === 'professional'
+      ? validateProfessionalCredentials(identifier, secret)
+      : validatePatientCredentials(identifier, secret)
+    if (validationError) {
+      setError(validationError)
       return
     }
 
@@ -85,10 +94,10 @@ export function LoginPage() {
           <p className="mt-2 text-sm leading-6 text-[#747474]">Elegí tu perfil para acceder al entorno clínico.</p>
 
           <div className="mt-7 grid grid-cols-2 rounded-xl bg-[#F1EFEC] p-1">
-            <button type="button" onClick={() => setMode('professional')} className={`flex h-10 items-center justify-center gap-2 rounded-lg px-3 text-xs font-semibold transition ${mode === 'professional' ? 'bg-white text-[#171717] shadow-sm' : 'text-[#747474]'}`}>
+            <button type="button" onClick={() => selectMode('professional')} aria-pressed={mode === 'professional'} className={`flex h-10 items-center justify-center gap-2 rounded-lg px-3 text-xs font-semibold transition ${mode === 'professional' ? 'bg-white text-[#171717] shadow-sm' : 'text-[#747474]'}`}>
               <UserRound size={16} /> Profesional
             </button>
-            <button type="button" onClick={() => setMode('patient')} className={`flex h-10 items-center justify-center gap-2 rounded-lg px-3 text-xs font-semibold transition ${mode === 'patient' ? 'bg-white text-[#171717] shadow-sm' : 'text-[#747474]'}`}>
+            <button type="button" onClick={() => selectMode('patient')} aria-pressed={mode === 'patient'} className={`flex h-10 items-center justify-center gap-2 rounded-lg px-3 text-xs font-semibold transition ${mode === 'patient' ? 'bg-white text-[#171717] shadow-sm' : 'text-[#747474]'}`}>
               <UsersRound size={16} /> Paciente
             </button>
           </div>
@@ -102,22 +111,26 @@ export function LoginPage() {
                 value={identifier}
                 onChange={(event) => setIdentifier(event.target.value)}
                 autoComplete="username"
+                autoCapitalize="none"
+                spellCheck={false}
+                required
                 placeholder={mode === 'professional' ? 'profesional@ejemplo.com' : 'PepitoPerez'}
                 className="mt-2 h-12 w-full rounded-lg border border-[#D9D6D2] bg-white px-3.5 text-sm text-[#171717] transition placeholder:text-[#A1A1A1] focus:border-[#E49A02]"
               />
             </label>
             <label className="block">
-              <span className="text-xs font-semibold text-[#2F2F2F]">{mode === 'professional' ? 'Contraseña' : 'PIN de 4 dígitos'}</span>
+              <span className="text-xs font-semibold text-[#2F2F2F]">{mode === 'professional' ? 'Contraseña' : 'PIN o cédula temporal'}</span>
               <span className="relative mt-2 block">
                 <input
                   type={showSecret ? 'text' : 'password'}
                   name="secret"
                   value={secret}
-                  onChange={(event) => setSecret(event.target.value)}
+                  onChange={(event) => setSecret(mode === 'patient' ? event.target.value.replace(/\D/g, '') : event.target.value)}
                   inputMode={mode === 'patient' ? 'numeric' : undefined}
-                  maxLength={mode === 'patient' ? 4 : undefined}
+                  maxLength={mode === 'patient' ? 12 : undefined}
                   autoComplete="current-password"
-                  placeholder={mode === 'patient' ? '••••' : 'Ingresá tu contraseña'}
+                  required
+                  placeholder={mode === 'patient' ? '4 dígitos o cédula temporal' : 'Ingresá tu contraseña'}
                   className="h-12 w-full rounded-lg border border-[#D9D6D2] bg-white px-3.5 pr-12 text-sm text-[#171717] transition placeholder:text-[#A1A1A1] focus:border-[#E49A02]"
                 />
                 <button type="button" onClick={() => setShowSecret((visible) => !visible)} className="absolute inset-y-0 right-1 grid w-10 place-items-center rounded-lg text-[#747474] hover:text-[#171717]" aria-label={showSecret ? 'Ocultar contraseña' : 'Mostrar contraseña'}>
@@ -129,14 +142,14 @@ export function LoginPage() {
             {mode === 'professional' && <div className="-mt-2 text-right"><Link to="/recuperar-clave" className="text-xs font-semibold text-[#8A5B00]">¿Olvidaste tu contraseña?</Link></div>}
             {error && <p role="alert" className="rounded-lg bg-[#FCECED] px-4 py-3 text-xs font-semibold text-[#A94952]">{error}</p>}
 
-            <button type="submit" disabled={loading} className="h-11 w-full rounded-lg bg-[#E49A02] px-5 text-sm font-semibold text-[#171717] shadow-[0_8px_20px_rgba(228,154,2,0.18)] transition hover:bg-[#D99000] disabled:opacity-60">
-              {loading ? 'Ingresando…' : isSupabaseConfigured ? 'Ingresar' : 'Ingresar a la demostración'}
+            <button type="submit" disabled={loading || !isSupabaseConfigured} className="h-11 w-full rounded-lg bg-[#E49A02] px-5 text-sm font-semibold text-[#171717] shadow-[0_8px_20px_rgba(228,154,2,0.18)] transition hover:bg-[#D99000] disabled:cursor-not-allowed disabled:opacity-60">
+              {loading ? 'Ingresando…' : isSupabaseConfigured ? 'Ingresar' : 'Acceso no disponible'}
             </button>
           </form>
 
           <div className="mt-6 flex gap-2.5 rounded-xl bg-[#F7F6F4] p-3.5 text-[11px] leading-5 text-[#747474]">
             <LockKeyhole size={15} className="mt-0.5 shrink-0 text-[#8A5B00]" />
-            <span><strong className="font-semibold text-[#2F2F2F]">Entorno seguro:</strong>{' '}{isSupabaseConfigured ? 'la conexión clínica está configurada para este entorno.' : 'modo demostración; no se envían credenciales ni datos clínicos.'}</span>
+            <span><strong className="font-semibold text-[#2F2F2F]">Acceso verificado:</strong>{' '}{isSupabaseConfigured ? 'se exige correo o usuario y su clave correspondiente.' : 'falta la conexión de autenticación y el acceso permanece bloqueado.'}</span>
           </div>
         </div>
       </section>
