@@ -30,6 +30,7 @@ const StudyReviewPage = lazy(() => import('./pages/StudyReviewPage').then((modul
 const StudyExtractionReportPage = lazy(() => import('./pages/StudyExtractionReportPage').then((module) => ({ default: module.StudyExtractionReportPage })))
 const StatisticsPage = lazy(() => import('./pages/StatisticsPage').then((module) => ({ default: module.StatisticsPage })))
 const StudiesPage = lazy(() => import('./pages/StudiesPage').then((module) => ({ default: module.StudiesPage })))
+const opensQuestStation = new URLSearchParams(window.location.search).get('station') === 'quest'
 
 function load(page: ReactNode) {
   return (
@@ -46,7 +47,7 @@ function load(page: ReactNode) {
 }
 
 const router = createBrowserRouter([
-  { path: '/', element: <Navigate to="/ingresar" replace /> },
+  { path: '/', element: opensQuestStation ? load(<QuestStationPage />) : <Navigate to="/ingresar" replace /> },
   { path: '/ingresar', element: load(<LoginPage />) },
   { path: '/recuperar-clave', element: load(<ProfessionalPasswordRecoveryPage />) },
   { path: '/restablecer-clave', element: load(<ProfessionalPasswordUpdatePage />) },
