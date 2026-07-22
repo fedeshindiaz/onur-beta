@@ -33,6 +33,13 @@ export interface ExerciseCompletionReport {
   targetRepetitions?: number
   reportedRepetitions?: number
   cognitive?: CognitivePerformanceReport
+  headTracking?: {
+    mode: 'orientation_3dof'
+    spatialAnchor: 'calibrated_direction'
+    recenterCount: number
+    trackingLossCount: number
+    finalStatus: 'tracking' | 'lost' | 'unavailable'
+  }
 }
 
 export interface ExerciseConfig {

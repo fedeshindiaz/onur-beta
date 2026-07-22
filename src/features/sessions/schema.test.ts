@@ -31,6 +31,12 @@ describe('validación de sesión',()=>{
     expect(validateSession(session([exercise], 'in_person'))).toEqual({})
   })
 
+  it('acepta RVO x1 Cardboard solo en sesión presencial supervisada', () => {
+    const exercise = config({ displayMode: 'vr_box', cardboardEnabled: true, doseMode: 'time', advanceMode: 'automatic', posture: 'seated', surface: 'firm', supervision: 'direct_clinician' })
+    expect(validateSession(session([exercise], 'in_person'))).toEqual({})
+    expect(validateSession(session([exercise], 'home')).exercises).toContain('no se asigna al domicilio')
+  })
+
   it('rechaza una fecha final anterior',()=>expect(validateSession({...session([defaultExerciseConfig]),availableUntil:'2026-07-15'}).availableUntil).toBeTruthy())
 
   it.each([

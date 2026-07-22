@@ -34,11 +34,12 @@ describe('plan práctico de ejecución', () => {
     expect(plan.warnings.join(' ')).toContain('fusionen en uno solo')
   })
 
-  it('identifica Cardboard sin prometer calibración óptica o seguimiento de cabeza', () => {
+  it('identifica el anclaje 3DoF Cardboard sin prometer calibración óptica ni posición 6DoF', () => {
     const config = { ...applyExercisePurpose(defaultExerciseConfig, 'optokinetic'), displayMode: 'vr_box' as const, cardboardEnabled: true, doseMode: 'time' as const, advanceMode: 'automatic' as const }
     const plan = buildExerciseExecutionPlan(config, 'home')
     expect(plan.equipment).toContain('Visor compatible con Cardboard preparado y abierto')
     expect(plan.warnings.join(' ')).toContain('no interpreta códigos QR')
-    expect(plan.warnings.join(' ')).toContain('no sigue la cabeza')
+    expect(plan.warnings.join(' ')).toContain('anclaje angular 3DoF')
+    expect(plan.warnings.join(' ')).toContain('No mide traslación 6DoF')
   })
 })

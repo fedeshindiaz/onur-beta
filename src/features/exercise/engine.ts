@@ -187,22 +187,33 @@ function drawSpiral(
   context.restore()
 }
 
-export function renderExerciseFrame(
+export function renderExerciseBackground(
+  context: CanvasRenderingContext2D,
+  config: ExerciseConfig,
+  elapsedSeconds: number,
+  width: number,
+  height: number,
+  includeBase = true,
+) {
+  if (includeBase) {
+    context.clearRect(0, 0, width, height)
+    context.fillStyle = config.backgroundColor
+    context.fillRect(0, 0, width, height)
+  }
+
+  if (config.backgroundType === 'bars') drawBars(context, config, elapsedSeconds, width, height)
+  if (config.backgroundType === 'checkerboard') drawCheckerboard(context, config, elapsedSeconds, width, height)
+  if (config.backgroundType === 'dots') drawDots(context, config, elapsedSeconds, width, height)
+  if (config.backgroundType === 'spiral') drawSpiral(context, config, elapsedSeconds, width, height)
+}
+
+export function renderExerciseObject(
   context: CanvasRenderingContext2D,
   config: ExerciseConfig,
   elapsedSeconds: number,
   width: number,
   height: number,
 ) {
-  context.clearRect(0, 0, width, height)
-  context.fillStyle = config.backgroundColor
-  context.fillRect(0, 0, width, height)
-
-  if (config.backgroundType === 'bars') drawBars(context, config, elapsedSeconds, width, height)
-  if (config.backgroundType === 'checkerboard') drawCheckerboard(context, config, elapsedSeconds, width, height)
-  if (config.backgroundType === 'dots') drawDots(context, config, elapsedSeconds, width, height)
-  if (config.backgroundType === 'spiral') drawSpiral(context, config, elapsedSeconds, width, height)
-
   if (!config.objectEnabled) return
 
   let objectPosition = { x: width / 2, y: height / 2 }
@@ -238,6 +249,17 @@ export function renderExerciseFrame(
   drawObjectShape(context, cognitiveSymbol, objectPosition, config.objectSize)
   context.fill()
   context.shadowBlur = 0
+}
+
+export function renderExerciseFrame(
+  context: CanvasRenderingContext2D,
+  config: ExerciseConfig,
+  elapsedSeconds: number,
+  width: number,
+  height: number,
+) {
+  renderExerciseBackground(context, config, elapsedSeconds, width, height)
+  renderExerciseObject(context, config, elapsedSeconds, width, height)
 }
 
 function drawObjectShape(context: CanvasRenderingContext2D, symbol: CognitiveSymbol, position: Point, size: number) {

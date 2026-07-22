@@ -66,15 +66,23 @@ describe('coherencia clínica y espacial de ejercicios', () => {
     expect(analysis.explanation).toContain('cabeza quieta')
   })
 
-  it('habilita Cardboard únicamente sobre el mismo grupo seguro de VR Box', () => {
+  it('habilita Cardboard para el grupo visual seguro y RVO x1 presencial con anclaje 3DoF', () => {
     for (const purpose of ['smooth_pursuit', 'saccades', 'optokinetic', 'visual_habituation', 'custom_free'] as const) {
       const analysis = analyzeExerciseCompatibility(exercise(purpose, { displayMode: 'vr_box', cardboardEnabled: true, doseMode: 'time', advanceMode: 'automatic' }))
       expect(analysis.valid, purpose).toBe(true)
     }
-    for (const purpose of ['gaze_stabilization', 'gaze_stabilization_x2', 'gaze_substitution_remembered', 'cognitive_visual', 'guided_functional'] as const) {
+    const gaze = analyzeExerciseCompatibility(exercise('gaze_stabilization', { displayMode: 'vr_box', cardboardEnabled: true, doseMode: 'time', advanceMode: 'automatic', supervision: 'direct_clinician' }))
+    expect(gaze.valid).toBe(true)
+    expect(gaze.explanation).toContain('anclaje angular 3DoF')
+    for (const purpose of ['gaze_stabilization_x2', 'gaze_substitution_remembered', 'cognitive_visual', 'guided_functional'] as const) {
       const analysis = analyzeExerciseCompatibility(exercise(purpose, { displayMode: 'vr_box', cardboardEnabled: true, doseMode: 'time', advanceMode: 'automatic' }))
       expect(analysis.valid, purpose).toBe(false)
     }
+  })
+
+  it('mantiene RVO x1 bloqueado en VR Box común y sin supervisión directa', () => {
+    expect(analyzeExerciseCompatibility(exercise('gaze_stabilization', { displayMode: 'vr_box', doseMode: 'time', advanceMode: 'automatic' })).issues.some((item) => item.code === 'gaze-headset')).toBe(true)
+    expect(analyzeExerciseCompatibility(exercise('gaze_stabilization', { displayMode: 'vr_box', cardboardEnabled: true, doseMode: 'time', advanceMode: 'automatic' })).issues.some((item) => item.code === 'cardboard-gaze-supervision')).toBe(true)
   })
 
   it('no permite conservar Cardboard fuera de VR Box', () => {
@@ -149,8 +157,9 @@ describe('coherencia clínica y espacial de ejercicios', () => {
 
     for (const purpose of purposes) for (const doseMode of doses) for (const advanceMode of advances) {
       for (const posture of postures) for (const surface of surfaces) for (const cognitiveTaskMode of cognition) for (const metronomeEnabled of metronomes) for (const cardboardEnabled of cardboardProfiles) {
-        const configured = exercise(purpose, { displayMode: 'vr_box', cardboardEnabled, doseMode, advanceMode, posture, surface, cognitiveTaskMode, metronomeEnabled })
+        const configured = exercise(purpose, { displayMode: 'vr_box', cardboardEnabled, doseMode, advanceMode, posture, surface, cognitiveTaskMode, metronomeEnabled, supervision: purpose === 'gaze_stabilization' && cardboardEnabled ? 'direct_clinician' : 'independent_after_approval' })
         const expected = isVrBoxPurposeSupported(purpose)
+          && (purpose !== 'gaze_stabilization' || cardboardEnabled)
           && doseMode === 'time' && advanceMode === 'automatic'
           && posture === 'seated' && surface === 'firm'
           && cognitiveTaskMode === 'none' && !metronomeEnabled

@@ -58,10 +58,15 @@ describe('creación de ejercicios', () => {
     expect(screen.getByLabelText('Modo')).toHaveValue('standard')
   })
 
-  it('no ofrece RVO x1 ni tareas físicas dentro de visores', () => {
+  it('ofrece RVO x1 solo mediante Cardboard y mantiene tareas físicas fuera de visores', () => {
     render(<EditorHarness/>)
-    expect(screen.getByRole('option', { name: /VR Box/ })).toBeDisabled()
+    expect(screen.getByRole('option', { name: /VR Box/ })).not.toBeDisabled()
     expect(screen.getByRole('option', { name: /Meta Quest/ })).toBeDisabled()
+
+    fireEvent.change(screen.getByLabelText('Modo'), { target: { value: 'vr_box' } })
+    expect(screen.getByText('Configuración bloqueada')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Habilitar perfil Cardboard' }))
+    expect(screen.getByText('Configuración coherente')).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText('Tipo'), { target: { value: 'guided_physical' } })
     expect(screen.getByRole('option', { name: /VR Box/ })).toBeDisabled()

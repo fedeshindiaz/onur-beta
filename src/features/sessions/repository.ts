@@ -17,6 +17,11 @@ export interface SessionEventLogEntry {
   dose_mode?: string
   display_mode?: string
   viewer_profile?: 'vr_box' | 'cardboard'
+  head_tracking_mode?: 'orientation_3dof'
+  spatial_anchor?: 'calibrated_direction'
+  tracking_recenter_count?: number
+  tracking_loss_count?: number
+  tracking_final_status?: 'tracking' | 'lost' | 'unavailable'
   active_seconds?: number
   target_repetitions?: number
   reported_repetitions?: number

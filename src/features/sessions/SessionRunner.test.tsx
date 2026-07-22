@@ -6,8 +6,9 @@ import type { SessionAssignmentRecord } from './repository'
 import { SessionRunner } from './SessionRunner'
 
 const exercisePlayerMock = vi.hoisted(() => vi.fn())
+const trackingPermissionMock = vi.hoisted(() => vi.fn(async () => 'granted'))
 
-afterEach(() => { cleanup(); vi.useRealTimers() })
+afterEach(() => { cleanup(); vi.useRealTimers(); trackingPermissionMock.mockReset(); trackingPermissionMock.mockResolvedValue('granted') })
 
 vi.mock('../exercise/ExercisePlayer', () => ({
   ExercisePlayer: (props: { config: ExerciseConfig; preparationSeconds?: number; onComplete?: (activeSeconds: number, report?: ExerciseCompletionReport) => void }) => {
@@ -15,6 +16,8 @@ vi.mock('../exercise/ExercisePlayer', () => ({
     return <button type="button" onClick={() => props.onComplete?.(1, { doseMode: props.config.doseMode, completion: 'target_completed', targetRepetitions: props.config.doseMode === 'repetitions' ? props.config.targetRepetitions : undefined, reportedRepetitions: props.config.doseMode === 'repetitions' ? props.config.targetRepetitions : undefined })}>Completar ejercicio</button>
   },
 }))
+
+vi.mock('../exercise/cardboardTracking', () => ({ requestCardboardTrackingPermission: trackingPermissionMock }))
 
 const session: SessionAssignmentRecord = {
   id: 'assignment-test', patientId: 'patient-test', patientName: 'Paciente', treatmentCycleId: 'cycle-test', sessionPlanId: 'plan-test',
@@ -85,9 +88,9 @@ describe('SessionRunner', () => {
     render(<SessionRunner session={cardboardSession} onFinish={onFinish} onExit={vi.fn()} />)
 
     expect(screen.getByText('Preparación de Cardboard')).toBeInTheDocument()
-    expect(screen.getByText(/no requiere escanear un código QR/i)).toBeInTheDocument()
-    expect(screen.getByText(/controles duplicados para pausar, omitir o salir/i)).toBeInTheDocument()
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Comenzar preparación de 20 segundos' })) })
+    expect(screen.getByText(/seguimiento 3DoF/i)).toBeInTheDocument()
+    expect(screen.getByText(/No mide desplazamiento físico 6DoF/i)).toBeInTheDocument()
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Activar sensores y preparar Cardboard' })) })
     expect(screen.getByRole('button', { name: 'Salir de la sesión · lado izquierdo' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Salir de la sesión · lado derecho' })).toBeInTheDocument()
     for (let second = 0; second < 20; second += 1) await act(async () => { vi.advanceTimersByTime(1_000) })
@@ -97,8 +100,18 @@ describe('SessionRunner', () => {
 
     expect(onFinish.mock.calls[0][2]).toEqual(expect.arrayContaining([
       expect.objectContaining({ type: 'vr_box_put_on', viewer_profile: 'cardboard' }),
-      expect.objectContaining({ type: 'exercise_completed', viewer_profile: 'cardboard' }),
+      expect.objectContaining({ type: 'exercise_completed', viewer_profile: 'cardboard', head_tracking_mode: 'orientation_3dof', spatial_anchor: 'calibrated_direction' }),
       expect.objectContaining({ type: 'vr_box_take_off', viewer_profile: 'cardboard' }),
     ]))
+  })
+
+  it('no inicia Cardboard cuando el permiso de movimiento es rechazado', async () => {
+    trackingPermissionMock.mockResolvedValueOnce('denied')
+    const cardboardSession = { ...session, exercises: [{ ...applyExercisePurpose(defaultExerciseConfig, 'saccades'), displayMode: 'vr_box' as const, cardboardEnabled: true, doseMode: 'time' as const, advanceMode: 'automatic' as const, rounds: 1 }] }
+    render(<SessionRunner session={cardboardSession} onFinish={vi.fn()} onExit={vi.fn()} />)
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Activar sensores y preparar Cardboard' })) })
+    expect(screen.getByRole('alert')).toHaveTextContent('acceso al movimiento fue rechazado')
+    expect(screen.queryByRole('button', { name: 'Completar ejercicio' })).not.toBeInTheDocument()
   })
 })

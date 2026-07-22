@@ -1,6 +1,7 @@
 import { Clock3, Glasses, LogOut, Play, SkipForward } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ExercisePlayer } from '../exercise/ExercisePlayer'
+import { requestCardboardTrackingPermission } from '../exercise/cardboardTracking'
 import type { ExerciseCompletionReport, ExerciseConfig, ExerciseDisplayMode } from '../exercise/types'
 import type { SessionAssignmentRecord, SessionEventLogEntry } from './repository'
 import { VR_BOX_TRANSITION_SECONDS } from './sequence'
@@ -99,6 +100,7 @@ function VrBoxTransitionScreen({ direction, seconds, nextLabel, viewerProfile, o
   const containerRef = useRef<HTMLDivElement>(null)
   const completedRef = useRef(false)
   const viewerLabel = viewerProfile === 'cardboard' ? 'Cardboard' : 'VR Box'
+  const [trackingPermissionError, setTrackingPermissionError] = useState('')
 
   useEffect(() => {
     if (!started || remaining <= 0) return
@@ -119,11 +121,22 @@ function VrBoxTransitionScreen({ direction, seconds, nextLabel, viewerProfile, o
   }, [direction, onComplete, remaining, started])
 
   const startVrPreparation = async () => {
+    setTrackingPermissionError('')
+    const permissionRequest = viewerProfile === 'cardboard' ? requestCardboardTrackingPermission() : Promise.resolve('granted' as const)
+    const fullscreenRequest = containerRef.current?.requestFullscreen?.()
+    const permission = await permissionRequest
     try {
-      await containerRef.current?.requestFullscreen()
+      await fullscreenRequest
       const orientation = screen.orientation as ScreenOrientation & { lock?: (value: 'landscape') => Promise<void> }
       await orientation.lock?.('landscape')
     } catch { /* La cuenta continúa si fullscreen u orientación no están disponibles. */ }
+    if (permission !== 'granted') {
+      if (document.fullscreenElement) {
+        try { await document.exitFullscreen() } catch { /* El mensaje de sensores sigue visible aunque fullscreen no responda. */ }
+      }
+      setTrackingPermissionError(permission === 'denied' ? 'El acceso al movimiento fue rechazado. Permitilo para usar Cardboard con anclaje.' : permission === 'insecure' ? 'El seguimiento necesita abrir la plataforma desde su dirección HTTPS segura.' : 'Este navegador no ofrece los sensores de orientación necesarios para Cardboard.')
+      return
+    }
     setStarted(true)
   }
 
@@ -133,9 +146,10 @@ function VrBoxTransitionScreen({ direction, seconds, nextLabel, viewerProfile, o
       <p className="mt-5 text-xs font-black uppercase tracking-[.16em] text-[#E49A02]">Preparación de {viewerLabel}</p>
       <h2 className="mt-3 text-2xl font-black">El próximo ejercicio usa el visor</h2>
       <p className="mt-3 text-sm leading-6 text-white/65">Dejá el {viewerLabel} abierto y el celular listo. Al continuar tendrás {seconds} segundos para colocarlo en el visor. Después, el ejercicio comenzará solo.</p>
-      {viewerProfile === 'cardboard' && <p className="mt-3 text-xs leading-5 text-white/55">Esta primera versión usa presentación binocular 2D y no requiere escanear un código QR. Durante el ejercicio verás controles duplicados para pausar, omitir o salir; retirá el visor antes de tocarlos.</p>}
+      {viewerProfile === 'cardboard' && <p className="mt-3 text-xs leading-5 text-white/55">Cardboard usa el giroscopio y acelerómetro para seguimiento 3DoF. Al comenzar, mirá al frente: esa dirección será el anclaje angular. No mide desplazamiento físico 6DoF ni corrige la óptica específica del visor.</p>}
       <p className="mt-4 rounded-2xl bg-black/25 p-4 text-xs font-bold text-white/75">Próxima fase: {nextLabel}</p>
-      <button type="button" onClick={() => void startVrPreparation()} className="mt-6 h-14 w-full rounded-2xl bg-[#E49A02] text-sm font-black text-white">Comenzar preparación de {seconds} segundos</button>
+      {trackingPermissionError && <p role="alert" className="mt-4 rounded-2xl bg-[#c74750]/18 p-4 text-xs font-bold leading-5 text-[#ff9da4]">{trackingPermissionError}</p>}
+      <button type="button" onClick={() => void startVrPreparation()} className="mt-6 h-14 w-full rounded-2xl bg-[#E49A02] px-4 text-sm font-black text-white">{viewerProfile === 'cardboard' ? 'Activar sensores y preparar Cardboard' : `Comenzar preparación de ${seconds} segundos`}</button>
       <button type="button" onClick={onExit} className="mt-4 text-xs font-bold text-white/55">Salir de la sesión</button>
     </div>
   </div>
@@ -184,6 +198,11 @@ export function SessionRunner({ session, onFinish, onExit }: { session: SessionA
         exercise_name: unit.config.name, exercise_kind: unit.config.kind,
         dose_mode: report?.doseMode ?? unit.config.doseMode, display_mode: unit.config.displayMode,
         viewer_profile: unit.config.displayMode === 'vr_box' ? (unit.config.cardboardEnabled ? 'cardboard' : 'vr_box') : undefined,
+        head_tracking_mode: unit.config.cardboardEnabled ? 'orientation_3dof' : undefined,
+        spatial_anchor: unit.config.cardboardEnabled ? 'calibrated_direction' : undefined,
+        tracking_recenter_count: report?.headTracking?.recenterCount,
+        tracking_loss_count: report?.headTracking?.trackingLossCount,
+        tracking_final_status: report?.headTracking?.finalStatus,
         active_seconds: Math.max(0, Math.round(activeSeconds)), target_repetitions: report?.targetRepetitions,
         reported_repetitions: report?.reportedRepetitions, completion,
         cognitive_mode: report?.cognitive?.mode,

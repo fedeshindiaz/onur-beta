@@ -40,7 +40,7 @@ export const exercisePurposeDefaultNames: Record<ExercisePurpose, string> = {
 }
 
 export const vrBoxPurposeCompatibility: Record<ExercisePurpose, { supported: boolean; reason: string }> = {
-  gaze_stabilization: { supported: false, reason: 'El blanco acompaña al celular y a la cabeza; no queda fijo en el ambiente.' },
+  gaze_stabilization: { supported: true, reason: 'Solo es ejecutable al activar Cardboard con seguimiento 3DoF, calibración frontal y supervisión presencial.' },
   gaze_stabilization_x2: { supported: false, reason: 'El movimiento del blanco no puede interpretarse respecto de una pantalla inmóvil.' },
   gaze_substitution_remembered: { supported: false, reason: 'Necesita una referencia estable, abrir/cerrar los ojos y confirmar cada repetición.' },
   smooth_pursuit: { supported: true, reason: 'El blanco se mueve respecto de los ojos mientras la cabeza permanece quieta.' },
@@ -173,7 +173,7 @@ function issue(code: string, message: string, correction: string): ExerciseCompa
 export function analyzeExerciseCompatibility(config: ExerciseConfig): ExerciseCompatibilityAnalysis {
   const issues: ExerciseCompatibilityIssue[] = []
   const headset = config.displayMode === 'vr_box' || config.displayMode === 'quest_browser'
-  const deviceName = config.displayMode === 'vr_box' ? 'VR Box' : 'Meta Quest en modo navegador'
+  const deviceName = config.displayMode === 'vr_box' ? config.cardboardEnabled ? 'Cardboard con seguimiento 3DoF' : 'VR Box' : 'Meta Quest en modo navegador'
   const free = config.purpose === 'custom_free'
   const cognitive = config.cognitiveTaskMode !== 'none'
   const headMovementPurpose = ['gaze_stabilization', 'gaze_stabilization_x2', 'gaze_substitution_remembered'].includes(config.purpose)
@@ -200,7 +200,8 @@ export function analyzeExerciseCompatibility(config: ExerciseConfig): ExerciseCo
   }
 
   if (config.purpose === 'gaze_stabilization') {
-    if (config.displayMode === 'vr_box') issues.push(issue('gaze-headset', 'RVO x1 no funciona en VR Box con el reproductor actual: el blanco está unido al celular y acompaña la cabeza, por lo que no genera el deslizamiento retiniano previsto.', 'Usá una pantalla 2D inmóvil.'))
+    if (config.displayMode === 'vr_box' && !config.cardboardEnabled) issues.push(issue('gaze-headset', 'RVO x1 no funciona en VR Box sin seguimiento: el blanco está unido al celular y acompaña la cabeza.', 'Activá Cardboard con seguimiento 3DoF o usá una pantalla 2D inmóvil.'))
+    if (config.displayMode === 'vr_box' && config.cardboardEnabled && config.supervision !== 'direct_clinician') issues.push(issue('cardboard-gaze-supervision', 'RVO x1 con anclaje angular Cardboard todavía requiere validación presencial del sensor, latencia y deriva.', 'Usá supervisión profesional directa en clínica.'))
     if (config.displayMode === 'quest_browser') issues.push(issue('gaze-headset', 'RVO x1 no está habilitado en Quest: el reproductor actual no inicia una sesión WebXR ni controla o verifica que el blanco permanezca anclado al ambiente.', 'Usá una pantalla 2D inmóvil. Quest podrá habilitarse cuando la aplicación implemente y valide el anclaje espacial.'))
     if (!config.objectEnabled || config.objectMode !== 'fixed') issues.push(issue('gaze-target', 'RVO x1 necesita un blanco visible y fijo en la pantalla.', 'Activá el blanco y elegí comportamiento Fijo.'))
     if (config.backgroundSpeed > 0) issues.push(issue('gaze-background', 'Un fondo móvil cambia la tarea y deja de ser un RVO x1 aislado.', 'Llevá la velocidad del fondo a 0.'))
@@ -262,11 +263,12 @@ export function analyzeExerciseCompatibility(config: ExerciseConfig): ExerciseCo
   }
 
   if (config.displayMode === 'vr_box' && config.doseMode !== 'time') issues.push(issue('vr-dose', 'VR Box solo admite ejercicios por tiempo porque el paciente no puede confirmar repeticiones con el celular dentro del visor.', 'Elegí Por tiempo o Pantalla 2D.'))
-  if (config.displayMode === 'vr_box' && config.advanceMode !== 'automatic') issues.push(issue('vr-advance', 'VR Box debe finalizar automáticamente porque no usa botones, mirada ni controles externos.', 'Elegí avance automático.'))
+  if (config.displayMode === 'vr_box' && config.advanceMode !== 'automatic') issues.push(issue('vr-advance', `${config.cardboardEnabled ? 'Cardboard' : 'VR Box'} debe finalizar automáticamente; sus controles son solo para pausar, recentrar, omitir o salir.`, 'Elegí avance automático.'))
   if (config.displayMode === 'vr_box' && config.metronomeEnabled) issues.push(issue('vr-metronome', 'El audio del navegador puede quedar bloqueado después de colocar el celular en VR Box y no es necesario para estos estímulos visuales.', 'Desactivá el metrónomo en VR Box.'))
 
   let explanation = 'La configuración técnica coincide con el objetivo seleccionado.'
   if (config.purpose === 'gaze_stabilization' && config.displayMode === 'standard') explanation = 'El blanco queda fijo en una pantalla inmóvil mientras el paciente mueve la cabeza: la referencia espacial es coherente con RVO x1.'
+  if (config.purpose === 'gaze_stabilization' && config.displayMode === 'vr_box' && config.cardboardEnabled) explanation = 'Cardboard contrarresta yaw, pitch y roll respecto de la calibración frontal para mantener el blanco en una dirección virtual estable. Es anclaje angular 3DoF y requiere comprobación presencial del dispositivo.'
   if (config.purpose === 'gaze_stabilization_x2' && config.displayMode === 'standard') explanation = 'El blanco se desplaza en una pantalla inmóvil y la persona mueve la cabeza en sentido opuesto: configuración digital coherente con RVO x2.'
   if (config.purpose === 'gaze_substitution_remembered' && config.displayMode === 'standard') explanation = 'El blanco estable permite mirar, cerrar los ojos, girar la cabeza y comprobar la precisión al reabrirlos.'
   if ((config.purpose === 'smooth_pursuit' || config.purpose === 'saccades') && headset) explanation = `El blanco se mueve respecto de los ojos dentro de ${deviceName}; el paciente debe mantener la cabeza quieta.`
@@ -277,7 +279,9 @@ export function analyzeExerciseCompatibility(config: ExerciseConfig): ExerciseCo
     ? 'Modo Libre: la configuración puede guardarse y ejecutarse, pero la plataforma no valida su equivalencia con un protocolo clínico.'
     : 'El modo Libre permite guardar cualquier combinación; esta combinación no puede ejecutarse con seguridad técnica en el dispositivo seleccionado.'
 
-  const clinicalNote = free
+  const clinicalNote = config.purpose === 'gaze_stabilization' && config.displayMode === 'vr_box' && config.cardboardEnabled
+    ? 'Implementación experimental y presencial: el anclaje es angular 3DoF, no posición 6DoF. Antes de indicar dosis, el profesional debe comprobar permiso de sensores, latencia, deriva, recentrado y pérdida de seguimiento en el teléfono utilizado.'
+    : free
     ? 'Revisión profesional obligatoria. “Libre” no convierte la combinación en RVO x1, RVO x2, sustitución, habituación ni estimulación optocinética.'
     : config.purpose === 'gaze_substitution_remembered'
       ? '“RVO x3” es un alias docente no estandarizado. La tarea se registra como sustitución por objetivo recordado, no como una adaptación tres veces mayor ni como progresión automática de RVO x2.'

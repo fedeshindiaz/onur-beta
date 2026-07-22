@@ -1,17 +1,20 @@
 import { useEffect, useRef } from 'react'
-import { renderExerciseFrame } from './engine'
+import { headPoseToCanvasTransform, type CardboardHeadPose } from './cardboardTracking'
+import { renderExerciseBackground, renderExerciseObject } from './engine'
 import type { ExerciseConfig } from './types'
 
-export function StereoscopicExerciseCanvas({ config, paused = false }: { config: ExerciseConfig; paused?: boolean }) {
+export function StereoscopicExerciseCanvas({ config, paused = false, headPose = null }: { config: ExerciseConfig; paused?: boolean; headPose?: CardboardHeadPose | null }) {
   const leftRef = useRef<HTMLCanvasElement>(null)
   const rightRef = useRef<HTMLCanvasElement>(null)
   const configRef = useRef(config)
   const pausedRef = useRef(paused)
+  const headPoseRef = useRef(headPose)
   const elapsedRef = useRef(0)
   const previousTimeRef = useRef<number | null>(null)
 
   useEffect(() => { configRef.current = config }, [config])
   useEffect(() => { pausedRef.current = paused; previousTimeRef.current = null }, [paused])
+  useEffect(() => { headPoseRef.current = headPose }, [headPose])
 
   useEffect(() => {
     const canvases = [leftRef.current, rightRef.current].filter((canvas): canvas is HTMLCanvasElement => Boolean(canvas))
@@ -39,7 +42,32 @@ export function StereoscopicExerciseCanvas({ config, paused = false }: { config:
       }
       canvases.forEach((canvas, index) => {
         const rect = canvas.getBoundingClientRect()
-        renderExerciseFrame(contexts[index]!, configRef.current, elapsedRef.current, rect.width, rect.height)
+        const context = contexts[index]!
+        context.save()
+        context.clearRect(0, 0, rect.width, rect.height)
+        context.fillStyle = configRef.current.backgroundColor
+        context.fillRect(0, 0, rect.width, rect.height)
+        const pose = configRef.current.cardboardEnabled ? headPoseRef.current : null
+        const transform = pose ? headPoseToCanvasTransform(pose, rect.width, rect.height) : null
+        if (configRef.current.backgroundType !== 'solid') {
+          context.save()
+          if (transform) {
+            context.translate(rect.width / 2 + transform.offsetX, rect.height / 2 + transform.offsetY)
+            context.rotate(transform.rotationRadians)
+            context.translate(-rect.width / 2, -rect.height / 2)
+          }
+          renderExerciseBackground(context, configRef.current, elapsedRef.current, rect.width, rect.height, false)
+          context.restore()
+        }
+        context.save()
+        if (pose) {
+          context.translate(rect.width / 2 + transform!.offsetX, rect.height / 2 + transform!.offsetY)
+          context.rotate(transform!.rotationRadians)
+          context.translate(-rect.width / 2, -rect.height / 2)
+        }
+        renderExerciseObject(context, configRef.current, elapsedRef.current, rect.width, rect.height)
+        context.restore()
+        context.restore()
       })
       animationFrame = requestAnimationFrame(draw)
     }

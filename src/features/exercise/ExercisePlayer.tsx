@@ -1,10 +1,11 @@
-import { Accessibility, Check, Clock3, Expand, LogOut, Pause, Play, ShieldAlert, SkipForward, Target } from 'lucide-react'
+import { Accessibility, Check, Clock3, Expand, LogOut, Pause, Play, RotateCcw, ShieldAlert, SkipForward, Target } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { cognitiveInstruction, cognitiveResponseModeFor, cognitiveStepAt, cognitiveSymbolPhrase, cognitiveTaskLabel, isCognitiveTargetStep } from './cognitive'
 import { ExerciseCanvas } from './ExerciseCanvas'
 import { analyzeExerciseCompatibility } from './compatibility'
 import { StereoscopicExerciseCanvas } from './StereoscopicExerciseCanvas'
 import type { ExerciseCompletionReport, ExerciseConfig } from './types'
+import { useCardboardHeadTracking, type CardboardTrackingStatus } from './useCardboardHeadTracking'
 
 interface ExercisePlayerProps {
   config: ExerciseConfig
@@ -56,13 +57,14 @@ function CompletionOverlay({ config, onTarget, onPartial, onSkip }: { config: Ex
   return <div className="absolute inset-0 z-50 grid grid-cols-2 divide-x divide-white/10 bg-[#171717]"><div className="grid place-items-center p-3"><CompletionPanel config={config} onTarget={onTarget} onPartial={onPartial} onSkip={onSkip}/></div><div className="grid place-items-center p-3" aria-hidden="true"><CompletionPanel config={config} onTarget={onTarget} onPartial={onPartial} onSkip={onSkip}/></div></div>
 }
 
-function CardboardControlBar({ paused, formattedTime, onTogglePause, onSkip, onExit }: { paused: boolean; formattedTime: string; onTogglePause: () => void; onSkip?: () => void; onExit: () => void }) {
+function CardboardControlBar({ paused, formattedTime, trackingStatus, onTogglePause, onRecenter, onSkip, onExit }: { paused: boolean; formattedTime: string; trackingStatus: CardboardTrackingStatus; onTogglePause: () => void; onRecenter: () => void; onSkip?: () => void; onExit: () => void }) {
   const controls = (side: 'izquierdo' | 'derecho') => <div className="flex min-w-0 items-center justify-center p-1.5 sm:p-2">
     <div className="pointer-events-auto flex max-w-full items-center gap-1 rounded-2xl border border-white/15 bg-black/78 p-1.5 shadow-2xl backdrop-blur-md">
-      <span className="hidden rounded-xl bg-white/10 px-2 py-2 text-[8px] font-black uppercase tracking-[.1em] text-white/75 min-[580px]:inline"><span className="block text-[#EFB33A]">Cardboard</span><span className="mt-0.5 block tabular-nums text-white">{formattedTime}</span></span>
+      <span className="hidden rounded-xl bg-white/10 px-2 py-2 text-[8px] font-black uppercase tracking-[.1em] text-white/75 min-[580px]:inline"><span className={`block ${trackingStatus === 'tracking' ? 'text-[#71d897]' : 'text-[#EFB33A]'}`}>{trackingStatus === 'tracking' ? '3DoF activo' : 'Sin anclaje'}</span><span className="mt-0.5 block tabular-nums text-white">{formattedTime}</span></span>
       <button type="button" onClick={onTogglePause} aria-label={`${paused ? 'Continuar' : 'Pausar'} · lado ${side}`} className="grid size-10 shrink-0 place-items-center rounded-xl bg-white text-[#171717] shadow-lg">
         {paused ? <Play size={16}/> : <Pause size={16}/>}
       </button>
+      <button type="button" onClick={onRecenter} aria-label={`Recentrar anclaje · lado ${side}`} className="grid size-10 shrink-0 place-items-center rounded-xl bg-white/14 text-white shadow-lg" title="Mirar al frente y recentrar"><RotateCcw size={15}/></button>
       {onSkip && <button type="button" onClick={onSkip} aria-label={`Omitir ejercicio · lado ${side}`} className="inline-flex h-10 min-w-0 items-center gap-1 rounded-xl bg-[#E49A02] px-2 text-[9px] font-black text-white shadow-lg sm:px-3"><SkipForward className="shrink-0" size={14}/><span className="truncate">Omitir</span></button>}
       <button type="button" onClick={onExit} aria-label={`Salir de la sesión · lado ${side}`} className="inline-flex h-10 min-w-0 items-center gap-1 rounded-xl bg-[#c74750] px-2 text-[9px] font-black text-white shadow-lg sm:px-3"><LogOut className="shrink-0" size={14}/><span className="truncate">Salir</span></button>
     </div>
@@ -74,9 +76,31 @@ function CardboardControlBar({ paused, formattedTime, onTogglePause, onSkip, onE
   </div>
 }
 
+function CardboardTrackingOverlay({ status, onRetry, onExit }: { status: CardboardTrackingStatus; onRetry: () => void; onExit: () => void }) {
+  if (status === 'tracking' || status === 'idle') return null
+  const failed = status === 'denied' || status === 'unavailable' || status === 'lost'
+  const title = status === 'calibrating' ? 'Calibrando seguimiento' : status === 'denied' ? 'Permiso de movimiento rechazado' : status === 'lost' ? 'Se perdió el seguimiento' : 'Sensores no disponibles'
+  const instruction = status === 'calibrating'
+    ? 'Mirá al frente y mantené la cabeza quieta hasta que aparezca “3DoF activo”.'
+    : status === 'denied'
+      ? 'Retirá el visor, permití el acceso al movimiento y volvé a calibrar.'
+      : status === 'lost'
+        ? 'Retirá el visor, mirá al frente y tocá Recalibrar antes de continuar.'
+        : 'Este dispositivo o navegador no entregó orientación. No continúes el ejercicio con anclaje.'
+  const content = (side: 'izquierdo' | 'derecho') => <div className="flex h-full flex-col items-center justify-center px-4 pb-16 text-center">
+    <ShieldAlert className={failed ? 'text-[#ef6b74]' : 'text-[#E49A02]'} size={28}/>
+    <p className={`mt-3 text-[9px] font-black uppercase tracking-[.14em] ${failed ? 'text-[#ef6b74]' : 'text-[#E49A02]'}`}>{title}</p>
+    {!failed && <div className="mt-3 grid size-8 place-items-center rounded-full border-2 border-white text-lg font-black">+</div>}
+    <p className="mt-3 max-w-xs text-[9px] font-bold leading-4 text-white/75">{instruction}</p>
+    {failed && <div className="mt-4 flex flex-wrap justify-center gap-2"><button type="button" onClick={onRetry} aria-label={`${status === 'lost' ? 'Recalibrar' : 'Reintentar sensores'} · lado ${side}`} className="h-10 rounded-xl bg-[#E49A02] px-3 text-[9px] font-black text-white">{status === 'lost' ? 'Recalibrar' : 'Reintentar'}</button><button type="button" onClick={onExit} aria-label={`Salir por fallo de seguimiento · lado ${side}`} className="h-10 rounded-xl bg-[#c74750] px-3 text-[9px] font-black text-white">Salir</button></div>}
+  </div>
+  return <div className="absolute inset-0 z-30 grid grid-cols-2 divide-x divide-white/10 bg-[#171717]/96" role="status" aria-live="assertive" data-cardboard-tracking-status={status}>{content('izquierdo')}{content('derecho')}</div>
+}
+
 function CompatibleExercisePlayer({ config, onExit, onSkip, onComplete, preparationSeconds }: ExercisePlayerProps) {
   const vrBox = config.displayMode === 'vr_box'
   const cardboard = vrBox && config.cardboardEnabled
+  const tracking = useCardboardHeadTracking(cardboard)
   const [paused, setPaused] = useState(false)
   const [controlsVisible, setControlsVisible] = useState(!vrBox)
   const [preparationRemaining, setPreparationRemaining] = useState(preparationSeconds ?? config.preparationSeconds ?? 0)
@@ -93,7 +117,7 @@ function CompatibleExercisePlayer({ config, onExit, onSkip, onComplete, preparat
   const cognitiveFalseAlarmsRef = useRef(0)
   const preparing = preparationRemaining > 0
   const timedFinished = config.doseMode === 'time' && remainingSeconds <= 0
-  const inactive = paused || preparing || briefingOpen || completionOpen || timedFinished
+  const inactive = paused || preparing || briefingOpen || completionOpen || timedFinished || (cardboard && tracking.status !== 'tracking')
 
   useEffect(() => { containerRef.current?.focus() }, [])
   useEffect(() => { if (paused || !preparing) return; const timeout = window.setTimeout(() => setPreparationRemaining((remaining) => Math.max(0, remaining - 1)), 1000); return () => window.clearTimeout(timeout) }, [paused, preparing, preparationRemaining])
@@ -129,8 +153,16 @@ function CompatibleExercisePlayer({ config, onExit, onSkip, onComplete, preparat
     if (completedRef.current) return
     completedRef.current = true
     const seconds = Math.max(0, Math.round(activeSeconds))
-    if (report.completion === 'skipped') onSkip?.(seconds, report)
-    else if (onComplete) onComplete(seconds, report)
+    const finalReport: ExerciseCompletionReport = cardboard ? {
+      ...report,
+      headTracking: {
+        mode: 'orientation_3dof', spatialAnchor: 'calibrated_direction',
+        recenterCount: tracking.recenterCount, trackingLossCount: tracking.trackingLossCount,
+        finalStatus: tracking.status === 'tracking' ? 'tracking' : tracking.status === 'lost' ? 'lost' : 'unavailable',
+      },
+    } : report
+    if (finalReport.completion === 'skipped') onSkip?.(seconds, finalReport)
+    else if (onComplete) onComplete(seconds, finalReport)
     else onExit()
   }
 
@@ -178,7 +210,7 @@ function CompatibleExercisePlayer({ config, onExit, onSkip, onComplete, preparat
   const formattedTime = `${String(Math.floor(Math.max(0, remainingSeconds) / 60)).padStart(2, '0')}:${String(Math.ceil(Math.max(0, remainingSeconds) % 60)).padStart(2, '0')}`
 
   return <div ref={containerRef} className="fixed inset-0 z-[100] overflow-hidden bg-[#081113] text-white" onPointerMove={showControls} onPointerDown={showControls} onKeyDown={handleKeyDown} role="application" aria-label={`Reproductor: ${config.name}`} tabIndex={-1}>
-    {config.kind === 'guided_physical' ? <PhysicalStage config={config}/> : config.displayMode === 'vr_box' ? <StereoscopicExerciseCanvas config={config} paused={inactive}/> : <ExerciseCanvas config={config} paused={inactive} className="absolute inset-0 size-full"/>}
+    {config.kind === 'guided_physical' ? <PhysicalStage config={config}/> : config.displayMode === 'vr_box' ? <StereoscopicExerciseCanvas config={config} paused={inactive} headPose={cardboard ? tracking.pose : null}/> : <ExerciseCanvas config={config} paused={inactive} className="absolute inset-0 size-full"/>}
     {briefingOpen && <CognitiveBriefing config={config} onStart={() => setBriefingOpen(false)}/>}
     {preparing && <PreparationOverlay remaining={preparationRemaining} vrBox={config.displayMode === 'vr_box'}/>}
     {!vrBox && <div className={`absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-3 bg-gradient-to-b from-black/72 to-transparent p-5 transition-opacity duration-300 sm:p-7 ${controlsVisible ? 'opacity-100' : 'pointer-events-none opacity-0'}`}><div className="max-w-[70vw] rounded-2xl bg-black/48 px-4 py-2 backdrop-blur"><p className="truncate text-xs font-black">{config.name}{config.displayMode === 'quest_browser' ? ' · Quest navegador BETA' : ''}</p><p className="mt-1 line-clamp-2 text-[10px] leading-4 text-white/70">{config.patientInstruction}</p></div><div className="flex shrink-0 items-center gap-2"><button type="button" onClick={requestFullscreen} className="grid size-10 place-items-center rounded-full bg-black/48 backdrop-blur" aria-label="Pantalla completa"><Expand size={17}/></button><span className="rounded-full bg-black/48 px-4 py-2 text-xs font-black tabular-nums backdrop-blur">{config.doseMode === 'time' ? formattedTime : `${config.targetRepetitions} rep.`}</span></div></div>}
@@ -187,10 +219,19 @@ function CompatibleExercisePlayer({ config, onExit, onSkip, onComplete, preparat
     {cardboard && <CardboardControlBar
       paused={paused}
       formattedTime={formattedTime}
+      trackingStatus={tracking.status}
       onTogglePause={() => setPaused((value) => !value)}
+      onRecenter={tracking.recenter}
       onSkip={onSkip ? () => finish({ doseMode: config.doseMode, completion: 'skipped', targetRepetitions: config.doseMode === 'repetitions' ? config.targetRepetitions : undefined, cognitive: cognitiveReport() }) : undefined}
       onExit={() => void exitPlayer()}
     />}
+    {cardboard && !preparing && (
+      <CardboardTrackingOverlay
+        status={tracking.status}
+        onRetry={() => void tracking.requestAndRecenter()}
+        onExit={() => void exitPlayer()}
+      />
+    )}
     {!vrBox && paused && <div className="pointer-events-none absolute inset-0 z-40 grid place-items-center bg-black/22"><span className="rounded-full bg-black/60 px-5 py-3 text-sm font-black backdrop-blur">{preparing ? 'Preparación en pausa' : 'Ejercicio en pausa'}</span></div>}
     {completionOpen && <CompletionOverlay
       config={config}

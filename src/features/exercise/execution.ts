@@ -30,8 +30,16 @@ export function buildExerciseExecutionPlan(config: ExerciseConfig, setting: Exer
 
   let feasibility: ExecutionFeasibility = 'ready'
   if (config.displayMode === 'vr_box') {
-    warnings.push(`${config.cardboardEnabled ? 'Cardboard' : 'VR Box'} usa una presentación binocular 2D: no sigue la cabeza, no ancla el estímulo al ambiente y no corrige la óptica específica de cada modelo de visor.`)
-    if (config.cardboardEnabled) warnings.push('La primera versión Cardboard adapta la preparación y el formato binocular, pero no interpreta códigos QR del visor ni aplica una distorsión genérica sin calibración.')
+    if (config.cardboardEnabled) {
+      warnings.push('Cardboard usa giroscopio y acelerómetro para un anclaje angular 3DoF relativo a la calibración frontal. No mide traslación 6DoF, no interpreta códigos QR y no corrige la óptica específica del visor.')
+      warnings.push('Si se pierde la señal, el ejercicio se pausa y exige retirar el visor, mirar al frente y recalibrar.')
+      if (config.purpose === 'gaze_stabilization') {
+        feasibility = setting === 'home' ? 'not_executable' : 'in_person_only'
+        warnings.unshift(setting === 'home'
+          ? 'RVO x1 con Cardboard no se asigna al domicilio hasta validar latencia, deriva y recuperación del sensor en el teléfono utilizado.'
+          : 'RVO x1 con Cardboard requiere supervisión profesional directa y comprobación del anclaje antes de iniciar la dosis.')
+      }
+    } else warnings.push('VR Box usa una presentación binocular 2D: no sigue la cabeza, no ancla el estímulo al ambiente y no corrige la óptica específica del visor.')
     warnings.push('Antes de comenzar, comprobar que los dos marcadores se fusionen en uno solo, nítido y cómodo. Si se ven dobles o borrosos, retirar el visor.')
   }
   if (config.displayMode !== 'standard' && cognitive) {
@@ -62,7 +70,9 @@ export function buildExerciseExecutionPlan(config: ExerciseConfig, setting: Exer
 
   const setup = config.displayMode === 'standard'
     ? `${config.posture === 'seated' ? 'Sentado' : config.posture === 'standing' ? 'De pie' : 'En marcha'}, en superficie ${config.surface === 'firm' ? 'firme' : 'inestable'}, con la pantalla inmóvil y el entorno despejado.`
-    : `Sentado, con el visor ajustado durante la transición guiada y sin desplazarse.`
+    : config.cardboardEnabled
+      ? 'Sentado, sin desplazarse, permitir sensores, colocar Cardboard, mirar al frente y esperar la confirmación “3DoF activo”.'
+      : 'Sentado, con el visor ajustado durante la transición guiada y sin desplazarse.'
   const response = cognitive
     ? cognitiveInstruction(config)
     : config.doseMode === 'repetitions'
@@ -75,7 +85,9 @@ export function buildExerciseExecutionPlan(config: ExerciseConfig, setting: Exer
     : cognitive && config.cognitiveResponseMode === 'screen_tap'
       ? 'La plataforma registra respuestas al objetivo y respuestas fuera del objetivo; no constituye una evaluación diagnóstica.'
       : config.displayMode === 'vr_box'
-        ? 'La fase termina automáticamente; no se toca el celular mientras permanece dentro del visor.'
+        ? config.cardboardEnabled
+          ? 'La fase termina automáticamente. Para pausar, recentrar, omitir o salir, retirar primero el visor y usar los controles duplicados.'
+          : 'La fase termina automáticamente; no se toca el celular mientras permanece dentro del visor.'
         : 'Confirmar la finalización antes de pasar a la fase siguiente.'
 
   return {

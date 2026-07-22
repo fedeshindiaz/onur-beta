@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { clinicalSources } from '../clinicalGeneration/catalog'
 import { cognitiveInstruction, cognitiveSymbolLabels, cognitiveTaskLabel } from '../exercise/cognitive'
 import { ExerciseCanvas } from '../exercise/ExerciseCanvas'
+import { requestCardboardTrackingPermission } from '../exercise/cardboardTracking'
 import { analyzeExerciseCompatibility, applyExercisePurpose, exercisePurposeLabels, isVrBoxPurposeSupported, vrBoxPurposeCompatibility } from '../exercise/compatibility'
 import { buildExerciseExecutionPlan, type ExerciseSetting } from '../exercise/execution'
 import { ExercisePlayer } from '../exercise/ExercisePlayer'
@@ -29,6 +30,7 @@ const objectDirectionLabels: Record<ObjectDirection, string> = {
 
 export function SessionExerciseEditor({ config, isFirst = false, setting = 'unspecified', onChange }: SessionExerciseEditorProps) {
   const [playing, setPlaying] = useState(false)
+  const [previewError, setPreviewError] = useState('')
   const set = <Key extends keyof ExerciseConfig>(key: Key, value: ExerciseConfig[Key]) => onChange({ ...config, [key]: value })
   const directions: MotionDirection[] = config.backgroundType === 'spiral' ? ['clockwise', 'counterclockwise'] : linearDirections
   const isPhysical = config.kind === 'guided_physical'
@@ -56,6 +58,11 @@ export function SessionExerciseEditor({ config, isFirst = false, setting = 'unsp
     : displayMode === 'quest_browser'
       ? { ...config, displayMode, cardboardEnabled: false, doseMode: 'time', advanceMode: 'automatic', posture: 'seated', surface: 'firm', supervision: 'direct_clinician', metronomeEnabled: false }
       : { ...config, displayMode, cardboardEnabled: false })
+  const setCardboardEnabled = (cardboardEnabled: boolean) => onChange({
+    ...config,
+    cardboardEnabled,
+    supervision: cardboardEnabled && config.purpose === 'gaze_stabilization' ? 'direct_clinician' : config.supervision,
+  })
   const setCognitiveTask = (cognitiveTaskMode: CognitiveTaskMode) => {
     if (cognitiveTaskMode === 'none') return onChange({ ...config, cognitiveTaskMode })
     onChange({
@@ -72,12 +79,21 @@ export function SessionExerciseEditor({ config, isFirst = false, setting = 'unsp
     })
   }
   const startPreview = async () => {
+    setPreviewError('')
     if (config.displayMode === 'vr_box') {
+      const permissionRequest = config.cardboardEnabled ? requestCardboardTrackingPermission() : Promise.resolve('granted' as const)
+      const fullscreenRequest = document.documentElement.requestFullscreen?.()
+      const permission = await permissionRequest
       try {
-        await document.documentElement.requestFullscreen?.()
+        await fullscreenRequest
         const orientation = screen.orientation as (ScreenOrientation & { lock?: (value: 'landscape') => Promise<void> }) | undefined
         await orientation?.lock?.('landscape')
       } catch { /* La prueba continúa aunque el navegador no permita fullscreen u orientación fija. */ }
+      if (permission !== 'granted') {
+        if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined)
+        setPreviewError(permission === 'denied' ? 'Permití el acceso al movimiento para probar Cardboard.' : permission === 'insecure' ? 'El seguimiento de cabeza necesita HTTPS.' : 'Este dispositivo no ofrece sensores de orientación compatibles.')
+        return
+      }
     }
     setPlaying(true)
   }
@@ -179,9 +195,9 @@ export function SessionExerciseEditor({ config, isFirst = false, setting = 'unsp
         <section className="rounded-2xl border border-[#E9E7E7] bg-white p-5">
           <h3 className="font-black text-[#171717]">Dispositivo y confirmación</h3>
           <label className="mt-4 block text-xs font-black text-[#2F2F2F]">Modo<select className={input} value={config.displayMode} onChange={(event) => setDisplayMode(event.target.value as ExerciseConfig['displayMode'])}><option value="standard">Pantalla 2D</option><option value="vr_box" disabled={!isVrBoxPurposeSupported(config.purpose) || isPhysical || cognitive}>VR Box · presentación binocular 2D</option><option value="quest_browser" disabled={setting !== 'in_person' || ['gaze_stabilization', 'gaze_stabilization_x2', 'gaze_substitution_remembered'].includes(config.purpose) || isPhysical || cognitive}>Meta Quest · clínica, navegador 2D</option></select></label>
-          <p className="mt-3 text-[11px] leading-5 text-[#747474]">{config.displayMode === 'standard' ? 'La pantalla debe permanecer inmóvil. El paciente puede confirmar con controles visibles.' : config.displayMode === 'vr_box' ? 'VR Box muestra el mismo estímulo 2D a ambos ojos. No usa botones, mirada ni controles externos, y no implementa anclaje espacial, seguimiento de cabeza ni corrección óptica específica del visor.' : 'Quest queda limitado a la clínica, con supervisión profesional directa. Esta etapa usa una ventana 2D del navegador; todavía no inicia WebXR ni ancla objetos al ambiente.'}</p>
+          <p className="mt-3 text-[11px] leading-5 text-[#747474]">{config.displayMode === 'standard' ? 'La pantalla debe permanecer inmóvil. El paciente puede confirmar con controles visibles.' : config.displayMode === 'vr_box' ? config.cardboardEnabled ? 'Cardboard solicita los sensores del celular, calibra la dirección frontal y compensa yaw, pitch y roll para mantener el estímulo en un anclaje angular 3DoF. No mide traslación 6DoF ni corrige la óptica específica del visor.' : 'VR Box muestra el mismo estímulo 2D a ambos ojos. No usa botones, mirada ni controles externos, y no implementa anclaje espacial ni seguimiento de cabeza.' : 'Quest queda limitado a la clínica, con supervisión profesional directa. Esta etapa usa una ventana 2D del navegador; todavía no inicia WebXR ni ancla objetos al ambiente.'}</p>
           {setting === 'home' && <p className="mt-3 rounded-xl bg-[#F7F6F4] p-3 text-[11px] leading-5 text-[#747474]"><strong>Quest no se asigna al domicilio:</strong> cambiá la modalidad general a presencial para habilitarlo.</p>}
-          {config.displayMode === 'vr_box' && <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-xl border border-[#E8CE99] bg-[#FFFDF8] p-4 text-[#8A5B00]"><input type="checkbox" aria-label="Habilitar perfil Cardboard" className="mt-0.5 size-4 accent-[#E49A02]" checked={config.cardboardEnabled} onChange={(event) => set('cardboardEnabled', event.target.checked)}/><span><strong className="block text-xs">Usar perfil Cardboard · primera versión</strong><span className="mt-1 block text-[11px] leading-5">Conserva el estímulo binocular seguro, pantalla completa horizontal y avance automático. Agrega controles duplicados para pausar, omitir o salir; se usan después de retirar el visor. No agrega seguimiento de cabeza, anclaje espacial ni corrección óptica genérica.</span></span></label>}
+          {config.displayMode === 'vr_box' && <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-xl border border-[#E8CE99] bg-[#FFFDF8] p-4 text-[#8A5B00]"><input type="checkbox" aria-label="Habilitar perfil Cardboard" className="mt-0.5 size-4 accent-[#E49A02]" checked={config.cardboardEnabled} onChange={(event) => setCardboardEnabled(event.target.checked)}/><span><strong className="block text-xs">Usar Cardboard con seguimiento 3DoF</strong><span className="mt-1 block text-[11px] leading-5">Solicita giroscopio y acelerómetro, calibra la dirección frontal y contrarresta el giro de la cabeza para crear un anclaje angular. También agrega controles para pausar, recentrar, omitir o salir. No equivale a posición 6DoF ni a calibración óptica por QR.</span></span></label>}
           {config.displayMode === 'vr_box' && <div className="mt-3 rounded-xl bg-[#FFF7E8] p-3 text-[11px] font-bold leading-5 text-[#8A5B00]"><p>Solo se ejecuta sentado, en superficie firme, por tiempo y con avance automático. La sesión agrega 20 segundos para colocar o retirar el visor.</p><p className="mt-2">Antes de empezar, la persona debe ver un único marcador nítido. Si ve doble, borroso o no logra fusionarlo, debe retirar el visor y no comenzar.</p></div>}
           {config.displayMode !== 'vr_box' && !isVrBoxPurposeSupported(config.purpose) && <p className="mt-3 rounded-xl bg-[#F7F6F4] p-3 text-[11px] leading-5 text-[#747474]"><strong>No disponible en VR Box:</strong> {vrBoxPurposeCompatibility[config.purpose].reason}</p>}
           <div role={compatibility.valid ? 'status' : 'alert'} className={`mt-4 rounded-2xl border p-4 ${isFree ? 'border-[#E8CE99] bg-[#FFF7E8] text-[#8A5B00]' : compatibility.valid ? 'border-[#B9D9C5] bg-[#F0F8F3] text-[#28613D]' : 'border-[#eccfd2] bg-[#fceced] text-[#9A3842]'}`}>
@@ -237,6 +253,7 @@ export function SessionExerciseEditor({ config, isFirst = false, setting = 'unsp
             <p className="text-sm font-black text-[#2F2F2F]">{config.name}</p>
             <p className="mt-2 text-xs text-[#747474]">{config.doseMode === 'time' ? `${config.durationSeconds} s` : `${config.targetRepetitions} repeticiones`} × {config.rounds} vueltas · avance {config.advanceMode === 'manual' ? 'manual' : 'automático'}</p>
             <button type="button" disabled={!compatibility.valid} onClick={() => void startPreview()} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#E49A02] px-4 py-3 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-40"><Play size={16} /> {compatibility.valid ? 'Probar ejercicio' : 'Corregí la compatibilidad para probar'}</button>
+            {previewError && <p role="alert" className="mt-3 rounded-xl bg-[#fceced] p-3 text-[11px] font-bold leading-5 text-[#9A3842]">{previewError}</p>}
           </div>
         </div>
       </aside>
