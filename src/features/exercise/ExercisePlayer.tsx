@@ -56,8 +56,27 @@ function CompletionOverlay({ config, onTarget, onPartial, onSkip }: { config: Ex
   return <div className="absolute inset-0 z-50 grid grid-cols-2 divide-x divide-white/10 bg-[#171717]"><div className="grid place-items-center p-3"><CompletionPanel config={config} onTarget={onTarget} onPartial={onPartial} onSkip={onSkip}/></div><div className="grid place-items-center p-3" aria-hidden="true"><CompletionPanel config={config} onTarget={onTarget} onPartial={onPartial} onSkip={onSkip}/></div></div>
 }
 
+function CardboardControlBar({ paused, formattedTime, onTogglePause, onSkip, onExit }: { paused: boolean; formattedTime: string; onTogglePause: () => void; onSkip?: () => void; onExit: () => void }) {
+  const controls = (side: 'izquierdo' | 'derecho') => <div className="flex min-w-0 items-center justify-center p-1.5 sm:p-2">
+    <div className="pointer-events-auto flex max-w-full items-center gap-1 rounded-2xl border border-white/15 bg-black/78 p-1.5 shadow-2xl backdrop-blur-md">
+      <span className="hidden rounded-xl bg-white/10 px-2 py-2 text-[8px] font-black uppercase tracking-[.1em] text-white/75 min-[580px]:inline"><span className="block text-[#EFB33A]">Cardboard</span><span className="mt-0.5 block tabular-nums text-white">{formattedTime}</span></span>
+      <button type="button" onClick={onTogglePause} aria-label={`${paused ? 'Continuar' : 'Pausar'} · lado ${side}`} className="grid size-10 shrink-0 place-items-center rounded-xl bg-white text-[#171717] shadow-lg">
+        {paused ? <Play size={16}/> : <Pause size={16}/>}
+      </button>
+      {onSkip && <button type="button" onClick={onSkip} aria-label={`Omitir ejercicio · lado ${side}`} className="inline-flex h-10 min-w-0 items-center gap-1 rounded-xl bg-[#E49A02] px-2 text-[9px] font-black text-white shadow-lg sm:px-3"><SkipForward className="shrink-0" size={14}/><span className="truncate">Omitir</span></button>}
+      <button type="button" onClick={onExit} aria-label={`Salir de la sesión · lado ${side}`} className="inline-flex h-10 min-w-0 items-center gap-1 rounded-xl bg-[#c74750] px-2 text-[9px] font-black text-white shadow-lg sm:px-3"><LogOut className="shrink-0" size={14}/><span className="truncate">Salir</span></button>
+    </div>
+  </div>
+
+  return <div className="pointer-events-none absolute inset-x-0 bottom-0 z-40 grid grid-cols-2 divide-x divide-white/10 bg-gradient-to-t from-black/55 to-transparent pb-[max(0.25rem,env(safe-area-inset-bottom))]" aria-label="Controles Cardboard">
+    {controls('izquierdo')}
+    {controls('derecho')}
+  </div>
+}
+
 function CompatibleExercisePlayer({ config, onExit, onSkip, onComplete, preparationSeconds }: ExercisePlayerProps) {
   const vrBox = config.displayMode === 'vr_box'
+  const cardboard = vrBox && config.cardboardEnabled
   const [paused, setPaused] = useState(false)
   const [controlsVisible, setControlsVisible] = useState(!vrBox)
   const [preparationRemaining, setPreparationRemaining] = useState(preparationSeconds ?? config.preparationSeconds ?? 0)
@@ -115,6 +134,14 @@ function CompatibleExercisePlayer({ config, onExit, onSkip, onComplete, preparat
     else onExit()
   }
 
+  const exitPlayer = async () => {
+    setPaused(true)
+    if (document.fullscreenElement) {
+      try { await document.exitFullscreen() } catch { /* La salida de la sesión continúa aunque el navegador conserve pantalla completa. */ }
+    }
+    onExit()
+  }
+
   useEffect(() => {
     if (!timedFinished || completedRef.current) return
     if (config.displayMode === 'vr_box' || config.advanceMode === 'automatic') finish({ doseMode: 'time', completion: 'target_completed', cognitive: cognitiveReport() })
@@ -157,6 +184,13 @@ function CompatibleExercisePlayer({ config, onExit, onSkip, onComplete, preparat
     {!vrBox && <div className={`absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-3 bg-gradient-to-b from-black/72 to-transparent p-5 transition-opacity duration-300 sm:p-7 ${controlsVisible ? 'opacity-100' : 'pointer-events-none opacity-0'}`}><div className="max-w-[70vw] rounded-2xl bg-black/48 px-4 py-2 backdrop-blur"><p className="truncate text-xs font-black">{config.name}{config.displayMode === 'quest_browser' ? ' · Quest navegador BETA' : ''}</p><p className="mt-1 line-clamp-2 text-[10px] leading-4 text-white/70">{config.patientInstruction}</p></div><div className="flex shrink-0 items-center gap-2"><button type="button" onClick={requestFullscreen} className="grid size-10 place-items-center rounded-full bg-black/48 backdrop-blur" aria-label="Pantalla completa"><Expand size={17}/></button><span className="rounded-full bg-black/48 px-4 py-2 text-xs font-black tabular-nums backdrop-blur">{config.doseMode === 'time' ? formattedTime : `${config.targetRepetitions} rep.`}</span></div></div>}
     {config.cognitiveTaskMode !== 'none' && config.cognitiveResponseMode === 'screen_tap' && !inactive && <button type="button" onClick={registerCognitiveResponse} className="absolute right-5 top-1/2 z-40 h-20 -translate-y-1/2 rounded-2xl bg-[#E49A02] px-5 text-sm font-black text-white shadow-2xl sm:right-8">Responder</button>}
     {!vrBox && <div className={`absolute inset-x-0 bottom-0 z-30 flex flex-wrap items-center justify-center gap-3 bg-gradient-to-t from-black/78 to-transparent p-7 transition-opacity duration-300 ${controlsVisible ? 'opacity-100' : 'pointer-events-none opacity-0'}`}><button type="button" onClick={() => setPaused((value) => !value)} className="grid size-13 place-items-center rounded-full bg-white text-[#171717] shadow-lg" aria-label={paused ? 'Continuar' : 'Pausar'}>{paused ? <Play size={20}/> : <Pause size={20}/>}</button>{config.doseMode === 'repetitions' && !preparing && <button type="button" onClick={() => setCompletionOpen(true)} className="inline-flex h-12 items-center gap-2 rounded-full bg-[#E49A02] px-5 text-xs font-black shadow-lg"><Check size={17}/> Informar finalización</button>}{onSkip && <button type="button" onClick={() => finish({ doseMode: config.doseMode, completion: 'skipped', targetRepetitions: config.doseMode === 'repetitions' ? config.targetRepetitions : undefined, cognitive: cognitiveReport() })} className="inline-flex h-12 items-center gap-2 rounded-full bg-white/16 px-5 text-xs font-black backdrop-blur"><SkipForward size={17}/> Omitir</button>}<button type="button" onClick={onExit} className="inline-flex h-12 items-center gap-2 rounded-full bg-[#c74750] px-5 text-xs font-black shadow-lg"><LogOut size={17}/> Salir</button></div>}
+    {cardboard && <CardboardControlBar
+      paused={paused}
+      formattedTime={formattedTime}
+      onTogglePause={() => setPaused((value) => !value)}
+      onSkip={onSkip ? () => finish({ doseMode: config.doseMode, completion: 'skipped', targetRepetitions: config.doseMode === 'repetitions' ? config.targetRepetitions : undefined, cognitive: cognitiveReport() }) : undefined}
+      onExit={() => void exitPlayer()}
+    />}
     {!vrBox && paused && <div className="pointer-events-none absolute inset-0 z-40 grid place-items-center bg-black/22"><span className="rounded-full bg-black/60 px-5 py-3 text-sm font-black backdrop-blur">{preparing ? 'Preparación en pausa' : 'Ejercicio en pausa'}</span></div>}
     {completionOpen && <CompletionOverlay
       config={config}

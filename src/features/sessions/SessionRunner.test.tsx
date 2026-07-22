@@ -86,7 +86,10 @@ describe('SessionRunner', () => {
 
     expect(screen.getByText('Preparación de Cardboard')).toBeInTheDocument()
     expect(screen.getByText(/no requiere escanear un código QR/i)).toBeInTheDocument()
+    expect(screen.getByText(/controles duplicados para pausar, omitir o salir/i)).toBeInTheDocument()
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Comenzar preparación de 20 segundos' })) })
+    expect(screen.getByRole('button', { name: 'Salir de la sesión · lado izquierdo' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Salir de la sesión · lado derecho' })).toBeInTheDocument()
     for (let second = 0; second < 20; second += 1) await act(async () => { vi.advanceTimersByTime(1_000) })
     fireEvent.click(screen.getByRole('button', { name: 'Completar ejercicio' }))
     expect(screen.getAllByText('Retirar Cardboard')).toHaveLength(2)

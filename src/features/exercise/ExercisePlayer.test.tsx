@@ -25,6 +25,31 @@ describe('avance del reproductor', () => {
     expect(onComplete.mock.calls[0][1]).toMatchObject({ doseMode: 'time', completion: 'target_completed' })
   })
 
+  it('Cardboard muestra controles binoculares para pausar, omitir y salir', () => {
+    const onSkip = vi.fn()
+    const onExit = vi.fn()
+    render(<ExercisePlayer config={{ ...applyExercisePurpose(defaultExerciseConfig, 'optokinetic'), displayMode: 'vr_box', cardboardEnabled: true, doseMode: 'time', advanceMode: 'automatic', durationSeconds: 30, preparationSeconds: 0 }} onExit={onExit} onSkip={onSkip}/>)
+
+    expect(screen.getByRole('button', { name: 'Pausar · lado izquierdo' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Omitir ejercicio · lado izquierdo' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Salir de la sesión · lado derecho' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pausar · lado izquierdo' }))
+    expect(screen.getByRole('button', { name: 'Continuar · lado derecho' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Omitir ejercicio · lado derecho' }))
+
+    expect(onSkip).toHaveBeenCalledWith(0, expect.objectContaining({ doseMode: 'time', completion: 'skipped' }))
+    expect(onExit).not.toHaveBeenCalled()
+  })
+
+  it('Cardboard permite salir de la sesión desde cualquiera de los dos lados', () => {
+    const onExit = vi.fn()
+    render(<ExercisePlayer config={{ ...applyExercisePurpose(defaultExerciseConfig, 'saccades'), displayMode: 'vr_box', cardboardEnabled: true, doseMode: 'time', advanceMode: 'automatic', preparationSeconds: 0 }} onExit={onExit}/>)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Salir de la sesión · lado izquierdo' }))
+    expect(onExit).toHaveBeenCalledOnce()
+  })
+
   it('pide confirmación al finalizar un ejercicio 2D por tiempo con avance manual', async () => {
     vi.useFakeTimers()
     const onComplete = vi.fn()

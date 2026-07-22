@@ -1,4 +1,4 @@
-import { Clock3, Glasses, Play, SkipForward } from 'lucide-react'
+import { Clock3, Glasses, LogOut, Play, SkipForward } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ExercisePlayer } from '../exercise/ExercisePlayer'
 import type { ExerciseCompletionReport, ExerciseConfig, ExerciseDisplayMode } from '../exercise/types'
@@ -6,7 +6,7 @@ import type { SessionAssignmentRecord, SessionEventLogEntry } from './repository
 import { VR_BOX_TRANSITION_SECONDS } from './sequence'
 
 type ExerciseUnit = { type: 'exercise'; config: ExerciseConfig; label: string; exerciseIndex: number; round: number }
-type RestUnit = { type: 'rest'; seconds: number; label: string; nextLabel: string; displayMode: ExerciseDisplayMode; advanceMode: ExerciseConfig['advanceMode'] }
+type RestUnit = { type: 'rest'; seconds: number; label: string; nextLabel: string; displayMode: ExerciseDisplayMode; advanceMode: ExerciseConfig['advanceMode']; viewerProfile: ViewerProfile | null }
 type ViewerProfile = 'vr_box' | 'cardboard'
 type VrBoxTransitionUnit = { type: 'vr_box_transition'; direction: 'put_on' | 'take_off'; seconds: number; nextLabel: string; viewerProfile: ViewerProfile }
 type Unit = ExerciseUnit | RestUnit | VrBoxTransitionUnit
@@ -43,6 +43,7 @@ function buildUnits(exercises: ExerciseConfig[]): Unit[] {
         type: 'rest', seconds: phase.config.restSeconds, label: 'Descanso antes de continuar',
         nextLabel: next.config.name, displayMode: phase.config.displayMode,
         advanceMode: phase.config.displayMode === 'vr_box' ? 'automatic' : phase.config.advanceMode,
+        viewerProfile: phase.config.displayMode === 'vr_box' ? (phase.config.cardboardEnabled ? 'cardboard' : 'vr_box') : null,
       })
     }
   })
@@ -51,10 +52,18 @@ function buildUnits(exercises: ExerciseConfig[]): Unit[] {
   return units
 }
 
-function RestScreen({ seconds, label, nextLabel, displayMode, advanceMode, onComplete, onExit }: RestUnit & { onComplete: () => void; onExit: () => void }) {
+async function exitFullscreenThen(callback: () => void) {
+  if (document.fullscreenElement) {
+    try { await document.exitFullscreen() } catch { /* La salida continúa aunque el navegador conserve pantalla completa. */ }
+  }
+  callback()
+}
+
+function RestScreen({ seconds, label, nextLabel, displayMode, advanceMode, viewerProfile, onComplete, onExit }: RestUnit & { onComplete: () => void; onExit: () => void }) {
   const [remaining, setRemaining] = useState(seconds)
   const ready = remaining <= 0
   const vrBox = displayMode === 'vr_box'
+  const cardboard = viewerProfile === 'cardboard'
 
   useEffect(() => {
     if (ready) { if (advanceMode === 'automatic') onComplete(); return }
@@ -69,7 +78,7 @@ function RestScreen({ seconds, label, nextLabel, displayMode, advanceMode, onCom
     return () => window.removeEventListener('keydown', handler)
   }, [onComplete, ready, vrBox])
 
-  const content = (duplicate = false) => <div className="flex h-full flex-col items-center justify-center px-5 text-center" aria-hidden={duplicate || undefined}>
+  const content = (side: 'izquierdo' | 'derecho') => <div className="flex h-full flex-col items-center justify-center px-5 text-center" aria-hidden={side === 'derecho' && !cardboard ? true : undefined}>
     <Clock3 className="text-[#E49A02]" size={vrBox ? 28 : 38}/>
     <p className="mt-5 text-[10px] font-black uppercase tracking-[.18em] text-[#E49A02]">{ready ? 'Descanso finalizado' : label}</p>
     <p className={`${vrBox ? 'mt-3 text-5xl' : 'mt-5 text-7xl'} font-black tabular-nums`}>{Math.max(0, remaining)}</p>
@@ -78,9 +87,10 @@ function RestScreen({ seconds, label, nextLabel, displayMode, advanceMode, onCom
       ? <button type="button" onClick={onComplete} className="mt-7 inline-flex h-12 items-center gap-2 rounded-full bg-[#E49A02] px-5 text-xs font-black text-white"><Play size={16}/> Iniciar siguiente fase</button>
       : <button type="button" onClick={onComplete} className="mt-7 inline-flex items-center gap-2 rounded-full bg-white/12 px-5 py-3 text-xs font-black"><SkipForward size={16}/> Omitir descanso</button>)}
     {!vrBox && <button type="button" onClick={onExit} className="mt-4 text-xs font-bold text-white/55">Salir de la sesión</button>}
+    {cardboard && <button type="button" onClick={() => void exitFullscreenThen(onExit)} aria-label={`Salir de la sesión · lado ${side}`} className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-[#c74750] px-3 text-[9px] font-black text-white shadow-lg"><LogOut size={14}/> Salir</button>}
   </div>
 
-  return <div className={`fixed inset-0 z-[100] bg-[#171717] text-white ${vrBox ? 'grid grid-cols-2 divide-x divide-white/10' : ''}`}>{content()}{vrBox && content(true)}</div>
+  return <div className={`fixed inset-0 z-[100] bg-[#171717] text-white ${vrBox ? 'grid grid-cols-2 divide-x divide-white/10' : ''}`}>{content('izquierdo')}{vrBox && content('derecho')}</div>
 }
 
 function VrBoxTransitionScreen({ direction, seconds, nextLabel, viewerProfile, onComplete, onExit }: VrBoxTransitionUnit & { onComplete: () => void; onExit: () => void }) {
@@ -123,7 +133,7 @@ function VrBoxTransitionScreen({ direction, seconds, nextLabel, viewerProfile, o
       <p className="mt-5 text-xs font-black uppercase tracking-[.16em] text-[#E49A02]">Preparación de {viewerLabel}</p>
       <h2 className="mt-3 text-2xl font-black">El próximo ejercicio usa el visor</h2>
       <p className="mt-3 text-sm leading-6 text-white/65">Dejá el {viewerLabel} abierto y el celular listo. Al continuar tendrás {seconds} segundos para colocarlo en el visor. Después, el ejercicio comenzará solo.</p>
-      {viewerProfile === 'cardboard' && <p className="mt-3 text-xs leading-5 text-white/55">Esta primera versión usa presentación binocular 2D y no requiere escanear un código QR del visor.</p>}
+      {viewerProfile === 'cardboard' && <p className="mt-3 text-xs leading-5 text-white/55">Esta primera versión usa presentación binocular 2D y no requiere escanear un código QR. Durante el ejercicio verás controles duplicados para pausar, omitir o salir; retirá el visor antes de tocarlos.</p>}
       <p className="mt-4 rounded-2xl bg-black/25 p-4 text-xs font-bold text-white/75">Próxima fase: {nextLabel}</p>
       <button type="button" onClick={() => void startVrPreparation()} className="mt-6 h-14 w-full rounded-2xl bg-[#E49A02] text-sm font-black text-white">Comenzar preparación de {seconds} segundos</button>
       <button type="button" onClick={onExit} className="mt-4 text-xs font-bold text-white/55">Salir de la sesión</button>
@@ -131,15 +141,16 @@ function VrBoxTransitionScreen({ direction, seconds, nextLabel, viewerProfile, o
   </div>
 
   const instruction = direction === 'put_on' ? 'Ajustá el visor hasta ver un único + nítido. Si ves doble o borroso, retiralo y no comiences.' : 'Retirá el visor y sacá el celular para continuar.'
-  const content = (duplicate = false) => <div className="flex h-full flex-col items-center justify-center px-5 text-center" aria-hidden={duplicate || undefined}>
+  const content = (side: 'izquierdo' | 'derecho') => <div className="flex h-full flex-col items-center justify-center px-5 text-center" aria-hidden={side === 'derecho' && viewerProfile !== 'cardboard' ? true : undefined}>
     <Glasses className="text-[#E49A02]" size={30}/>
     <p className="mt-4 text-[9px] font-black uppercase tracking-[.16em] text-[#E49A02]">{direction === 'put_on' ? `Colocar ${viewerLabel}` : `Retirar ${viewerLabel}`}</p>
     <p className="mt-3 text-5xl font-black tabular-nums">{remaining}</p>
     {direction === 'put_on' && <div className="mt-3 grid size-8 place-items-center rounded-full border-2 border-white text-lg font-black text-white">+</div>}
     <p className="mt-4 max-w-xs text-[10px] font-bold leading-4 text-white/70">{instruction}</p>
+    {viewerProfile === 'cardboard' && <button type="button" onClick={() => void exitFullscreenThen(onExit)} aria-label={`Salir de la sesión · lado ${side}`} className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-[#c74750] px-3 text-[9px] font-black text-white shadow-lg"><LogOut size={14}/> Salir</button>}
   </div>
 
-  return <div ref={containerRef} className="fixed inset-0 z-[120] grid grid-cols-2 divide-x divide-white/10 bg-[#171717] text-white" aria-live="polite">{content()}{content(true)}</div>
+  return <div ref={containerRef} className="fixed inset-0 z-[120] grid grid-cols-2 divide-x divide-white/10 bg-[#171717] text-white" aria-live="polite">{content('izquierdo')}{content('derecho')}</div>
 }
 
 export function SessionRunner({ session, onFinish, onExit }: { session: SessionAssignmentRecord; onFinish: (activeSeconds: number, skippedExercises: number, eventLog: SessionEventLogEntry[]) => void; onExit: () => void }) {
