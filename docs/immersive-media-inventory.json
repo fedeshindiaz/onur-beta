@@ -1,0 +1,105 @@
+{
+  "inventory_version": "1.0.0",
+  "created_at": "2026-07-22",
+  "clinical_status": "curated_for_supervised_in_clinic_contextual_exposure",
+  "storage_policy": {
+    "originals": "outside_git_private_working_archive",
+    "derivatives": "public_supabase_bucket_immersive-media",
+    "patient_data": "never_stored_with_media"
+  },
+  "items": [
+    {
+      "id": "street_quiet",
+      "author": "Andreas Mischok",
+      "provider": "Poly Haven",
+      "license": "CC0 1.0",
+      "source": "https://polyhaven.com/a/urban_street_01",
+      "original_sha256": "0f4845792c6c3836240ca310c3b1a10fd53827fce85f71333369617d0f7631a5",
+      "derivatives": {
+        "quest": "47e93af2b6bfb3ccebac3a55e9b4f6e2aa7d6647b4a96fe2ce928009950de5c6",
+        "vr_box": "e6e66fa13e45fb60edd75b7a3442945435f0e10126d97be5401529dd33865dae",
+        "thumbnail": "4c666c86c43882e588425e36f22ba2ba7c7a1263b9b162c3840940caedce4246"
+      }
+    },
+    {
+      "id": "crosswalk_static",
+      "author": "Sergej Majboroda",
+      "provider": "Poly Haven",
+      "license": "CC0 1.0",
+      "source": "https://polyhaven.com/a/crosswalk",
+      "original_sha256": "cc84ef72a288ba10c9312c75771bb81f8f078a5ece8908be77f73ad0b1e9d8d0",
+      "derivatives": {
+        "quest": "52d3e27c24bb1fd73e8b18ecc50b517e709be32491e5285bbfc5120f44a87625",
+        "vr_box": "388e22084ddecd5605179aa36ce83cf48970a12f4392adeb145487bc9a54cd95",
+        "thumbnail": "def60a2d6412b121288e69b83de9ca19bda13fc8c94bd1cbfd8bd72951ef89c1"
+      }
+    },
+    {
+      "id": "retail_phone_shop",
+      "author": "Philip Modin",
+      "provider": "Poly Haven",
+      "license": "CC0 1.0",
+      "source": "https://polyhaven.com/a/phone_shop",
+      "original_sha256": "c98c468a09bc8567e90a5153f1649ebbfc28e8932c51cbde9d7b28a8e66b39f3",
+      "derivatives": {
+        "quest": "9229aa930922281a7fb981f243dc3036dd90aed66cce1d6558df1b9c736789bb",
+        "vr_box": "b5a758e4d5f7679000029e9ee5015eba4b49b7830a91f1e6bc0d44a373802af2",
+        "thumbnail": "31f9acbbac673edb4a45a92baff021688180872a0e6600f14ed3b3a29bee538f"
+      }
+    },
+    {
+      "id": "mall_triangeln",
+      "author": "Rose Abrams",
+      "provider": "Wikimedia Commons",
+      "license": "CC BY 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:360_photos_of_upper_Malm%C3%B6_-_Triangeln_mall.jpg",
+      "original_sha256": "f4ce2f62ccf7e866914f547838ff803ee70d06fdc3b691a900a0a127545abc22",
+      "derivatives": {
+        "quest": "b63912c6265e7e8d97584a076b0a020210dc0b78c9f3281f8d664b5a1c10a022",
+        "vr_box": "e2095130ecfb13659f013a459665f1fff8646a24ce75003fa3d8736316f8a273",
+        "thumbnail": "e18350fa2a8ea9038c51b8c59fdf720c46102f0d076f8f49390726f3b70d7b07"
+      }
+    },
+    {
+      "id": "station_hamburg",
+      "author": "Greg Zaal",
+      "provider": "Poly Haven",
+      "license": "CC0 1.0",
+      "source": "https://polyhaven.com/a/hamburg_hbf",
+      "original_sha256": "6afd0169d453832575800667c2d1d4834f56393b40ed54ebf926ef96ad00edc4",
+      "derivatives": {
+        "quest": "95a0e45bb503476b52fcfe1422058bfba388b0ff949f10076097b117012285c7",
+        "vr_box": "febada7f39348f5a89bd48d231567359d77cd405f2ed37e9c6ed5f5b3844ea8a",
+        "thumbnail": "67336656ddac8dceca1a875b6a82dff10bebb4919838ed5e2f8c21ba3f5081c3"
+      }
+    },
+    {
+      "id": "metro_moscow",
+      "author": "Svetlov Artem",
+      "provider": "Wikimedia Commons",
+      "license": "CC0 1.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Moscow_metro_train_Sokolniki_interior_shot_on_spherical_camera_2023-03.MP4.webm",
+      "original_sha256": "e90506bb9e3f7a12d4fe7e6a53271a73225a51db14fbe2e9c2df32ae5fa941c4",
+      "derivatives": {
+        "quest": "17127494a29ae6538e6a22585259e2fad4a82ebf47e3c6d05c41b4c02592593f",
+        "vr_box": "4280c4ae87afc4aeb78352bfda76efe61325739f29402b7a69f97a5a3592fbae",
+        "thumbnail": "b5c3d42c1e4c4f8371f142992b377959a2c9b6e4353469116e43f44126041fc4"
+      },
+      "editing_note": "continuous segment trimmed to 0-22 seconds before camera pickup; audio removed"
+    },
+    {
+      "id": "urban_ride_nyc",
+      "author": "Joseph A. Eulo",
+      "provider": "Wikimedia Commons",
+      "license": "CC BY 3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:NYC_in_360_-_Surviving_COVID.webm",
+      "original_sha256": "d5b193c870a9244fadc55b5aa990a0acfea1a651c53b79dc005bfb4fcbca92df",
+      "derivatives": {
+        "quest": "d0c6e192d2de2f443612c6f0046e961926c3e8382361928caa90fa76254f036e",
+        "vr_box": "a063052447b91465e85ce693df9f32fa35397bed10fb05e7a1282738a0b40cbf",
+        "thumbnail": "4f3d3e7370a1f093908ef0b15dc4cf8be7a93ad40f7caada2a866c136a68fb45"
+      },
+      "editing_note": "continuous segment 600-630 seconds; audio removed; classified as slow vehicle, not car driving"
+    }
+  ]
+}

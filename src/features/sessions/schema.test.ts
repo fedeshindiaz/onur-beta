@@ -13,6 +13,7 @@ const optokinetic = (overrides: Partial<ExerciseConfig> = {}): ExerciseConfig =>
 const physical = (overrides: Partial<ExerciseConfig> = {}): ExerciseConfig => ({ ...applyExercisePurpose(defaultExerciseConfig, 'guided_functional'), ...overrides })
 const free = (overrides: Partial<ExerciseConfig> = {}): ExerciseConfig => ({ ...applyExercisePurpose(defaultExerciseConfig, 'custom_free'), ...overrides })
 const cognitive = (overrides: Partial<ExerciseConfig> = {}): ExerciseConfig => ({ ...applyExercisePurpose(defaultExerciseConfig, 'cognitive_visual'), ...overrides })
+const immersive = (overrides: Partial<ExerciseConfig> = {}): ExerciseConfig => ({ ...applyExercisePurpose(defaultExerciseConfig, 'immersive_context'), ...overrides })
 
 describe('validación de sesión',()=>{
   it.each([
@@ -29,6 +30,17 @@ describe('validación de sesión',()=>{
   it('acepta Quest por tiempo dentro de una sesión presencial supervisada', () => {
     const exercise = optokinetic({ displayMode: 'quest_browser', doseMode: 'time', advanceMode: 'automatic', posture: 'seated', surface: 'firm', supervision: 'direct_clinician' })
     expect(validateSession(session([exercise], 'in_person'))).toEqual({})
+  })
+
+  it('acepta una única exposición 360° presencial en Quest o Cardboard', () => {
+    expect(validateSession(session([immersive()], 'in_person'))).toEqual({})
+    expect(validateSession(session([immersive({ displayMode: 'vr_box', cardboardEnabled: true })], 'in_person'))).toEqual({})
+  })
+
+  it('bloquea exposición 360° domiciliaria, mezclada o sin seguimiento Cardboard', () => {
+    expect(validateSession(session([immersive()], 'home')).exercises).toContain('únicamente en clínica')
+    expect(validateSession(session([immersive(), optokinetic({ displayMode: 'quest_browser', supervision: 'direct_clinician', advanceMode: 'automatic' })], 'in_person')).exercises).toContain('único escenario')
+    expect(validateSession(session([immersive({ displayMode: 'vr_box', cardboardEnabled: false })], 'in_person')).exercises).toContain('Cardboard 3DoF')
   })
 
   it('acepta RVO x1 Cardboard solo en sesión presencial supervisada', () => {

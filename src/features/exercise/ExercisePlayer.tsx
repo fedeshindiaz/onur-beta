@@ -7,6 +7,8 @@ import { StereoscopicExerciseCanvas } from './StereoscopicExerciseCanvas'
 import { cardboardEyeCenterPercent, useCardboardViewerProfiles, type CardboardViewerProfile } from './cardboardViewerProfiles'
 import type { ExerciseCompletionReport, ExerciseConfig } from './types'
 import { useCardboardHeadTracking, type CardboardTrackingStatus } from './useCardboardHeadTracking'
+import { getImmersiveScenario } from '../immersive/catalog'
+import { ImmersivePanorama } from '../immersive/ImmersivePanorama'
 
 interface ExercisePlayerProps {
   config: ExerciseConfig
@@ -106,7 +108,10 @@ function CardboardTrackingOverlay({ status, calibrationProgress, viewerProfile, 
 function CompatibleExercisePlayer({ config, onExit, onSkip, onComplete, preparationSeconds }: ExercisePlayerProps) {
   const vrBox = config.displayMode === 'vr_box'
   const cardboard = vrBox && config.cardboardEnabled
+  const immersiveScenario = config.purpose === 'immersive_context' ? getImmersiveScenario(config.immersiveScenarioId) : undefined
+  const questImmersive = Boolean(immersiveScenario && config.displayMode === 'quest_browser')
   const [paused, setPaused] = useState(false)
+  const [questImmersionActive, setQuestImmersionActive] = useState(!questImmersive)
   const [controlsVisible, setControlsVisible] = useState(!vrBox)
   const [preparationRemaining, setPreparationRemaining] = useState(preparationSeconds ?? config.preparationSeconds ?? 0)
   const preparing = preparationRemaining > 0
@@ -124,7 +129,7 @@ function CompatibleExercisePlayer({ config, onExit, onSkip, onComplete, preparat
   const cognitiveCorrectRef = useRef(0)
   const cognitiveFalseAlarmsRef = useRef(0)
   const timedFinished = config.doseMode === 'time' && remainingSeconds <= 0
-  const inactive = paused || preparing || briefingOpen || completionOpen || timedFinished || (cardboard && tracking.status !== 'tracking')
+  const inactive = paused || preparing || briefingOpen || completionOpen || timedFinished || (cardboard && tracking.status !== 'tracking') || (questImmersive && !questImmersionActive)
 
   useEffect(() => { containerRef.current?.focus() }, [])
   useEffect(() => { if (paused || !preparing) return; const timeout = window.setTimeout(() => setPreparationRemaining((remaining) => Math.max(0, remaining - 1)), 1000); return () => window.clearTimeout(timeout) }, [paused, preparing, preparationRemaining])
@@ -160,8 +165,12 @@ function CompatibleExercisePlayer({ config, onExit, onSkip, onComplete, preparat
     if (completedRef.current) return
     completedRef.current = true
     const seconds = Math.max(0, Math.round(activeSeconds))
-    const finalReport: ExerciseCompletionReport = cardboard ? {
+    const immersiveReport: ExerciseCompletionReport = immersiveScenario ? {
       ...report,
+      immersive: { scenarioId: immersiveScenario.id, rendering: config.displayMode === 'quest_browser' ? 'webxr_6dof' : 'cardboard_3dof' },
+    } : report
+    const finalReport: ExerciseCompletionReport = cardboard ? {
+      ...immersiveReport,
       headTracking: {
         mode: 'orientation_3dof', spatialAnchor: 'calibrated_direction',
         recenterCount: tracking.recenterCount, trackingLossCount: tracking.trackingLossCount,
@@ -174,7 +183,7 @@ function CompatibleExercisePlayer({ config, onExit, onSkip, onComplete, preparat
           verticalFovDegrees: viewerProfile.verticalFovDegrees,
         },
       },
-    } : report
+    } : immersiveReport
     if (finalReport.completion === 'skipped') onSkip?.(seconds, finalReport)
     else if (onComplete) onComplete(seconds, finalReport)
     else onExit()
@@ -224,7 +233,7 @@ function CompatibleExercisePlayer({ config, onExit, onSkip, onComplete, preparat
   const formattedTime = `${String(Math.floor(Math.max(0, remainingSeconds) / 60)).padStart(2, '0')}:${String(Math.ceil(Math.max(0, remainingSeconds) % 60)).padStart(2, '0')}`
 
   return <div ref={containerRef} className="fixed inset-0 z-[100] overflow-hidden bg-[#081113] text-white" onPointerMove={showControls} onPointerDown={showControls} onKeyDown={handleKeyDown} role="application" aria-label={`Reproductor: ${config.name}`} tabIndex={-1}>
-    {config.kind === 'guided_physical' ? <PhysicalStage config={config}/> : config.displayMode === 'vr_box' ? <StereoscopicExerciseCanvas config={config} paused={inactive} headPose={cardboard ? tracking.pose : null} viewerProfile={viewerProfile}/> : <ExerciseCanvas config={config} paused={inactive} className="absolute inset-0 size-full"/>}
+    {config.kind === 'guided_physical' ? <PhysicalStage config={config}/> : immersiveScenario ? <ImmersivePanorama scenario={immersiveScenario} device={config.displayMode === 'vr_box' ? 'vr_box' : 'quest'} paused={inactive} headPose={cardboard ? tracking.pose : null} viewerProfile={viewerProfile} onImmersionChange={setQuestImmersionActive} onTogglePause={() => setPaused((value) => !value)} onExit={() => void exitPlayer()}/> : config.displayMode === 'vr_box' ? <StereoscopicExerciseCanvas config={config} paused={inactive} headPose={cardboard ? tracking.pose : null} viewerProfile={viewerProfile}/> : <ExerciseCanvas config={config} paused={inactive} className="absolute inset-0 size-full"/>}
     {briefingOpen && <CognitiveBriefing config={config} onStart={() => setBriefingOpen(false)}/>}
     {preparing && <PreparationOverlay remaining={preparationRemaining} vrBox={config.displayMode === 'vr_box'}/>}
     {!vrBox && <div className={`absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-3 bg-gradient-to-b from-black/72 to-transparent p-5 transition-opacity duration-300 sm:p-7 ${controlsVisible ? 'opacity-100' : 'pointer-events-none opacity-0'}`}><div className="max-w-[70vw] rounded-2xl bg-black/48 px-4 py-2 backdrop-blur"><p className="truncate text-xs font-black">{config.name}{config.displayMode === 'quest_browser' ? ' · Quest navegador BETA' : ''}</p><p className="mt-1 line-clamp-2 text-[10px] leading-4 text-white/70">{config.patientInstruction}</p></div><div className="flex shrink-0 items-center gap-2"><button type="button" onClick={requestFullscreen} className="grid size-10 place-items-center rounded-full bg-black/48 backdrop-blur" aria-label="Pantalla completa"><Expand size={17}/></button><span className="rounded-full bg-black/48 px-4 py-2 text-xs font-black tabular-nums backdrop-blur">{config.doseMode === 'time' ? formattedTime : `${config.targetRepetitions} rep.`}</span></div></div>}

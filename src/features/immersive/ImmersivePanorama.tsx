@@ -1,0 +1,238 @@
+import { LogOut, Pause, Play, RotateCcw, Scan } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import * as THREE from 'three'
+import type { CardboardHeadPose } from '../exercise/cardboardTracking'
+import type { CardboardViewerProfile } from '../exercise/cardboardViewerProfiles'
+import { immersiveMediaUrl, type ImmersiveDevice, type ImmersiveScenario } from './catalog'
+
+interface ImmersivePanoramaProps {
+  scenario: ImmersiveScenario
+  device?: ImmersiveDevice
+  paused?: boolean
+  headPose?: CardboardHeadPose | null
+  viewerProfile?: CardboardViewerProfile
+  className?: string
+  onImmersionChange?: (active: boolean) => void
+  onTogglePause?: () => void
+  onExit?: () => void
+}
+
+type XrSessionLike = NonNullable<Parameters<THREE.WebXRManager['setSession']>[0]>
+
+export function ImmersivePanorama({ scenario, device, paused = false, headPose = null, viewerProfile, className = '', onImmersionChange, onTogglePause, onExit }: ImmersivePanoramaProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
+  const xrSessionRef = useRef<XrSessionLike | null>(null)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const pausedRef = useRef(paused)
+  const headPoseRef = useRef(headPose)
+  const onImmersionChangeRef = useRef(onImmersionChange)
+  const [status, setStatus] = useState<'loading' | 'ready' | 'xr_active' | 'unsupported' | 'error'>('loading')
+  const [message, setMessage] = useState('Preparando escenario 360°…')
+  const [manualView, setManualView] = useState({ yaw: 0, pitch: 0 })
+  const manualViewRef = useRef(manualView)
+
+  useEffect(() => { pausedRef.current = paused; if (videoRef.current) paused ? videoRef.current.pause() : void videoRef.current.play().catch(() => undefined) }, [paused])
+  useEffect(() => { headPoseRef.current = headPose }, [headPose])
+  useEffect(() => { onImmersionChangeRef.current = onImmersionChange }, [onImmersionChange])
+  useEffect(() => { manualViewRef.current = manualView }, [manualView])
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    let renderer: THREE.WebGLRenderer
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' })
+    } catch {
+      setStatus('error')
+      setMessage('Este navegador no pudo iniciar WebGL para mostrar la esfera 360°.')
+      return
+    }
+    rendererRef.current = renderer
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
+    renderer.setClearColor(0x081113)
+    container.prepend(renderer.domElement)
+
+    const scene = new THREE.Scene()
+    const camera = new THREE.PerspectiveCamera(viewerProfile?.verticalFovDegrees ?? 75, 2, 0.1, 200)
+    camera.position.set(0, 0, 0.01)
+    const geometry = new THREE.SphereGeometry(100, 64, 40)
+    geometry.scale(-1, 1, 1)
+    const material = new THREE.MeshBasicMaterial({ color: 0xffffff })
+    const sphere = new THREE.Mesh(geometry, material)
+    sphere.rotation.y = -Math.PI / 2
+    scene.add(sphere)
+
+    let texture: THREE.Texture | null = null
+    const mediaUrl = immersiveMediaUrl(scenario, device ?? 'quest')
+    if (!mediaUrl) {
+      setStatus('error')
+      setMessage('La biblioteca 360° necesita la conexión de almacenamiento configurada.')
+    } else if (scenario.mediaKind === 'image') {
+      new THREE.TextureLoader().load(mediaUrl, (loaded) => {
+        loaded.colorSpace = THREE.SRGBColorSpace
+        texture = loaded
+        material.map = loaded
+        material.needsUpdate = true
+        setStatus('ready')
+        setMessage('Escenario listo.')
+      }, undefined, () => {
+        setStatus('error')
+        setMessage('No fue posible cargar la imagen 360°.')
+      })
+    } else {
+      const video = document.createElement('video')
+      videoRef.current = video
+      video.src = mediaUrl
+      video.crossOrigin = 'anonymous'
+      video.muted = true
+      video.playsInline = true
+      video.preload = 'auto'
+      video.loop = false
+      video.addEventListener('canplay', () => {
+        setStatus('ready')
+        setMessage('Escenario listo.')
+        if (!pausedRef.current) void video.play().catch(() => undefined)
+      }, { once: true })
+      video.addEventListener('error', () => {
+        setStatus('error')
+        setMessage('No fue posible cargar el video 360°.')
+      }, { once: true })
+      texture = new THREE.VideoTexture(video)
+      texture.colorSpace = THREE.SRGBColorSpace
+      material.map = texture
+      material.needsUpdate = true
+      video.load()
+    }
+
+    const resize = () => {
+      const width = Math.max(1, container.clientWidth)
+      const height = Math.max(1, container.clientHeight)
+      renderer.setSize(width, height, false)
+      camera.aspect = device === 'vr_box' ? width / 2 / height : width / height
+      camera.fov = viewerProfile?.verticalFovDegrees ?? 75
+      camera.updateProjectionMatrix()
+    }
+    const observer = new ResizeObserver(resize)
+    observer.observe(container)
+    resize()
+
+    const render = () => {
+      if (!renderer.xr.isPresenting) {
+        const pose = device === 'vr_box' ? headPoseRef.current : null
+        const view = manualViewRef.current
+        camera.rotation.order = 'YXZ'
+        camera.rotation.set(pose?.pitchRadians ?? view.pitch, pose?.yawRadians ?? view.yaw, pose ? -pose.rollRadians : 0)
+      }
+      if (device === 'vr_box') {
+        const width = renderer.domElement.width / renderer.getPixelRatio()
+        const height = renderer.domElement.height / renderer.getPixelRatio()
+        const eyeWidth = width / 2
+        renderer.setScissorTest(true)
+        renderer.setViewport(0, 0, eyeWidth, height)
+        renderer.setScissor(0, 0, eyeWidth, height)
+        renderer.render(scene, camera)
+        renderer.setViewport(eyeWidth, 0, eyeWidth, height)
+        renderer.setScissor(eyeWidth, 0, eyeWidth, height)
+        renderer.render(scene, camera)
+        renderer.setScissorTest(false)
+      } else renderer.render(scene, camera)
+    }
+    renderer.setAnimationLoop(render)
+
+    return () => {
+      observer.disconnect()
+      renderer.setAnimationLoop(null)
+      const activeSession = xrSessionRef.current
+      xrSessionRef.current = null
+      if (activeSession) void activeSession.end().catch(() => undefined)
+      videoRef.current?.pause()
+      videoRef.current?.removeAttribute('src')
+      videoRef.current?.load()
+      videoRef.current = null
+      texture?.dispose()
+      material.dispose()
+      geometry.dispose()
+      renderer.dispose()
+      renderer.domElement.remove()
+      rendererRef.current = null
+      onImmersionChangeRef.current?.(false)
+    }
+  }, [device, scenario, viewerProfile?.verticalFovDegrees])
+
+  const enterQuestImmersion = async () => {
+    const renderer = rendererRef.current
+    const container = containerRef.current
+    const xr = (navigator as Navigator & { xr?: { isSessionSupported: (mode: 'immersive-vr') => Promise<boolean>; requestSession: (mode: 'immersive-vr', options?: object) => Promise<XrSessionLike> } }).xr
+    if (!renderer || !container || !xr || !window.isSecureContext) {
+      setStatus('unsupported')
+      setMessage('Quest necesita HTTPS y un navegador compatible con WebXR inmersivo.')
+      return
+    }
+    try {
+      if (!await xr.isSessionSupported('immersive-vr')) {
+        setStatus('unsupported')
+        setMessage('Este dispositivo no informa compatibilidad con WebXR inmersivo.')
+        return
+      }
+      renderer.xr.enabled = true
+      const session = await xr.requestSession('immersive-vr', {
+        optionalFeatures: ['local-floor', 'dom-overlay'],
+        domOverlay: { root: container },
+      })
+      xrSessionRef.current = session
+      session.addEventListener('end', () => {
+        xrSessionRef.current = null
+        setStatus('ready')
+        setMessage('La inmersión terminó. Podés volver a entrar o salir de la sesión.')
+        onImmersionChangeRef.current?.(false)
+      }, { once: true })
+      await renderer.xr.setSession(session)
+      setStatus('xr_active')
+      setMessage('WebXR inmersivo activo.')
+      onImmersionChangeRef.current?.(true)
+    } catch {
+      setStatus('error')
+      setMessage('Quest no pudo iniciar la sesión inmersiva. Revisá permisos y volvé a intentar.')
+      onImmersionChangeRef.current?.(false)
+    }
+  }
+
+  const leaveQuestImmersion = async () => {
+    const session = xrSessionRef.current
+    if (session) await session.end().catch(() => undefined)
+  }
+
+  const pointerRef = useRef<{ x: number; y: number; yaw: number; pitch: number } | null>(null)
+  const beginDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (device === 'vr_box' || status === 'xr_active') return
+    pointerRef.current = { x: event.clientX, y: event.clientY, yaw: manualView.yaw, pitch: manualView.pitch }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+  const drag = (event: React.PointerEvent<HTMLDivElement>) => {
+    const start = pointerRef.current
+    if (!start) return
+    setManualView({
+      yaw: start.yaw - (event.clientX - start.x) * 0.004,
+      pitch: Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, start.pitch - (event.clientY - start.y) * 0.004)),
+    })
+  }
+
+  return <div ref={containerRef} className={`relative isolate size-full overflow-hidden bg-[#081113] ${className}`} onPointerDown={beginDrag} onPointerMove={drag} onPointerUp={() => { pointerRef.current = null }} onPointerCancel={() => { pointerRef.current = null }} aria-label={`Visor panorámico: ${scenario.title}`}>
+    {status !== 'xr_active' && <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-between bg-gradient-to-b from-black/75 to-transparent p-4 text-white">
+      <div><p className="text-xs font-black">{scenario.shortTitle}</p><p className="mt-1 text-[10px] text-white/65">360° real · {scenario.mediaKind === 'video' ? 'video continuo' : 'cámara fija'}</p></div>
+      {device !== 'vr_box' && <span className="rounded-full bg-black/45 px-3 py-2 text-[10px] font-black">Arrastrá para explorar</span>}
+    </div>}
+    {(status === 'loading' || status === 'error' || status === 'unsupported') && <div role={status === 'error' ? 'alert' : 'status'} className="pointer-events-none absolute inset-0 z-20 grid place-items-center bg-[#081113]/88 p-6 text-center text-white"><div><Scan className="mx-auto text-[#E49A02]" size={36}/><p className="mt-4 text-sm font-black">{message}</p></div></div>}
+    {device === 'quest' && status !== 'xr_active' && <div className="absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-black/90 to-transparent p-5 text-center text-white">
+      <p className="text-[11px] leading-5 text-white/70">El tiempo clínico comienza recién cuando WebXR confirma la inmersión.</p>
+      <button type="button" disabled={status === 'loading'} onClick={() => void enterQuestImmersion()} className="mt-3 inline-flex h-12 items-center gap-2 rounded-2xl bg-[#E49A02] px-5 text-xs font-black text-white disabled:opacity-40"><Scan size={17}/> Entrar en inmersión Quest</button>
+      {onExit && <button type="button" onClick={onExit} className="ml-2 h-12 rounded-2xl bg-[#c74750] px-5 text-xs font-black text-white">Salir</button>}
+    </div>}
+    {device === 'quest' && status === 'xr_active' && <div className="absolute inset-x-0 bottom-0 z-40 flex justify-center gap-2 p-5 [contain:layout]" data-webxr-dom-overlay>
+      {onTogglePause && <button type="button" onClick={onTogglePause} className="inline-flex h-11 items-center gap-2 rounded-2xl bg-white px-4 text-xs font-black text-[#171717]">{paused ? <Play size={16}/> : <Pause size={16}/>} {paused ? 'Continuar' : 'Pausar'}</button>}
+      <button type="button" onClick={() => void leaveQuestImmersion()} className="inline-flex h-11 items-center gap-2 rounded-2xl bg-white/90 px-4 text-xs font-black text-[#171717]"><RotateCcw size={16}/> Salir de inmersión</button>
+      {onExit && <button type="button" onClick={onExit} className="inline-flex h-11 items-center gap-2 rounded-2xl bg-[#c74750] px-4 text-xs font-black text-white"><LogOut size={16}/> Salir de sesión</button>}
+    </div>}
+  </div>
+}

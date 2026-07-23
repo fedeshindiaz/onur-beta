@@ -108,6 +108,7 @@ describe('coherencia clínica y espacial de ejercicios', () => {
     expect(applyExercisePurpose(defaultExerciseConfig, 'smooth_pursuit')).toMatchObject({ kind: 'visual_stimulus', objectEnabled: true, objectMode: 'tracking', backgroundSpeed: 0 })
     expect(applyExercisePurpose(defaultExerciseConfig, 'saccades')).toMatchObject({ kind: 'visual_stimulus', objectEnabled: true, objectMode: 'saccades', backgroundSpeed: 0 })
     expect(applyExercisePurpose(defaultExerciseConfig, 'optokinetic')).toMatchObject({ kind: 'visual_stimulus', objectEnabled: false, backgroundType: 'bars' })
+    expect(applyExercisePurpose(defaultExerciseConfig, 'immersive_context')).toMatchObject({ kind: 'visual_stimulus', displayMode: 'quest_browser', immersiveScenarioId: 'street_quiet', doseMode: 'time', advanceMode: 'automatic', supervision: 'direct_clinician', rounds: 1 })
     expect(applyExercisePurpose(defaultExerciseConfig, 'cognitive_visual')).toMatchObject({ kind: 'visual_stimulus', displayMode: 'standard', doseMode: 'time', advanceMode: 'manual', cognitiveTaskMode: 'rare_target' })
     expect(applyExercisePurpose(defaultExerciseConfig, 'guided_functional')).toMatchObject({ kind: 'guided_physical', displayMode: 'standard', doseMode: 'repetitions', advanceMode: 'manual' })
   })
@@ -140,11 +141,21 @@ describe('coherencia clínica y espacial de ejercicios', () => {
     expect(analysis.clinicalNote).toContain('no una prueba diagnóstica')
   })
 
+  it('ejecuta 360° solo en Quest WebXR o Cardboard 3DoF y respeta el máximo del medio', () => {
+    const quest = exercise('immersive_context')
+    expect(analyzeExerciseCompatibility(quest).valid).toBe(true)
+    expect(analyzeExerciseCompatibility({ ...quest, displayMode: 'vr_box', cardboardEnabled: true }).valid).toBe(true)
+    expect(analyzeExerciseCompatibility({ ...quest, displayMode: 'vr_box', cardboardEnabled: false }).issues.some((item) => item.code === 'immersive-cardboard')).toBe(true)
+    expect(analyzeExerciseCompatibility({ ...quest, displayMode: 'standard' }).issues.some((item) => item.code === 'immersive-headset')).toBe(true)
+    expect(analyzeExerciseCompatibility({ ...quest, durationSeconds: 61 }).issues.some((item) => item.code === 'immersive-duration')).toBe(true)
+    expect(analyzeExerciseCompatibility({ ...quest, rounds: 2 }).issues.some((item) => item.code === 'immersive-rounds')).toBe(true)
+  })
+
   it('verifica exhaustivamente las combinaciones operativas de VR Box', () => {
     const purposes = Object.keys({
       gaze_stabilization: 1, gaze_stabilization_x2: 1, gaze_substitution_remembered: 1,
       smooth_pursuit: 1, saccades: 1, optokinetic: 1, visual_habituation: 1,
-      cognitive_visual: 1, guided_functional: 1, custom_free: 1,
+      immersive_context: 1, cognitive_visual: 1, guided_functional: 1, custom_free: 1,
     }) as ExercisePurpose[]
     const doses: ExerciseDoseMode[] = ['time', 'repetitions']
     const advances: ExerciseAdvanceMode[] = ['automatic', 'manual']
@@ -157,9 +168,10 @@ describe('coherencia clínica y espacial de ejercicios', () => {
 
     for (const purpose of purposes) for (const doseMode of doses) for (const advanceMode of advances) {
       for (const posture of postures) for (const surface of surfaces) for (const cognitiveTaskMode of cognition) for (const metronomeEnabled of metronomes) for (const cardboardEnabled of cardboardProfiles) {
-        const configured = exercise(purpose, { displayMode: 'vr_box', cardboardEnabled, doseMode, advanceMode, posture, surface, cognitiveTaskMode, metronomeEnabled, supervision: purpose === 'gaze_stabilization' && cardboardEnabled ? 'direct_clinician' : 'independent_after_approval' })
+        const configured = exercise(purpose, { displayMode: 'vr_box', cardboardEnabled, doseMode, advanceMode, posture, surface, cognitiveTaskMode, metronomeEnabled, supervision: (purpose === 'gaze_stabilization' && cardboardEnabled) || purpose === 'immersive_context' ? 'direct_clinician' : 'independent_after_approval' })
         const expected = isVrBoxPurposeSupported(purpose)
           && (purpose !== 'gaze_stabilization' || cardboardEnabled)
+          && (purpose !== 'immersive_context' || cardboardEnabled)
           && doseMode === 'time' && advanceMode === 'automatic'
           && posture === 'seated' && surface === 'firm'
           && cognitiveTaskMode === 'none' && !metronomeEnabled
@@ -167,7 +179,7 @@ describe('coherencia clínica y espacial de ejercicios', () => {
         checked += 1
       }
     }
-    expect(checked).toBe(1920)
+    expect(checked).toBe(2112)
   })
 
   it('verifica todas las direcciones de los fondos móviles compatibles con VR Box', () => {

@@ -41,6 +41,11 @@ export function validateSession(values: SessionFormValues) {
   if (values.exercises.some((exercise) => (exercise.kind === 'guided_physical' || exercise.purpose === 'custom_free') && exercise.surface === 'unstable' && exercise.supervision === 'independent_after_approval')) setExerciseError('Las superficies inestables requieren un ayudante entrenado o supervisión profesional.')
   if (values.mode === 'home' && values.exercises.some((exercise) => (exercise.kind === 'guided_physical' || exercise.purpose === 'custom_free') && exercise.posture === 'walking' && exercise.supervision === 'independent_after_approval')) setExerciseError('La marcha domiciliaria requiere un ayudante entrenado.')
 
+  const immersiveExercises = values.exercises.filter((exercise) => exercise.purpose === 'immersive_context')
+  if (values.mode === 'home' && immersiveExercises.length > 0) setExerciseError('Los escenarios 360° están habilitados únicamente en clínica con supervisión profesional directa.')
+  if (immersiveExercises.length > 0 && (immersiveExercises.length !== 1 || values.exercises.length !== 1)) setExerciseError('Una sesión contextual 360° inicial contiene un único escenario; no se mezcla con RVO, tareas físicas, cognitivas ni otra exposición.')
+  if (immersiveExercises.some((exercise) => exercise.displayMode === 'standard' || (exercise.displayMode === 'vr_box' && !exercise.cardboardEnabled))) setExerciseError('El escenario 360° requiere Quest WebXR o VR Box con Cardboard 3DoF activo.')
+
   const questExercises = values.exercises.filter((exercise) => exercise.displayMode === 'quest_browser')
   if (values.mode === 'home' && questExercises.length > 0) setExerciseError('Meta Quest está disponible solo para sesiones presenciales con supervisión profesional directa.')
   if (questExercises.length > 0 && questExercises.length !== values.exercises.length) setExerciseError('Una sesión Meta Quest debe contener exclusivamente ejercicios Quest: esta versión no transfiere una sesión activa entre el visor y otro dispositivo.')

@@ -19,16 +19,25 @@ const headMovementPurposes = new Set<ExerciseConfig['purpose']>(['gaze_stabiliza
 
 export function buildExerciseExecutionPlan(config: ExerciseConfig, setting: ExerciseSetting = 'unspecified'): ExerciseExecutionPlan {
   const cognitive = config.cognitiveTaskMode !== 'none'
+  const immersive = config.purpose === 'immersive_context'
   const warnings: string[] = []
   const equipment = config.displayMode === 'vr_box'
     ? ['Celular compatible en orientación horizontal', config.cardboardEnabled ? 'Visor compatible con Cardboard preparado y abierto' : 'VR Box preparado y abierto', 'Silla estable sobre superficie firme']
     : config.displayMode === 'quest_browser'
-      ? ['Meta Quest con navegador abierto', 'Silla estable']
+      ? [immersive ? 'Meta Quest con WebXR habilitado' : 'Meta Quest con navegador abierto', 'Silla estable sobre superficie firme', 'Profesional junto al paciente']
       : config.kind === 'guided_physical'
         ? ['Entorno despejado', config.surface === 'unstable' ? 'Superficie indicada por el profesional' : 'Superficie firme', config.supervision === 'independent_after_approval' ? 'Sin material adicional' : 'Ayudante o profesional indicado']
         : ['Pantalla 2D inmóvil', 'Silla estable', 'Sin material adicional']
 
   let feasibility: ExecutionFeasibility = 'ready'
+  if (immersive) {
+    feasibility = setting === 'home' ? 'not_executable' : 'in_person_only'
+    warnings.push(setting === 'home'
+      ? 'Los escenarios 360° de esta versión no se asignan al domicilio: requieren visor clínico, supervisión directa y comprobación del seguimiento.'
+      : 'Es una exposición contextual clínica, no un ejercicio de RVO ni una simulación de marcha. El profesional controla postura, amplitud cefálica, techo de síntomas y detención.')
+    if (config.displayMode === 'vr_box' && config.cardboardEnabled) warnings.push('Cardboard permite orientación 3DoF desde un punto fijo; no detecta traslación, no crea profundidad posicional y no debe usarse de pie ni caminando.')
+    if (config.displayMode === 'quest_browser') warnings.push('El tiempo comienza después de que WebXR confirma la inmersión. El botón del visor y el menú del sistema permiten abandonar la experiencia.')
+  }
   if (config.displayMode === 'vr_box') {
     if (config.cardboardEnabled) {
       warnings.push('Cardboard usa giroscopio y acelerómetro para un anclaje angular 3DoF relativo a una calibración frontal estable. El perfil local ajusta centros y campo visual, pero no mide traslación 6DoF, no interpreta códigos QR ni corrige la distorsión específica de las lentes.')
@@ -70,6 +79,8 @@ export function buildExerciseExecutionPlan(config: ExerciseConfig, setting: Exer
 
   const setup = config.displayMode === 'standard'
     ? `${config.posture === 'seated' ? 'Sentado' : config.posture === 'standing' ? 'De pie' : 'En marcha'}, en superficie ${config.surface === 'firm' ? 'firme' : 'inestable'}, con la pantalla inmóvil y el entorno despejado.`
+    : immersive && config.displayMode === 'quest_browser'
+      ? 'Sentado, con pies apoyados y profesional al lado. Abrir la estación Quest, confirmar la sesión y pulsar “Entrar en inmersión”; el tiempo no corre antes de WebXR.'
     : config.cardboardEnabled
       ? 'Sentado, sin desplazarse, permitir sensores y colocar Cardboard. Al terminar la cuenta regresiva, mirar el + de frente y mantener la cabeza quieta hasta la confirmación “3DoF activo”.'
       : 'Sentado, con el visor ajustado durante la transición guiada y sin desplazarse.'
@@ -84,6 +95,8 @@ export function buildExerciseExecutionPlan(config: ExerciseConfig, setting: Exer
     ? 'Ingresar el total contado antes de pasar a la fase siguiente.'
     : cognitive && config.cognitiveResponseMode === 'screen_tap'
       ? 'La plataforma registra respuestas al objetivo y respuestas fuera del objetivo; no constituye una evaluación diagnóstica.'
+      : immersive
+        ? 'La fase termina automáticamente al agotarse la dosis. El paciente o profesional puede pausar o salir desde los controles del visor; no se repite el video automáticamente.'
       : config.displayMode === 'vr_box'
         ? config.cardboardEnabled
           ? 'La fase termina automáticamente. Para pausar, recentrar, omitir o salir, retirar primero el visor y usar los controles duplicados.'

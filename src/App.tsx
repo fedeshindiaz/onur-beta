@@ -5,6 +5,7 @@ import { RequireRole } from './features/auth/RequireRole'
 
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((module) => ({ default: module.DashboardPage })))
 const ExerciseBuilderPage = lazy(() => import('./pages/ExerciseBuilderPage').then((module) => ({ default: module.ExerciseBuilderPage })))
+const ImmersiveLibraryPage = lazy(() => import('./pages/ImmersiveLibraryPage').then((module) => ({ default: module.ImmersiveLibraryPage })))
 const ImportStudyPage = lazy(() => import('./pages/ImportStudyPage').then((module) => ({ default: module.ImportStudyPage })))
 const LoginPage = lazy(() => import('./pages/LoginPage').then((module) => ({ default: module.LoginPage })))
 const ProfessionalPasswordRecoveryPage = lazy(() => import('./pages/ProfessionalPasswordRecoveryPage').then((module) => ({ default: module.ProfessionalPasswordRecoveryPage })))
@@ -68,6 +69,7 @@ const router = createBrowserRouter([
       { path: 'pacientes/:patientId/acceso', element: load(<PatientAccessPage />) },
       { path: 'pacientes/:patientId', element: load(<PatientProfilePage />) },
       { path: 'ejercicios', element: load(<ExerciseBuilderPage />) },
+      { path: 'escenarios-360', element: load(<ImmersiveLibraryPage />) },
       { path: 'sesiones', element: load(<SessionsPage />) },
       { path: 'evaluaciones', element: load(<EvaluationsPage />) },
       { path: 'informes', element: load(<ReportsPage />) },

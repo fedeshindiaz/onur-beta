@@ -16,7 +16,7 @@ export interface SessionEventLogEntry {
   exercise_kind?: string
   dose_mode?: string
   display_mode?: string
-  viewer_profile?: 'vr_box' | 'cardboard'
+  viewer_profile?: 'vr_box' | 'cardboard' | 'quest_webxr'
   head_tracking_mode?: 'orientation_3dof'
   spatial_anchor?: 'calibrated_direction'
   tracking_recenter_count?: number
@@ -38,6 +38,8 @@ export interface SessionEventLogEntry {
   cognitive_correct_responses?: number
   cognitive_false_alarms?: number
   cognitive_reported_count?: number
+  immersive_scenario_id?: string
+  immersive_rendering?: 'webxr_6dof' | 'cardboard_3dof'
   skipped_exercises?: number
 }
 

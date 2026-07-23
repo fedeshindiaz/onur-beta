@@ -23,19 +23,19 @@ const worker = `export default {
       url.pathname === '/sw.js' ||
       url.pathname === '/registerSW.js'
 
+    const headers = new Headers(response.headers)
+    headers.set('Permissions-Policy', 'xr-spatial-tracking=(self)')
+
     if (requiresFreshResponse) {
-      const headers = new Headers(response.headers)
       headers.set('Cache-Control', 'no-cache, no-store, must-revalidate')
       headers.set('Expires', '0')
-
-      return new Response(response.body, {
-        status: response.status,
-        statusText: response.statusText,
-        headers,
-      })
     }
 
-    return response
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    })
   },
 }
 `

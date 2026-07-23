@@ -197,7 +197,7 @@ export function SessionRunner({ session, onFinish, onExit }: { session: SessionA
         at: new Date().toISOString(), exercise_index: unit.exerciseIndex, round: unit.round,
         exercise_name: unit.config.name, exercise_kind: unit.config.kind,
         dose_mode: report?.doseMode ?? unit.config.doseMode, display_mode: unit.config.displayMode,
-        viewer_profile: unit.config.displayMode === 'vr_box' ? (unit.config.cardboardEnabled ? 'cardboard' : 'vr_box') : undefined,
+        viewer_profile: unit.config.purpose === 'immersive_context' && unit.config.displayMode === 'quest_browser' ? 'quest_webxr' : unit.config.displayMode === 'vr_box' ? (unit.config.cardboardEnabled ? 'cardboard' : 'vr_box') : undefined,
         head_tracking_mode: unit.config.cardboardEnabled ? 'orientation_3dof' : undefined,
         spatial_anchor: unit.config.cardboardEnabled ? 'calibrated_direction' : undefined,
         tracking_recenter_count: report?.headTracking?.recenterCount,
@@ -217,6 +217,8 @@ export function SessionRunner({ session, onFinish, onExit }: { session: SessionA
         cognitive_correct_responses: report?.cognitive?.correctResponses,
         cognitive_false_alarms: report?.cognitive?.falseAlarms,
         cognitive_reported_count: report?.cognitive?.reportedCount,
+        immersive_scenario_id: report?.immersive?.scenarioId ?? unit.config.immersiveScenarioId,
+        immersive_rendering: report?.immersive?.rendering,
       })
     } else if (unit?.type === 'vr_box_transition') {
       eventLogRef.current.push({ type: unit.direction === 'put_on' ? 'vr_box_put_on' : 'vr_box_take_off', at: new Date().toISOString(), active_seconds: unit.seconds, viewer_profile: unit.viewerProfile })

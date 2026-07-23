@@ -1,20 +1,26 @@
 import { FolderOpen, RotateCcw, Save, Trash2 } from 'lucide-react'
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { PageHeader } from '../components/PageHeader'
-import { analyzeExerciseCompatibility } from '../features/exercise/compatibility'
+import { analyzeExerciseCompatibility, applyExercisePurpose } from '../features/exercise/compatibility'
 import { defaultExerciseConfig, type ExerciseConfig } from '../features/exercise/types'
 import { SessionExerciseEditor } from '../features/sessions/SessionExerciseEditor'
 import { useDeleteExerciseTemplate, useExerciseTemplates, useSaveExerciseTemplate } from '../features/templates/hooks'
 import { groupExerciseTemplates } from '../features/templates/grouping'
+import { getImmersiveScenario } from '../features/immersive/catalog'
 
 function doseLabel(config: ExerciseConfig) {
   return config.doseMode === 'time' ? `${config.durationSeconds} s` : `${config.targetRepetitions} rep.`
 }
 
 export function ExerciseBuilderPage() {
-  const [config, setConfig] = useState<ExerciseConfig>(defaultExerciseConfig)
+  const [searchParams] = useSearchParams()
+  const requestedScenario = getImmersiveScenario(searchParams.get('scenario') ?? undefined)
+  const [config, setConfig] = useState<ExerciseConfig>(() => requestedScenario
+    ? applyExercisePurpose({ ...defaultExerciseConfig, immersiveScenarioId: requestedScenario.id }, 'immersive_context')
+    : defaultExerciseConfig)
   const [notice, setNotice] = useState('')
-  const [selectedTemplateId, setSelectedTemplateId] = useState('')
+  const [selectedTemplateId, setSelectedTemplateId] = useState(requestedScenario ? `template-immersive-${requestedScenario.id}` : '')
   const { data: templates = [] } = useExerciseTemplates()
   const saveTemplate = useSaveExerciseTemplate()
   const deleteTemplate = useDeleteExerciseTemplate()

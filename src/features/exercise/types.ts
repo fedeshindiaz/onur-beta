@@ -7,7 +7,7 @@ export type SaccadePattern = ObjectDirection | 'random'
 export type ExerciseDisplayMode = 'standard' | 'vr_box' | 'quest_browser'
 export type PreparationSeconds = 0 | 5 | 10 | 20
 export type ExerciseKind = 'visual_stimulus' | 'guided_physical'
-export type ExercisePurpose = 'gaze_stabilization' | 'gaze_stabilization_x2' | 'gaze_substitution_remembered' | 'smooth_pursuit' | 'saccades' | 'optokinetic' | 'visual_habituation' | 'cognitive_visual' | 'guided_functional' | 'custom_free'
+export type ExercisePurpose = 'gaze_stabilization' | 'gaze_stabilization_x2' | 'gaze_substitution_remembered' | 'smooth_pursuit' | 'saccades' | 'optokinetic' | 'visual_habituation' | 'immersive_context' | 'cognitive_visual' | 'guided_functional' | 'custom_free'
 export type ExerciseDoseMode = 'time' | 'repetitions'
 export type ExerciseAdvanceMode = 'automatic' | 'manual'
 export type ExercisePosture = 'seated' | 'standing' | 'walking'
@@ -46,6 +46,10 @@ export interface ExerciseCompletionReport {
       horizontalFovDegrees: number
       verticalFovDegrees: number
     }
+  }
+  immersive?: {
+    scenarioId: string
+    rendering: 'webxr_6dof' | 'cardboard_3dof'
   }
 }
 
@@ -92,6 +96,7 @@ export interface ExerciseConfig {
   cognitiveResponseMode: CognitiveResponseMode
   cognitiveStimulusSeconds: number
   cognitiveMemorySpan: 1 | 2 | 3
+  immersiveScenarioId?: string
 }
 
 export const defaultExerciseConfig: ExerciseConfig = {

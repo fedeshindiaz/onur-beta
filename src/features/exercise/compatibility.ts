@@ -1,4 +1,5 @@
 import type { ExerciseConfig, ExercisePurpose } from './types'
+import { getImmersiveScenario } from '../immersive/catalog'
 
 export interface ExerciseCompatibilityIssue {
   code: string
@@ -21,6 +22,7 @@ export const exercisePurposeLabels: Record<ExercisePurpose, string> = {
   saccades: 'Sacadas',
   optokinetic: 'Estimulación optocinética',
   visual_habituation: 'Habituación a movimiento visual',
+  immersive_context: 'Exposición contextual 360°',
   cognitive_visual: 'Tarea cognitivo-visual',
   guided_functional: 'Tarea física o funcional guiada',
   custom_free: 'Libre · configuración profesional no validada',
@@ -34,6 +36,7 @@ export const exercisePurposeDefaultNames: Record<ExercisePurpose, string> = {
   saccades: 'Sacadas visuales',
   optokinetic: 'Estimulación optocinética',
   visual_habituation: 'Habituación a movimiento visual',
+  immersive_context: 'Exposición contextual 360°',
   cognitive_visual: 'Tarea cognitivo-visual',
   guided_functional: 'Tarea funcional guiada',
   custom_free: 'Libre · configuración profesional',
@@ -47,6 +50,7 @@ export const vrBoxPurposeCompatibility: Record<ExercisePurpose, { supported: boo
   saccades: { supported: true, reason: 'El blanco cambia de posición respecto de los ojos mientras la cabeza permanece quieta.' },
   optokinetic: { supported: true, reason: 'El patrón se mueve respecto de los ojos y no necesita estar anclado al ambiente.' },
   visual_habituation: { supported: true, reason: 'El campo visual móvil puede presentarse como estímulo binocular 2D.' },
+  immersive_context: { supported: true, reason: 'Requiere activar Cardboard con seguimiento 3DoF para explorar una esfera 360°.' },
   cognitive_visual: { supported: false, reason: 'La consigna y la respuesta necesitan una pantalla accesible fuera del visor.' },
   guided_functional: { supported: false, reason: 'El visor oculta el entorno necesario para realizar la tarea física.' },
   custom_free: { supported: true, reason: 'Admite estímulos visuales técnicamente ejecutables, sin equivalencia clínica automática.' },
@@ -64,6 +68,7 @@ const purposeInstructions: Record<ExercisePurpose, string> = {
   saccades: 'Mantené la cabeza quieta y llevá la mirada al blanco cada vez que cambie de posición.',
   optokinetic: 'Sentado y con la cabeza quieta, observá el patrón en movimiento sin perseguir un punto particular.',
   visual_habituation: 'Sentado y con la cabeza quieta, observá el movimiento visual durante el tiempo indicado.',
+  immersive_context: 'Sentado y con supervisión directa, explorá el entorno 360° con movimientos lentos dentro de la amplitud indicada.',
   cognitive_visual: 'Mantené la cabeza quieta, observá cada figura y respondé según la consigna cognitiva.',
   guided_functional: 'Realizá la tarea indicada fuera de cualquier visor y con la supervisión prescripta.',
   custom_free: 'Realizá el ejercicio exactamente como fue indicado por el profesional.',
@@ -118,6 +123,31 @@ export function applyExercisePurpose(config: ExerciseConfig, purpose: ExercisePu
   }
   if (purpose === 'custom_free') {
     return { ...common, kind: 'visual_stimulus' }
+  }
+  if (purpose === 'immersive_context') {
+    const scenario = getImmersiveScenario(config.immersiveScenarioId) ?? getImmersiveScenario('street_quiet')!
+    return {
+      ...common,
+      name: scenario.title,
+      patientInstruction: scenario.patientInstruction,
+      kind: 'visual_stimulus',
+      displayMode: 'quest_browser',
+      cardboardEnabled: false,
+      doseMode: 'time',
+      advanceMode: 'automatic',
+      posture: 'seated',
+      surface: 'firm',
+      supervision: 'direct_clinician',
+      backgroundType: 'solid',
+      backgroundSpeed: 0,
+      objectEnabled: false,
+      metronomeEnabled: false,
+      cognitiveTaskMode: 'none',
+      durationSeconds: scenario.recommendedSeconds,
+      restSeconds: 0,
+      rounds: 1,
+      immersiveScenarioId: scenario.id,
+    }
   }
   if (purpose === 'cognitive_visual') {
     return {
@@ -235,6 +265,18 @@ export function analyzeExerciseCompatibility(config: ExerciseConfig): ExerciseCo
     if (config.objectEnabled) issues.push(issue('visual-fixation', 'El blanco fijo puede suprimir o distraer del estímulo de campo visual.', 'Ocultá el blanco para que el patrón móvil sea el estímulo principal.'))
   }
 
+  if (config.purpose === 'immersive_context') {
+    const scenario = getImmersiveScenario(config.immersiveScenarioId)
+    if (!scenario) issues.push(issue('immersive-scenario', 'La exposición 360° necesita un escenario aprobado del catálogo.', 'Elegí un escenario disponible en la Biblioteca 360°.'))
+    if (!headset) issues.push(issue('immersive-headset', 'La exposición contextual 360° necesita un visor con seguimiento de cabeza; una pantalla 2D no representa la experiencia indicada.', 'Elegí Quest WebXR o VR Box con Cardboard 3DoF.'))
+    if (config.displayMode === 'vr_box' && !config.cardboardEnabled) issues.push(issue('immersive-cardboard', 'VR Box sin seguimiento mantiene la imagen unida al celular y no permite explorar una esfera 360° de forma coherente.', 'Activá Cardboard con seguimiento 3DoF.'))
+    if (config.doseMode !== 'time' || config.advanceMode !== 'automatic') issues.push(issue('immersive-dose', 'La exposición 360° se ejecuta por tiempo y finaliza automáticamente dentro del visor.', 'Elegí Por tiempo y avance automático.'))
+    if (config.rounds !== 1) issues.push(issue('immersive-rounds', 'Esta primera versión no repite un escenario dentro de la misma sesión porque reiniciaría WebXR o reproduciría nuevamente el video.', 'Usá una sola vuelta y registrá otra sesión si el profesional decide repetirla.'))
+    if (config.supervision !== 'direct_clinician') issues.push(issue('immersive-supervision', 'La biblioteca contextual 360° inicial es exclusivamente clínica y requiere supervisión profesional directa.', 'Elegí supervisión profesional directa y modalidad presencial.'))
+    if (config.metronomeEnabled || cognitive) issues.push(issue('immersive-extra-task', 'La exposición contextual inicial no agrega metrónomo ni tarea cognitiva dentro del visor.', 'Desactivá la señal rítmica y la tarea cognitiva.'))
+    if (scenario && (config.durationSeconds < 10 || config.durationSeconds > scenario.maximumSeconds)) issues.push(issue('immersive-duration', `Este escenario admite entre 10 y ${scenario.maximumSeconds} segundos en la versión validada.`, `Elegí una duración de hasta ${scenario.maximumSeconds} segundos.`))
+  }
+
   if (config.purpose === 'cognitive_visual') {
     if (!cognitive) issues.push(issue('cognitive-missing', 'La finalidad cognitivo-visual necesita una tarea cognitiva definida.', 'Elegí objetivo raro, Go/No-Go o memoria breve.'))
     if (config.displayMode !== 'standard') issues.push(issue('cognitive-purpose-headset', 'La tarea cognitivo-visual se implementa en Pantalla 2D para presentar la consigna y registrar la respuesta de forma clara.', 'Usá Pantalla 2D.'))
@@ -275,6 +317,8 @@ export function analyzeExerciseCompatibility(config: ExerciseConfig): ExerciseCo
   if ((config.purpose === 'optokinetic' || config.purpose === 'visual_habituation') && headset) explanation = `El patrón se mueve respecto de los ojos dentro de ${deviceName}; no necesita estar anclado al ambiente y se realiza sentado, con la cabeza quieta.`
   if (config.purpose === 'cognitive_visual' && config.displayMode === 'standard') explanation = 'Las figuras se presentan en una pantalla inmóvil, sentado, con una consigna y una respuesta definidas antes de comenzar.'
   if (config.purpose === 'guided_functional' && config.displayMode === 'standard') explanation = 'La tarea se realiza fuera del visor, con el entorno visible y confirmación manual cuando corresponde.'
+  if (config.purpose === 'immersive_context' && config.displayMode === 'quest_browser') explanation = 'Quest inicia una sesión WebXR inmersiva: la esfera permanece en el espacio virtual y la vista cambia con el seguimiento 6DoF del visor.'
+  if (config.purpose === 'immersive_context' && config.displayMode === 'vr_box' && config.cardboardEnabled) explanation = 'Cardboard usa la orientación 3DoF del celular para explorar la esfera 360° desde un punto fijo. No mide desplazamiento corporal ni convierte la escena en una tarea de marcha.'
   if (free) explanation = issues.length === 0
     ? 'Modo Libre: la configuración puede guardarse y ejecutarse, pero la plataforma no valida su equivalencia con un protocolo clínico.'
     : 'El modo Libre permite guardar cualquier combinación; esta combinación no puede ejecutarse con seguridad técnica en el dispositivo seleccionado.'
@@ -289,6 +333,8 @@ export function analyzeExerciseCompatibility(config: ExerciseConfig): ExerciseCo
     ? 'No debe presentarse como sustituto de la estabilización de mirada: el seguimiento y las sacadas con la cabeza quieta no equivalen a un ejercicio de adaptación del RVO.'
       : config.purpose === 'optokinetic' || config.purpose === 'visual_habituation'
       ? 'La intensidad y el tiempo deben respetar el techo de síntomas y las reglas de detención definidas por el profesional.'
+      : config.purpose === 'immersive_context'
+        ? 'La exposición contextual 360° es un complemento clínicamente gobernado para habituación e integración sensorial. No diagnostica, no reemplaza ejercicios específicos de estabilización de mirada y no autoriza progresión automática por intensidad.'
       : config.purpose === 'cognitive_visual' || cognitive
         ? 'La tarea cognitiva es un recurso de entrenamiento y doble tarea, no una prueba diagnóstica. Su combinación con una tarea vestibular requiere dominio previo de la tarea aislada.'
       : undefined
