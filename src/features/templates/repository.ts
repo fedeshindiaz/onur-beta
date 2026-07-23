@@ -12,7 +12,7 @@ export interface ExerciseTemplateRecord {
 
 const STORAGE_KEY = 'onur-demo-exercise-templates-v1'
 const SEED_VERSION_KEY = 'onur-demo-exercise-templates-seed-version'
-const SEED_VERSION = '3'
+const SEED_VERSION = '4'
 const seedDate = '2026-07-20T00:00:00.000Z'
 
 const rvoX2Horizontal = {
@@ -60,6 +60,130 @@ const shortMemory = {
   cognitiveMemorySpan: 1 as const,
 }
 
+const pppdProgressionCriteria = 'Avanzar cuando complete dos exposiciones separadas con técnica segura, dificultad percibida hasta 3/5 y aumento de malestar no mayor de 2/10 al finalizar.'
+const pppdStopCriteria = 'Pausar y revisar si hay caída o casi caída, visión doble, cefalea intensa, náusea marcada, síntomas neurológicos nuevos o aumento de malestar mayor de 3/10.'
+
+function pppdVisualLevel(
+  level: 1 | 2 | 3,
+  purpose: 'visual_habituation' | 'optokinetic',
+  overrides: Partial<ExerciseConfig>,
+): ExerciseConfig {
+  const configured = applyExercisePurpose(defaultExerciseConfig, purpose)
+  return {
+    ...configured,
+    clinicalProtocol: 'pppd',
+    progressionLevel: level,
+    progressionCriteria: pppdProgressionCriteria,
+    stopCriteria: pppdStopCriteria,
+    displayMode: 'standard',
+    cardboardEnabled: false,
+    doseMode: 'time',
+    advanceMode: 'manual',
+    surface: 'firm',
+    supervision: 'independent_after_approval',
+    cognitiveTaskMode: 'none',
+    objectEnabled: false,
+    rounds: level === 1 ? 1 : 2,
+    restSeconds: level === 1 ? 40 : 30,
+    ...overrides,
+  }
+}
+
+function pppdFunctionalLevel(level: 1 | 2 | 3, overrides: Partial<ExerciseConfig>): ExerciseConfig {
+  const configured = applyExercisePurpose(defaultExerciseConfig, 'guided_functional')
+  return {
+    ...configured,
+    clinicalProtocol: 'pppd',
+    progressionLevel: level,
+    progressionCriteria: pppdProgressionCriteria,
+    stopCriteria: pppdStopCriteria,
+    displayMode: 'standard',
+    cardboardEnabled: false,
+    doseMode: 'repetitions',
+    advanceMode: 'manual',
+    surface: 'firm',
+    supervision: 'independent_after_approval',
+    rounds: level === 1 ? 1 : 2,
+    restSeconds: 40,
+    ...overrides,
+  }
+}
+
+const pppdTemplates: ExerciseTemplateRecord[] = [
+  {
+    id: 'template-pppd-habituation-1', name: 'PPPD · Habituación visual · N1',
+    config: pppdVisualLevel(1, 'visual_habituation', {
+      name: 'PPPD · Habituación visual · N1',
+      patientInstruction: 'Sentado y con la cabeza quieta, observá el campo de puntos en movimiento. Permití un malestar leve sin apartar la mirada; al terminar, confirmá cómo te sentís.',
+      posture: 'seated', backgroundType: 'dots', backgroundDirection: 'left', backgroundSpeed: 20, stripeWidth: 72, durationSeconds: 30,
+    }), createdAt: seedDate, updatedAt: seedDate,
+  },
+  {
+    id: 'template-pppd-habituation-2', name: 'PPPD · Habituación visual · N2',
+    config: pppdVisualLevel(2, 'visual_habituation', {
+      name: 'PPPD · Habituación visual · N2',
+      patientInstruction: 'De pie, junto a un apoyo estable y con la cabeza quieta, observá el damero en movimiento diagonal. Mantené una postura relajada y evitá rigidizar las piernas.',
+      posture: 'standing', backgroundType: 'checkerboard', backgroundDirection: 'up_right', backgroundSpeed: 45, stripeWidth: 58, durationSeconds: 40,
+    }), createdAt: seedDate, updatedAt: seedDate,
+  },
+  {
+    id: 'template-pppd-habituation-3', name: 'PPPD · Habituación visual · N3 deportivo',
+    config: pppdVisualLevel(3, 'visual_habituation', {
+      name: 'PPPD · Habituación visual · N3 deportivo',
+      patientInstruction: 'De pie, observá el patrón diagonal manteniendo apoyo simétrico y respiración normal. El objetivo es tolerar carga visual intensa sin adoptar una postura rígida.',
+      posture: 'standing', backgroundType: 'checkerboard', backgroundDirection: 'down_left', backgroundSpeed: 75, stripeWidth: 42, durationSeconds: 55,
+    }), createdAt: seedDate, updatedAt: seedDate,
+  },
+  {
+    id: 'template-pppd-optokinetic-1', name: 'PPPD · Optocinético · N1',
+    config: pppdVisualLevel(1, 'optokinetic', {
+      name: 'PPPD · Optocinético · N1',
+      patientInstruction: 'Sentado y con la cabeza quieta, mirá el conjunto de barras que se desplaza horizontalmente sin perseguir una barra en particular.',
+      posture: 'seated', backgroundType: 'bars', backgroundDirection: 'left', backgroundSpeed: 30, stripeWidth: 76, durationSeconds: 25,
+    }), createdAt: seedDate, updatedAt: seedDate,
+  },
+  {
+    id: 'template-pppd-optokinetic-2', name: 'PPPD · Optocinético · N2',
+    config: pppdVisualLevel(2, 'optokinetic', {
+      name: 'PPPD · Optocinético · N2',
+      patientInstruction: 'De pie, junto a un apoyo estable y con la cabeza quieta, observá las barras diagonales en movimiento sin fijar una barra individual.',
+      posture: 'standing', backgroundType: 'bars', backgroundDirection: 'up_right', backgroundSpeed: 55, stripeWidth: 58, durationSeconds: 40,
+    }), createdAt: seedDate, updatedAt: seedDate,
+  },
+  {
+    id: 'template-pppd-optokinetic-3', name: 'PPPD · Optocinético · N3 deportivo',
+    config: pppdVisualLevel(3, 'optokinetic', {
+      name: 'PPPD · Optocinético · N3 deportivo',
+      patientInstruction: 'De pie, observá el campo de puntos diagonal manteniendo postura suelta y estable. No persigas un punto individual.',
+      posture: 'standing', backgroundType: 'dots', backgroundDirection: 'down_right', backgroundSpeed: 90, stripeWidth: 44, durationSeconds: 55,
+    }), createdAt: seedDate, updatedAt: seedDate,
+  },
+  {
+    id: 'template-pppd-functional-1', name: 'PPPD · Funcional · N1 giros y alcance',
+    config: pppdFunctionalLevel(1, {
+      name: 'PPPD · Funcional · N1 giros y alcance',
+      patientInstruction: 'De pie junto a un apoyo estable, alterná giro de cabeza y tronco para tocar un objetivo a cada lado; volvé al centro entre repeticiones.',
+      posture: 'standing', targetRepetitions: 8,
+    }), createdAt: seedDate, updatedAt: seedDate,
+  },
+  {
+    id: 'template-pppd-functional-2', name: 'PPPD · Funcional · N2 marcha multidireccional',
+    config: pppdFunctionalLevel(2, {
+      name: 'PPPD · Funcional · N2 marcha multidireccional',
+      patientInstruction: 'Caminá entre tres referencias, cambiá de dirección al llegar y alterná la mirada entre el próximo objetivo y el entorno.',
+      posture: 'walking', targetRepetitions: 8,
+    }), createdAt: seedDate, updatedAt: seedDate,
+  },
+  {
+    id: 'template-pppd-functional-3', name: 'PPPD · Funcional · N3 retorno deportivo',
+    config: pppdFunctionalLevel(3, {
+      name: 'PPPD · Funcional · N3 retorno deportivo',
+      patientInstruction: 'Completá un circuito corto con avance, desplazamiento lateral, giro de 180 grados y recepción o pase de pelota. Priorizá control antes que velocidad.',
+      posture: 'walking', targetRepetitions: 6, restSeconds: 60,
+    }), createdAt: seedDate, updatedAt: seedDate,
+  },
+]
+
 const seed: ExerciseTemplateRecord[] = [
   { id: 'template-rvo-bars', name: 'RVO X1 · Punto fijo 2D', config: defaultExerciseConfig, createdAt: '2026-07-16T00:00:00.000Z', updatedAt: '2026-07-16T00:00:00.000Z' },
   { id: 'template-rvo-x2-horizontal', name: rvoX2Horizontal.name, config: rvoX2Horizontal, createdAt: seedDate, updatedAt: seedDate },
@@ -68,6 +192,7 @@ const seed: ExerciseTemplateRecord[] = [
   { id: 'template-cognitive-rare-target', name: rareTarget.name, config: rareTarget, createdAt: seedDate, updatedAt: seedDate },
   { id: 'template-cognitive-go-no-go', name: goNoGo.name, config: goNoGo, createdAt: seedDate, updatedAt: seedDate },
   { id: 'template-cognitive-short-memory', name: shortMemory.name, config: shortMemory, createdAt: seedDate, updatedAt: seedDate },
+  ...pppdTemplates,
 ]
 
 function normalizeTemplate(item: ExerciseTemplateRecord) {

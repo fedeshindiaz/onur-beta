@@ -25,6 +25,13 @@ describe('plan práctico de ejecución', () => {
     expect(buildExerciseExecutionPlan(config, 'home').feasibility).toBe('not_executable')
   })
 
+  it('deja la modalidad y supervisión de las tareas dinámicas a criterio profesional', () => {
+    const functional = { ...applyExercisePurpose(defaultExerciseConfig, 'guided_functional'), posture: 'walking' as const }
+    const plan = buildExerciseExecutionPlan(functional, 'home')
+    expect(plan.feasibility).toBe('review')
+    expect(plan.warnings.join(' ')).toContain('defina la modalidad y la supervisión')
+  })
+
   it('explica una ejecución VR Box sin controles ni falsa promesa de anclaje espacial', () => {
     const config = { ...applyExercisePurpose(defaultExerciseConfig, 'optokinetic'), displayMode: 'vr_box' as const, doseMode: 'time' as const, advanceMode: 'automatic' as const }
     const plan = buildExerciseExecutionPlan(config, 'home')

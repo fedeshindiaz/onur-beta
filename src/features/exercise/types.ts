@@ -51,6 +51,10 @@ export interface ExerciseCompletionReport {
 
 export interface ExerciseConfig {
   name: string
+  clinicalProtocol?: 'pppd'
+  progressionLevel?: 1 | 2 | 3
+  progressionCriteria?: string
+  stopCriteria?: string
   kind: ExerciseKind
   purpose: ExercisePurpose
   patientInstruction: string

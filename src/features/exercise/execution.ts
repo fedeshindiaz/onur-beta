@@ -56,8 +56,8 @@ export function buildExerciseExecutionPlan(config: ExerciseConfig, setting: Exer
   }
   const physicalConditionsRelevant = config.kind === 'guided_physical' || config.purpose === 'custom_free'
   if (physicalConditionsRelevant && (config.surface === 'unstable' || config.posture === 'walking')) {
-    if (setting === 'home' && config.supervision === 'independent_after_approval') feasibility = 'not_executable'
-    else if (feasibility === 'ready') feasibility = config.supervision === 'direct_clinician' ? 'in_person_only' : 'review'
+    if (feasibility === 'ready') feasibility = 'review'
+    warnings.push('La marcha o la superficie inestable requieren que el profesional defina la modalidad y la supervisión al armar la sesión.')
   }
   if (cognitive && config.purpose !== 'cognitive_visual' && feasibility === 'ready') {
     feasibility = 'review'

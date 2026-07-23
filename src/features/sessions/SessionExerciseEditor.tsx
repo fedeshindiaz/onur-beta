@@ -42,6 +42,7 @@ export function SessionExerciseEditor({ config, isFirst = false, setting = 'unsp
   const execution = buildExerciseExecutionPlan(config, setting)
   const cognitive = config.cognitiveTaskMode !== 'none'
   const evidenceSourceIds = new Set<string>(['SRC-001'])
+  if (config.clinicalProtocol === 'pppd') { evidenceSourceIds.add('SRC-017'); evidenceSourceIds.add('SRC-018'); evidenceSourceIds.add('SRC-019') }
   if (config.purpose === 'optokinetic' || config.purpose === 'visual_habituation') evidenceSourceIds.add('SRC-022')
   if (config.displayMode !== 'standard') evidenceSourceIds.add('SRC-023')
   if (cognitive) { evidenceSourceIds.add('SRC-032'); evidenceSourceIds.add('SRC-033') }
@@ -128,6 +129,12 @@ export function SessionExerciseEditor({ config, isFirst = false, setting = 'unsp
               <option value="custom_free">{exercisePurposeLabels.custom_free}</option>
             </>}</select></label>
           <label className="mt-4 block text-xs font-black text-[#2F2F2F]">Instrucción para el paciente<textarea rows={3} className="mt-2 w-full rounded-2xl border border-[#E9E7E7] bg-white p-3 text-sm font-normal" value={config.patientInstruction} onChange={(event) => set('patientInstruction', event.target.value)} /></label>
+          {config.clinicalProtocol === 'pppd' && <div className="mt-4 rounded-2xl border border-[#B9D9C5] bg-[#F0F8F3] p-4 text-[#28613D]">
+            <div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-[#28613D] px-3 py-1 text-[10px] font-black text-white">PPPD</span><strong className="text-xs">Nivel {config.progressionLevel ?? 'sin definir'} de 3</strong></div>
+            {config.progressionCriteria && <p className="mt-3 text-[11px] leading-5"><strong>Criterio de avance:</strong> {config.progressionCriteria}</p>}
+            {config.stopCriteria && <p className="mt-2 text-[11px] leading-5"><strong>Pausa o retroceso:</strong> {config.stopCriteria}</p>}
+            <p className="mt-2 text-[10px] leading-4">El nivel organiza complejidad técnica; no autoriza una progresión automática ni sustituye la decisión profesional.</p>
+          </div>}
           {isFree && <p className="mt-4 flex gap-2 rounded-xl border border-[#E8CE99] bg-[#FFF7E8] p-3 text-[11px] font-bold leading-5 text-[#8A5B00]"><ShieldAlert className="mt-0.5 shrink-0" size={16}/> Podés guardar cualquier combinación como predeterminada. La plataforma no le asignará una equivalencia clínica automática y la sesión seguirá aplicando los límites técnicos del dispositivo y de seguridad domiciliaria.</p>}
         </section>
 
