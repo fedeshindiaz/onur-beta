@@ -31,7 +31,7 @@ export function buildExerciseExecutionPlan(config: ExerciseConfig, setting: Exer
   let feasibility: ExecutionFeasibility = 'ready'
   if (config.displayMode === 'vr_box') {
     if (config.cardboardEnabled) {
-      warnings.push('Cardboard usa giroscopio y acelerómetro para un anclaje angular 3DoF relativo a la calibración frontal. No mide traslación 6DoF, no interpreta códigos QR y no corrige la óptica específica del visor.')
+      warnings.push('Cardboard usa giroscopio y acelerómetro para un anclaje angular 3DoF relativo a una calibración frontal estable. El perfil local ajusta centros y campo visual, pero no mide traslación 6DoF, no interpreta códigos QR ni corrige la distorsión específica de las lentes.')
       warnings.push('Si se pierde la señal, el ejercicio se pausa y exige retirar el visor, mirar al frente y recalibrar.')
       if (config.purpose === 'gaze_stabilization') {
         feasibility = setting === 'home' ? 'not_executable' : 'in_person_only'
@@ -71,7 +71,7 @@ export function buildExerciseExecutionPlan(config: ExerciseConfig, setting: Exer
   const setup = config.displayMode === 'standard'
     ? `${config.posture === 'seated' ? 'Sentado' : config.posture === 'standing' ? 'De pie' : 'En marcha'}, en superficie ${config.surface === 'firm' ? 'firme' : 'inestable'}, con la pantalla inmóvil y el entorno despejado.`
     : config.cardboardEnabled
-      ? 'Sentado, sin desplazarse, permitir sensores, colocar Cardboard, mirar al frente y esperar la confirmación “3DoF activo”.'
+      ? 'Sentado, sin desplazarse, permitir sensores y colocar Cardboard. Al terminar la cuenta regresiva, mirar el + de frente y mantener la cabeza quieta hasta la confirmación “3DoF activo”.'
       : 'Sentado, con el visor ajustado durante la transición guiada y sin desplazarse.'
   const response = cognitive
     ? cognitiveInstruction(config)

@@ -280,7 +280,7 @@ export function analyzeExerciseCompatibility(config: ExerciseConfig): ExerciseCo
     : 'El modo Libre permite guardar cualquier combinación; esta combinación no puede ejecutarse con seguridad técnica en el dispositivo seleccionado.'
 
   const clinicalNote = config.purpose === 'gaze_stabilization' && config.displayMode === 'vr_box' && config.cardboardEnabled
-    ? 'Implementación experimental y presencial: el anclaje es angular 3DoF, no posición 6DoF. Antes de indicar dosis, el profesional debe comprobar permiso de sensores, latencia, deriva, recentrado y pérdida de seguimiento en el teléfono utilizado.'
+    ? 'Implementación experimental y presencial: el anclaje es angular 3DoF, no posición 6DoF. Antes de indicar dosis, el profesional debe seleccionar el perfil teléfono–visor y comprobar fusión, centro óptico, permiso de sensores, latencia, deriva, recentrado y pérdida de seguimiento.'
     : free
     ? 'Revisión profesional obligatoria. “Libre” no convierte la combinación en RVO x1, RVO x2, sustitución, habituación ni estimulación optocinética.'
     : config.purpose === 'gaze_substitution_remembered'

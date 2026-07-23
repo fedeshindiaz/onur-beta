@@ -13,7 +13,16 @@ afterEach(() => { cleanup(); vi.useRealTimers(); trackingPermissionMock.mockRese
 vi.mock('../exercise/ExercisePlayer', () => ({
   ExercisePlayer: (props: { config: ExerciseConfig; preparationSeconds?: number; onComplete?: (activeSeconds: number, report?: ExerciseCompletionReport) => void }) => {
     exercisePlayerMock(props)
-    return <button type="button" onClick={() => props.onComplete?.(1, { doseMode: props.config.doseMode, completion: 'target_completed', targetRepetitions: props.config.doseMode === 'repetitions' ? props.config.targetRepetitions : undefined, reportedRepetitions: props.config.doseMode === 'repetitions' ? props.config.targetRepetitions : undefined })}>Completar ejercicio</button>
+    return <button type="button" onClick={() => props.onComplete?.(1, {
+      doseMode: props.config.doseMode,
+      completion: 'target_completed',
+      targetRepetitions: props.config.doseMode === 'repetitions' ? props.config.targetRepetitions : undefined,
+      reportedRepetitions: props.config.doseMode === 'repetitions' ? props.config.targetRepetitions : undefined,
+      headTracking: props.config.cardboardEnabled ? {
+        mode: 'orientation_3dof', spatialAnchor: 'calibrated_direction', recenterCount: 1, trackingLossCount: 0, finalStatus: 'tracking',
+        opticalProfile: { name: 'VR Box clínica', imageSeparationPercent: 4, verticalOffsetPercent: -2, horizontalFovDegrees: 92, verticalFovDegrees: 78 },
+      } : undefined,
+    })}>Completar ejercicio</button>
   },
 }))
 
@@ -100,7 +109,7 @@ describe('SessionRunner', () => {
 
     expect(onFinish.mock.calls[0][2]).toEqual(expect.arrayContaining([
       expect.objectContaining({ type: 'vr_box_put_on', viewer_profile: 'cardboard' }),
-      expect.objectContaining({ type: 'exercise_completed', viewer_profile: 'cardboard', head_tracking_mode: 'orientation_3dof', spatial_anchor: 'calibrated_direction' }),
+      expect.objectContaining({ type: 'exercise_completed', viewer_profile: 'cardboard', head_tracking_mode: 'orientation_3dof', spatial_anchor: 'calibrated_direction', cardboard_optical_profile: 'VR Box clínica', cardboard_image_separation_percent: 4, cardboard_vertical_offset_percent: -2, cardboard_horizontal_fov_degrees: 92, cardboard_vertical_fov_degrees: 78 }),
       expect.objectContaining({ type: 'vr_box_take_off', viewer_profile: 'cardboard' }),
     ]))
   })

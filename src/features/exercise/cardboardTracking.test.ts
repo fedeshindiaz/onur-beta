@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { headPoseToCanvasTransform, quaternionFromAxisAngle, relativeHeadPose } from './cardboardTracking'
+import { averageQuaternions, headPoseToCanvasTransform, quaternionAngularDistance, quaternionFromAxisAngle, relativeHeadPose } from './cardboardTracking'
 
 const identity = { x: 0, y: 0, z: 0, w: 1 }
 
@@ -23,5 +23,18 @@ describe('seguimiento Cardboard 3DoF', () => {
     expect(transform.offsetX).toBeLessThan(0)
     expect(transform.offsetY).toBeGreaterThan(0)
     expect(transform.rotationRadians).toBeCloseTo(-Math.PI / 20, 5)
+  })
+
+  it('promedia muestras estables sin invertir cuaterniones equivalentes', () => {
+    const rotation = quaternionFromAxisAngle({ x: 0, y: 1, z: 0 }, Math.PI / 12)
+    const averaged = averageQuaternions([rotation, { x: -rotation.x, y: -rotation.y, z: -rotation.z, w: -rotation.w }])
+    expect(quaternionAngularDistance(rotation, averaged)).toBeCloseTo(0, 8)
+  })
+
+  it('usa el campo visual del perfil para ajustar la compensación angular', () => {
+    const pose = { yawRadians: Math.PI / 12, pitchRadians: 0, rollRadians: 0, absolute: false, updatedAt: 0 }
+    const narrow = headPoseToCanvasTransform(pose, 400, 300, { horizontalFovDegrees: 60, verticalFovDegrees: 60 })
+    const wide = headPoseToCanvasTransform(pose, 400, 300, { horizontalFovDegrees: 110, verticalFovDegrees: 90 })
+    expect(Math.abs(narrow.offsetX)).toBeGreaterThan(Math.abs(wide.offsetX))
   })
 })

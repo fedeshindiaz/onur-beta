@@ -22,6 +22,11 @@ export interface SessionEventLogEntry {
   tracking_recenter_count?: number
   tracking_loss_count?: number
   tracking_final_status?: 'tracking' | 'lost' | 'unavailable'
+  cardboard_optical_profile?: string
+  cardboard_image_separation_percent?: number
+  cardboard_vertical_offset_percent?: number
+  cardboard_horizontal_fov_degrees?: number
+  cardboard_vertical_fov_degrees?: number
   active_seconds?: number
   target_repetitions?: number
   reported_repetitions?: number

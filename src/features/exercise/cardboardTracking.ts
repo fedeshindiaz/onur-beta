@@ -19,6 +19,11 @@ export interface CardboardCanvasTransform {
   rotationRadians: number
 }
 
+export interface CardboardFieldOfView {
+  horizontalFovDegrees: number
+  verticalFovDegrees: number
+}
+
 export type CardboardTrackingPermission = 'granted' | 'denied' | 'unsupported' | 'insecure'
 
 type DeviceOrientationConstructor = typeof DeviceOrientationEvent & {
@@ -35,6 +40,30 @@ function clamp(value: number, minimum: number, maximum: number) {
 export function normalizeQuaternion(quaternion: Quaternion): Quaternion {
   const length = Math.hypot(quaternion.x, quaternion.y, quaternion.z, quaternion.w) || 1
   return { x: quaternion.x / length, y: quaternion.y / length, z: quaternion.z / length, w: quaternion.w / length }
+}
+
+export function quaternionAngularDistance(left: Quaternion, right: Quaternion) {
+  const a = normalizeQuaternion(left)
+  const b = normalizeQuaternion(right)
+  const dot = Math.abs(clamp(a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w, -1, 1))
+  return 2 * Math.acos(dot)
+}
+
+export function averageQuaternions(quaternions: Quaternion[]): Quaternion {
+  if (quaternions.length === 0) return { x: 0, y: 0, z: 0, w: 1 }
+  const reference = normalizeQuaternion(quaternions[0])
+  const sum = quaternions.reduce((total, value) => {
+    const normalized = normalizeQuaternion(value)
+    const dot = reference.x * normalized.x + reference.y * normalized.y + reference.z * normalized.z + reference.w * normalized.w
+    const sign = dot < 0 ? -1 : 1
+    return {
+      x: total.x + normalized.x * sign,
+      y: total.y + normalized.y * sign,
+      z: total.z + normalized.z * sign,
+      w: total.w + normalized.w * sign,
+    }
+  }, { x: 0, y: 0, z: 0, w: 0 })
+  return normalizeQuaternion(sum)
 }
 
 export function multiplyQuaternions(left: Quaternion, right: Quaternion): Quaternion {
@@ -103,11 +132,11 @@ export function relativeHeadPose(reference: Quaternion, current: Quaternion, abs
   }
 }
 
-export function headPoseToCanvasTransform(pose: CardboardHeadPose, width: number, height: number): CardboardCanvasTransform {
+export function headPoseToCanvasTransform(pose: CardboardHeadPose, width: number, height: number, fieldOfView: CardboardFieldOfView = { horizontalFovDegrees: 90, verticalFovDegrees: 80 }): CardboardCanvasTransform {
   const yaw = clamp(pose.yawRadians, -Math.PI / 3, Math.PI / 3)
   const pitch = clamp(pose.pitchRadians, -Math.PI / 3, Math.PI / 3)
-  const horizontalFov = 90 * DEG_TO_RAD
-  const verticalFov = 80 * DEG_TO_RAD
+  const horizontalFov = clamp(fieldOfView.horizontalFovDegrees, 45, 130) * DEG_TO_RAD
+  const verticalFov = clamp(fieldOfView.verticalFovDegrees, 40, 120) * DEG_TO_RAD
   return {
     offsetX: clamp(-Math.tan(yaw) / Math.tan(horizontalFov / 2) * width / 2, -width * 1.5, width * 1.5),
     offsetY: clamp(Math.tan(pitch) / Math.tan(verticalFov / 2) * height / 2, -height * 1.5, height * 1.5),

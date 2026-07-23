@@ -4,6 +4,7 @@ import { cognitiveInstruction, cognitiveResponseModeFor, cognitiveStepAt, cognit
 import { ExerciseCanvas } from './ExerciseCanvas'
 import { analyzeExerciseCompatibility } from './compatibility'
 import { StereoscopicExerciseCanvas } from './StereoscopicExerciseCanvas'
+import { cardboardEyeCenterPercent, useCardboardViewerProfiles, type CardboardViewerProfile } from './cardboardViewerProfiles'
 import type { ExerciseCompletionReport, ExerciseConfig } from './types'
 import { useCardboardHeadTracking, type CardboardTrackingStatus } from './useCardboardHeadTracking'
 
@@ -76,34 +77,41 @@ function CardboardControlBar({ paused, formattedTime, trackingStatus, onTogglePa
   </div>
 }
 
-function CardboardTrackingOverlay({ status, onRetry, onExit }: { status: CardboardTrackingStatus; onRetry: () => void; onExit: () => void }) {
+function CardboardTrackingOverlay({ status, calibrationProgress, viewerProfile, onRetry, onExit }: { status: CardboardTrackingStatus; calibrationProgress: number; viewerProfile: CardboardViewerProfile; onRetry: () => void; onExit: () => void }) {
   if (status === 'tracking' || status === 'idle') return null
   const failed = status === 'denied' || status === 'unavailable' || status === 'lost'
-  const title = status === 'calibrating' ? 'Calibrando seguimiento' : status === 'denied' ? 'Permiso de movimiento rechazado' : status === 'lost' ? 'Se perdió el seguimiento' : 'Sensores no disponibles'
+  const title = status === 'calibrating' ? 'Calibrando posición frontal' : status === 'waiting' ? 'Esperando recalibración' : status === 'denied' ? 'Permiso de movimiento rechazado' : status === 'lost' ? 'Se perdió el seguimiento' : 'Sensores no disponibles'
   const instruction = status === 'calibrating'
-    ? 'Mirá al frente y mantené la cabeza quieta hasta que aparezca “3DoF activo”.'
+    ? 'Mirá el + de frente y mantené la cabeza quieta. El ejercicio comenzará cuando la posición sea estable.'
+    : status === 'waiting'
+      ? 'Mantené la vista al frente. La plataforma volverá a calibrar antes de continuar.'
     : status === 'denied'
       ? 'Retirá el visor, permití el acceso al movimiento y volvé a calibrar.'
       : status === 'lost'
         ? 'Retirá el visor, mirá al frente y tocá Recalibrar antes de continuar.'
         : 'Este dispositivo o navegador no entregó orientación. No continúes el ejercicio con anclaje.'
-  const content = (side: 'izquierdo' | 'derecho') => <div className="flex h-full flex-col items-center justify-center px-4 pb-16 text-center">
-    <ShieldAlert className={failed ? 'text-[#ef6b74]' : 'text-[#E49A02]'} size={28}/>
+  const content = (side: 'izquierdo' | 'derecho') => {
+    const center = cardboardEyeCenterPercent(viewerProfile, side === 'izquierdo' ? 'left' : 'right')
+    return <div className={`relative flex h-full flex-col items-center px-4 pb-16 text-center ${failed ? 'justify-center' : 'justify-end'}`}>
+    {failed && <ShieldAlert className="text-[#ef6b74]" size={28}/>}
     <p className={`mt-3 text-[9px] font-black uppercase tracking-[.14em] ${failed ? 'text-[#ef6b74]' : 'text-[#E49A02]'}`}>{title}</p>
-    {!failed && <div className="mt-3 grid size-8 place-items-center rounded-full border-2 border-white text-lg font-black">+</div>}
+    {!failed && <div className="absolute grid size-8 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-white text-lg font-black" style={{ left: `${center.left}%`, top: `${center.top}%` }}>+</div>}
     <p className="mt-3 max-w-xs text-[9px] font-bold leading-4 text-white/75">{instruction}</p>
+    {status === 'calibrating' && <div className="mt-3 h-1.5 w-24 overflow-hidden rounded-full bg-white/15"><div className="h-full rounded-full bg-[#E49A02] transition-[width] duration-100" style={{ width: `${Math.round(calibrationProgress * 100)}%` }}/></div>}
     {failed && <div className="mt-4 flex flex-wrap justify-center gap-2"><button type="button" onClick={onRetry} aria-label={`${status === 'lost' ? 'Recalibrar' : 'Reintentar sensores'} · lado ${side}`} className="h-10 rounded-xl bg-[#E49A02] px-3 text-[9px] font-black text-white">{status === 'lost' ? 'Recalibrar' : 'Reintentar'}</button><button type="button" onClick={onExit} aria-label={`Salir por fallo de seguimiento · lado ${side}`} className="h-10 rounded-xl bg-[#c74750] px-3 text-[9px] font-black text-white">Salir</button></div>}
-  </div>
+  </div>}
   return <div className="absolute inset-0 z-30 grid grid-cols-2 divide-x divide-white/10 bg-[#171717]/96" role="status" aria-live="assertive" data-cardboard-tracking-status={status}>{content('izquierdo')}{content('derecho')}</div>
 }
 
 function CompatibleExercisePlayer({ config, onExit, onSkip, onComplete, preparationSeconds }: ExercisePlayerProps) {
   const vrBox = config.displayMode === 'vr_box'
   const cardboard = vrBox && config.cardboardEnabled
-  const tracking = useCardboardHeadTracking(cardboard)
   const [paused, setPaused] = useState(false)
   const [controlsVisible, setControlsVisible] = useState(!vrBox)
   const [preparationRemaining, setPreparationRemaining] = useState(preparationSeconds ?? config.preparationSeconds ?? 0)
+  const preparing = preparationRemaining > 0
+  const tracking = useCardboardHeadTracking(cardboard, !preparing)
+  const { activeProfile: viewerProfile } = useCardboardViewerProfiles()
   const [remainingSeconds, setRemainingSeconds] = useState(config.durationSeconds)
   const [activeSeconds, setActiveSeconds] = useState(0)
   const [completionOpen, setCompletionOpen] = useState(false)
@@ -115,7 +123,6 @@ function CompatibleExercisePlayer({ config, onExit, onSkip, onComplete, preparat
   const cognitiveResponseStepsRef = useRef(new Set<number>())
   const cognitiveCorrectRef = useRef(0)
   const cognitiveFalseAlarmsRef = useRef(0)
-  const preparing = preparationRemaining > 0
   const timedFinished = config.doseMode === 'time' && remainingSeconds <= 0
   const inactive = paused || preparing || briefingOpen || completionOpen || timedFinished || (cardboard && tracking.status !== 'tracking')
 
@@ -159,6 +166,13 @@ function CompatibleExercisePlayer({ config, onExit, onSkip, onComplete, preparat
         mode: 'orientation_3dof', spatialAnchor: 'calibrated_direction',
         recenterCount: tracking.recenterCount, trackingLossCount: tracking.trackingLossCount,
         finalStatus: tracking.status === 'tracking' ? 'tracking' : tracking.status === 'lost' ? 'lost' : 'unavailable',
+        opticalProfile: {
+          name: viewerProfile.name,
+          imageSeparationPercent: viewerProfile.imageSeparationPercent,
+          verticalOffsetPercent: viewerProfile.verticalOffsetPercent,
+          horizontalFovDegrees: viewerProfile.horizontalFovDegrees,
+          verticalFovDegrees: viewerProfile.verticalFovDegrees,
+        },
       },
     } : report
     if (finalReport.completion === 'skipped') onSkip?.(seconds, finalReport)
@@ -210,7 +224,7 @@ function CompatibleExercisePlayer({ config, onExit, onSkip, onComplete, preparat
   const formattedTime = `${String(Math.floor(Math.max(0, remainingSeconds) / 60)).padStart(2, '0')}:${String(Math.ceil(Math.max(0, remainingSeconds) % 60)).padStart(2, '0')}`
 
   return <div ref={containerRef} className="fixed inset-0 z-[100] overflow-hidden bg-[#081113] text-white" onPointerMove={showControls} onPointerDown={showControls} onKeyDown={handleKeyDown} role="application" aria-label={`Reproductor: ${config.name}`} tabIndex={-1}>
-    {config.kind === 'guided_physical' ? <PhysicalStage config={config}/> : config.displayMode === 'vr_box' ? <StereoscopicExerciseCanvas config={config} paused={inactive} headPose={cardboard ? tracking.pose : null}/> : <ExerciseCanvas config={config} paused={inactive} className="absolute inset-0 size-full"/>}
+    {config.kind === 'guided_physical' ? <PhysicalStage config={config}/> : config.displayMode === 'vr_box' ? <StereoscopicExerciseCanvas config={config} paused={inactive} headPose={cardboard ? tracking.pose : null} viewerProfile={viewerProfile}/> : <ExerciseCanvas config={config} paused={inactive} className="absolute inset-0 size-full"/>}
     {briefingOpen && <CognitiveBriefing config={config} onStart={() => setBriefingOpen(false)}/>}
     {preparing && <PreparationOverlay remaining={preparationRemaining} vrBox={config.displayMode === 'vr_box'}/>}
     {!vrBox && <div className={`absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-3 bg-gradient-to-b from-black/72 to-transparent p-5 transition-opacity duration-300 sm:p-7 ${controlsVisible ? 'opacity-100' : 'pointer-events-none opacity-0'}`}><div className="max-w-[70vw] rounded-2xl bg-black/48 px-4 py-2 backdrop-blur"><p className="truncate text-xs font-black">{config.name}{config.displayMode === 'quest_browser' ? ' · Quest navegador BETA' : ''}</p><p className="mt-1 line-clamp-2 text-[10px] leading-4 text-white/70">{config.patientInstruction}</p></div><div className="flex shrink-0 items-center gap-2"><button type="button" onClick={requestFullscreen} className="grid size-10 place-items-center rounded-full bg-black/48 backdrop-blur" aria-label="Pantalla completa"><Expand size={17}/></button><span className="rounded-full bg-black/48 px-4 py-2 text-xs font-black tabular-nums backdrop-blur">{config.doseMode === 'time' ? formattedTime : `${config.targetRepetitions} rep.`}</span></div></div>}
@@ -228,6 +242,8 @@ function CompatibleExercisePlayer({ config, onExit, onSkip, onComplete, preparat
     {cardboard && !preparing && (
       <CardboardTrackingOverlay
         status={tracking.status}
+        calibrationProgress={tracking.calibrationProgress}
+        viewerProfile={viewerProfile}
         onRetry={() => void tracking.requestAndRecenter()}
         onExit={() => void exitPlayer()}
       />

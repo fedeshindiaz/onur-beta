@@ -39,6 +39,13 @@ export interface ExerciseCompletionReport {
     recenterCount: number
     trackingLossCount: number
     finalStatus: 'tracking' | 'lost' | 'unavailable'
+    opticalProfile: {
+      name: string
+      imageSeparationPercent: number
+      verticalOffsetPercent: number
+      horizontalFovDegrees: number
+      verticalFovDegrees: number
+    }
   }
 }
 

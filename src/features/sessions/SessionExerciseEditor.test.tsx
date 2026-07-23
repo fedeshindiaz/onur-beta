@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { CARDBOARD_VIEWER_PROFILE_STORAGE_KEY } from '../exercise/cardboardViewerProfiles'
 import { defaultExerciseConfig, type ExerciseConfig } from '../exercise/types'
 import { SessionExerciseEditor } from './SessionExerciseEditor'
 
@@ -8,6 +9,7 @@ vi.mock('../exercise/ExerciseCanvas', () => ({ ExerciseCanvas: () => <div>Vista 
 vi.mock('../exercise/StereoscopicExerciseCanvas', () => ({ StereoscopicExerciseCanvas: () => <div>Vista binocular VR</div> }))
 vi.mock('../exercise/ExercisePlayer', () => ({ ExercisePlayer: () => <div>Reproductor</div> }))
 
+beforeEach(() => localStorage.clear())
 afterEach(cleanup)
 
 function EditorHarness({ setting = 'unspecified' }: { setting?: 'home' | 'in_person' | 'unspecified' }) {
@@ -71,6 +73,25 @@ describe('creación de ejercicios', () => {
     fireEvent.change(screen.getByLabelText('Tipo'), { target: { value: 'guided_physical' } })
     expect(screen.getByRole('option', { name: /VR Box/ })).toBeDisabled()
     expect(screen.getByRole('option', { name: /Meta Quest/ })).toBeDisabled()
+  })
+
+  it('guarda perfiles ópticos diferentes por combinación teléfono y visor', () => {
+    render(<EditorHarness/>)
+    fireEvent.change(screen.getByLabelText('Modo'), { target: { value: 'vr_box' } })
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Habilitar perfil Cardboard' }))
+
+    fireEvent.change(screen.getByLabelText('Nombre del perfil óptico'), { target: { value: 'Celular A · VR Box 1' } })
+    fireEvent.change(screen.getByLabelText('Separación binocular'), { target: { value: '6' } })
+    fireEvent.change(screen.getByLabelText('Centro vertical'), { target: { value: '-3' } })
+    fireEvent.change(screen.getByLabelText('Campo visual horizontal'), { target: { value: '96' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo perfil' }))
+
+    expect(screen.getByLabelText('Perfil óptico Cardboard')).toHaveDisplayValue('Perfil 2')
+    const stored = localStorage.getItem(CARDBOARD_VIEWER_PROFILE_STORAGE_KEY) ?? ''
+    expect(stored).toContain('Celular A · VR Box 1')
+    expect(stored).toContain('"imageSeparationPercent":6')
+    expect(stored).toContain('"verticalOffsetPercent":-3')
+    expect(stored).toContain('"horizontalFovDegrees":96')
   })
 
   it.each(['gaze_stabilization_x2', 'gaze_substitution_remembered'])('mantiene %s fuera de visores sin referencia espacial', (purpose) => {
