@@ -6,26 +6,10 @@ import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from './features/auth/AuthProvider.tsx'
 
-const reloadWhenSessionIsSafe = () => {
-  if (document.body.dataset.onurSessionRunning === 'true') {
-    window.setTimeout(reloadWhenSessionIsSafe, 5_000)
-    return
-  }
-  window.location.reload()
-}
-
-if ('serviceWorker' in navigator) {
-  let updateReloadScheduled = false
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (updateReloadScheduled) return
-    updateReloadScheduled = true
-    reloadWhenSessionIsSafe()
-  })
-}
-
 registerSW({
-  immediate: true,
-  onNeedReload: reloadWhenSessionIsSafe,
+  // Las actualizaciones quedan listas en segundo plano y se activan cuando el
+  // usuario cierra la app. Nunca recargamos un formulario o una sesión activa.
+  immediate: false,
   onRegisteredSW: (_serviceWorkerUrl, registration) => {
     if (registration) {
       void registration.update()

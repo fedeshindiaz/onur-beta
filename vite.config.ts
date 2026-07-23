@@ -11,13 +11,13 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       workbox: {
           cacheId: 'onur-beta-0.1.0-beta.27',
         globIgnores: ['**/ocr/**', '**/three.module-*.js'],
         cleanupOutdatedCaches: true,
-        skipWaiting: true,
-        clientsClaim: true,
+        skipWaiting: false,
+        clientsClaim: false,
       },
       includeAssets: ['onur-mark.svg', 'onur-192.png', 'onur-512.png'],
       manifest: {
