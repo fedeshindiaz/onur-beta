@@ -189,7 +189,7 @@ export const immersiveScenarios: ImmersiveScenario[] = [
       originalSha256: 'e90506bb9e3f7a12d4fe7e6a53271a73225a51db14fbe2e9c2df32ae5fa941c4',
     },
     derivatives: {
-      quest: { storagePath: 'metro_moscow/quest.mp4', mimeType: 'video/mp4', width: 3840, height: 1920, fps: 30, durationSeconds: 22.034, codec: 'H.264 High', bytes: 41_074_111, sha256: '17127494a29ae6538e6a22585259e2fad4a82ebf47e3c6d05c41b4c02592593f' },
+      quest: { storagePath: 'metro_moscow/quest.mp4', mimeType: 'video/mp4', width: 3840, height: 1920, fps: 30, durationSeconds: 22.034, codec: 'H.264 High', bytes: 20_235_385, sha256: 'a71d1bc2ed584a3e57a5ddc894a572ff6b489f13e5a43f1593ca0c92fa5687f6' },
       vr_box: { storagePath: 'metro_moscow/vrbox.mp4', mimeType: 'video/mp4', width: 2048, height: 1024, fps: 30, durationSeconds: 22.034, codec: 'H.264 High', bytes: 11_021_257, sha256: '4280c4ae87afc4aeb78352bfda76efe61325739f29402b7a69f97a5a3592fbae' },
       thumbnail: { storagePath: 'metro_moscow/thumb.jpg', mimeType: 'image/jpeg', width: 640, height: 320, bytes: 31_405, sha256: 'b5c3d42c1e4c4f8371f142992b377959a2c9b6e4353469116e43f44126041fc4' },
     },
@@ -206,7 +206,7 @@ export const immersiveScenarios: ImmersiveScenario[] = [
     maximumSeconds: 30,
     clinicalUse: 'Exposición contextual avanzada a flujo óptico urbano continuo desde un vehículo lento, con horizonte estable durante el segmento seleccionado.',
     patientInstruction: 'Sentado y apoyado, mirá al frente al comenzar. Explorá solo si el profesional lo indicó; no intentes acompañar cada objeto que pasa.',
-    cautions: ['No debe describirse como manejo ni como viaje en automóvil.', 'Mayor flujo óptico: usar solo después de tolerar escenarios estáticos.', 'El video no se repite: la dosis máxima es 30 segundos.'],
+    cautions: ['No debe describirse como manejo ni como viaje en automóvil.', 'El vehículo y el equipo de captura pueden verse cerca del nadir.', 'Mayor flujo óptico: usar solo después de tolerar escenarios estáticos.', 'El video no se repite: la dosis máxima es 30 segundos.'],
     source: {
       author: 'Joseph A. Eulo', provider: 'Wikimedia Commons', pageUrl: 'https://commons.wikimedia.org/wiki/File:NYC_in_360_-_Surviving_COVID.webm',
       originalUrl: 'https://upload.wikimedia.org/wikipedia/commons/8/8e/NYC_in_360_-_Surviving_COVID.webm',
@@ -214,8 +214,8 @@ export const immersiveScenarios: ImmersiveScenario[] = [
       originalSha256: 'd5b193c870a9244fadc55b5aa990a0acfea1a651c53b79dc005bfb4fcbca92df',
     },
     derivatives: {
-      quest: { storagePath: 'urban_ride_nyc/quest.mp4', mimeType: 'video/mp4', width: 4096, height: 2048, fps: 23.976, durationSeconds: 30.03, codec: 'H.264 High', bytes: 39_370_411, sha256: 'd0c6e192d2de2f443612c6f0046e961926c3e8382361928caa90fa76254f036e' },
-      vr_box: { storagePath: 'urban_ride_nyc/vrbox.mp4', mimeType: 'video/mp4', width: 2048, height: 1024, fps: 23.976, durationSeconds: 30.03, codec: 'H.264 High', bytes: 25_337_213, sha256: 'a063052447b91465e85ce693df9f32fa35397bed10fb05e7a1282738a0b40cbf' },
+      quest: { storagePath: 'urban_ride_nyc/quest.mp4', mimeType: 'video/mp4', width: 4096, height: 2048, fps: 23.976, durationSeconds: 30.03, codec: 'H.264 High', bytes: 21_662_248, sha256: 'dd193fc3f6a5748417d4d7532e69d51f8db19a1df6e64cffdb3b72ccb61acd98' },
+      vr_box: { storagePath: 'urban_ride_nyc/vrbox.mp4', mimeType: 'video/mp4', width: 2048, height: 1024, fps: 23.976, durationSeconds: 30.03, codec: 'H.264 High', bytes: 18_182_766, sha256: '2c47ba6977441f27a7e54c6f74f799b70b47eb70e2a67d07850db57081f420b0' },
       thumbnail: { storagePath: 'urban_ride_nyc/thumb.jpg', mimeType: 'image/jpeg', width: 640, height: 320, bytes: 40_571, sha256: '4f3d3e7370a1f093908ef0b15dc4cf8be7a93ad40f7caada2a866c136a68fb45' },
     },
   },

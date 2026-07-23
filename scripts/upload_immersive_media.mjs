@@ -38,11 +38,11 @@ const files = [
   ['station_hamburg_quest.jpg', 'station_hamburg/quest.jpg', 'image/jpeg', '95a0e45bb503476b52fcfe1422058bfba388b0ff949f10076097b117012285c7'],
   ['station_hamburg_vrbox.jpg', 'station_hamburg/vrbox.jpg', 'image/jpeg', 'febada7f39348f5a89bd48d231567359d77cd405f2ed37e9c6ed5f5b3844ea8a'],
   ['station_hamburg_thumb.jpg', 'station_hamburg/thumb.jpg', 'image/jpeg', '67336656ddac8dceca1a875b6a82dff10bebb4919838ed5e2f8c21ba3f5081c3'],
-  ['metro_moscow_quest.mp4', 'metro_moscow/quest.mp4', 'video/mp4', '17127494a29ae6538e6a22585259e2fad4a82ebf47e3c6d05c41b4c02592593f'],
+  ['metro_moscow_quest.mp4', 'metro_moscow/quest.mp4', 'video/mp4', 'a71d1bc2ed584a3e57a5ddc894a572ff6b489f13e5a43f1593ca0c92fa5687f6'],
   ['metro_moscow_vrbox.mp4', 'metro_moscow/vrbox.mp4', 'video/mp4', '4280c4ae87afc4aeb78352bfda76efe61325739f29402b7a69f97a5a3592fbae'],
   ['metro_moscow_thumb.jpg', 'metro_moscow/thumb.jpg', 'image/jpeg', 'b5c3d42c1e4c4f8371f142992b377959a2c9b6e4353469116e43f44126041fc4'],
-  ['urban_ride_nyc_quest.mp4', 'urban_ride_nyc/quest.mp4', 'video/mp4', 'd0c6e192d2de2f443612c6f0046e961926c3e8382361928caa90fa76254f036e'],
-  ['urban_ride_nyc_vrbox.mp4', 'urban_ride_nyc/vrbox.mp4', 'video/mp4', 'a063052447b91465e85ce693df9f32fa35397bed10fb05e7a1282738a0b40cbf'],
+  ['urban_ride_nyc_quest.mp4', 'urban_ride_nyc/quest.mp4', 'video/mp4', 'dd193fc3f6a5748417d4d7532e69d51f8db19a1df6e64cffdb3b72ccb61acd98'],
+  ['urban_ride_nyc_vrbox.mp4', 'urban_ride_nyc/vrbox.mp4', 'video/mp4', '2c47ba6977441f27a7e54c6f74f799b70b47eb70e2a67d07850db57081f420b0'],
   ['urban_ride_nyc_thumb.jpg', 'urban_ride_nyc/thumb.jpg', 'image/jpeg', '4f3d3e7370a1f093908ef0b15dc4cf8be7a93ad40f7caada2a866c136a68fb45'],
 ]
 
@@ -66,7 +66,7 @@ if (limitArgument) {
   process.exit(0)
 }
 
-function resumableUpload(storagePath, contentType, body) {
+function resumableUpload(storagePath, contentType, body, sha256) {
   return new Promise((resolveUpload, rejectUpload) => {
     const upload = new Upload(body, {
       endpoint: `${supabaseUrl.replace(/\/$/, '')}/storage/v1/upload/resumable`,
@@ -75,7 +75,7 @@ function resumableUpload(storagePath, contentType, body) {
       uploadDataDuringCreation: true,
       removeFingerprintOnSuccess: true,
       chunkSize: 6 * 1024 * 1024,
-      metadata: { bucketName: 'immersive-media', objectName: storagePath, contentType, cacheControl: '31536000' },
+      metadata: { bucketName: 'immersive-media', objectName: storagePath, contentType, cacheControl: '31536000', sha256 },
       onError: (error) => rejectUpload(new Error(`Falló la carga reanudable de ${storagePath}: ${String(error?.message ?? error).split(', originated from request')[0]}`)),
       onSuccess: resolveUpload,
     })
@@ -88,9 +88,9 @@ for (const [fileName, storagePath, contentType, expectedSha256] of files) {
   const sha256 = createHash('sha256').update(body).digest('hex')
   if (sha256 !== expectedSha256) throw new Error(`Checksum inesperado en ${fileName}.`)
   process.stderr.write(`Subiendo ${storagePath} · ${body.byteLength} bytes…\n`)
-  if (body.byteLength > 6 * 1024 * 1024) await resumableUpload(storagePath, contentType, body)
+  if (body.byteLength > 6 * 1024 * 1024) await resumableUpload(storagePath, contentType, body, sha256)
   else {
-    const { error } = await client.storage.from('immersive-media').upload(storagePath, body, { contentType, cacheControl: '31536000', upsert: true })
+    const { error } = await client.storage.from('immersive-media').upload(storagePath, body, { contentType, cacheControl: '31536000', metadata: { sha256 }, upsert: true })
     if (error) throw error
   }
   process.stdout.write(`Publicado ${storagePath} · ${body.byteLength} bytes · ${sha256}\n`)

@@ -32,7 +32,12 @@ export function ImmersivePanorama({ scenario, device, paused = false, headPose =
   const [manualView, setManualView] = useState({ yaw: 0, pitch: 0 })
   const manualViewRef = useRef(manualView)
 
-  useEffect(() => { pausedRef.current = paused; if (videoRef.current) paused ? videoRef.current.pause() : void videoRef.current.play().catch(() => undefined) }, [paused])
+  useEffect(() => {
+    pausedRef.current = paused
+    if (!videoRef.current) return
+    if (paused) videoRef.current.pause()
+    else void videoRef.current.play().catch(() => undefined)
+  }, [paused])
   useEffect(() => { headPoseRef.current = headPose }, [headPose])
   useEffect(() => { onImmersionChangeRef.current = onImmersionChange }, [onImmersionChange])
   useEffect(() => { manualViewRef.current = manualView }, [manualView])

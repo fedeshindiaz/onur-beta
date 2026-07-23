@@ -14,11 +14,14 @@ export function ImmersiveLibraryPage() {
   const [intensity, setIntensity] = useState<0 | ImmersiveIntensity>(0)
   const [motion, setMotion] = useState<'all' | ImmersiveMotion>('all')
   const [selectedId, setSelectedId] = useState(immersiveScenarios[0].id)
-  const selected = immersiveScenarios.find((scenario) => scenario.id === selectedId) ?? immersiveScenarios[0]
   const filtered = useMemo(() => immersiveScenarios.filter((scenario) => {
     const text = `${scenario.title} ${scenario.shortTitle} ${scenario.clinicalUse} ${environmentLabels[scenario.environment]}`.toLocaleLowerCase()
     return text.includes(query.trim().toLocaleLowerCase()) && (!intensity || scenario.intensity === intensity) && (motion === 'all' || scenario.motion === motion)
   }), [intensity, motion, query])
+  const selected = filtered.find((scenario) => scenario.id === selectedId)
+    ?? filtered[0]
+    ?? immersiveScenarios.find((scenario) => scenario.id === selectedId)
+    ?? immersiveScenarios[0]
 
   return <div className="space-y-8">
     <PageHeader eyebrow="Exposición contextual · clínica" title="Biblioteca 360°" description="Escenarios abiertos, técnicamente verificados y clínicamente curados. Se prescriben como complemento contextual: no son ejercicios de RVO, pruebas diagnósticas ni simulaciones de marcha." actions={<Link to="/app/pacientes" className="inline-flex items-center gap-2 rounded-2xl bg-[#E49A02] px-4 py-3 text-sm font-black text-white"><MonitorPlay size={17}/> Asignar desde un paciente</Link>}/>
@@ -44,7 +47,7 @@ export function ImmersiveLibraryPage() {
         {filtered.length === 0 && <div className="col-span-full rounded-2xl border border-dashed border-[#D8D5D2] p-10 text-center text-sm font-bold text-[#747474]">No hay escenarios que coincidan con esos filtros.</div>}
       </section>
 
-      <aside className="self-start overflow-hidden rounded-2xl border border-[#E9E7E7] bg-white xl:sticky xl:top-24">
+      {filtered.length > 0 && <aside className="self-start overflow-hidden rounded-2xl border border-[#E9E7E7] bg-white xl:sticky xl:top-24">
         <div className="relative aspect-video bg-[#081113]"><ImmersivePanorama key={selected.id} scenario={selected}/></div>
         <div className="p-5 sm:p-6"><div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-[#171717] px-3 py-1 text-[9px] font-black text-white">APROBADO</span><span className="rounded-full bg-[#FFF7E8] px-3 py-1 text-[9px] font-black text-[#8A5B00]">Intensidad {selected.intensity}/3</span></div><h2 className="mt-4 text-xl font-black text-[#171717]">{selected.title}</h2><p className="mt-3 text-xs leading-5 text-[#747474]">{selected.clinicalUse}</p>
           <div className="mt-5 rounded-2xl bg-[#171717] p-4 text-white"><p className="text-[9px] font-black uppercase tracking-[.14em] text-[#EFB33A]">Consigna inicial</p><p className="mt-2 text-sm font-black leading-6">{selected.patientInstruction}</p></div>
@@ -52,7 +55,7 @@ export function ImmersiveLibraryPage() {
           <div className="mt-5 grid gap-3 sm:grid-cols-2"><Link to={`/app/ejercicios?scenario=${selected.id}`} className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#E49A02] px-4 text-xs font-black text-white"><Glasses size={16}/> Configurar ejercicio</Link><Link to="/app/pacientes" className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-[#E9E7E7] px-4 text-xs font-black text-[#2F2F2F]"><MonitorPlay size={16}/> Elegir paciente</Link></div>
           <details className="mt-5 rounded-2xl border border-[#E9E7E7] p-4"><summary className="cursor-pointer text-xs font-black text-[#2F2F2F]">Licencia, autor y control técnico</summary><dl className="mt-4 grid gap-3 text-[11px] leading-5 text-[#747474]"><div><dt className="font-black text-[#2F2F2F]">Autor y licencia</dt><dd>{selected.source.author} · {selected.source.provider} · {selected.source.license}</dd></div><div><dt className="font-black text-[#2F2F2F]">Derivados</dt><dd>Quest {selected.derivatives.quest.width}×{selected.derivatives.quest.height} · VR Box {selected.derivatives.vr_box.width}×{selected.derivatives.vr_box.height}{selected.mediaKind === 'video' ? ` · ${selected.derivatives.quest.fps} FPS · ${selected.derivatives.quest.codec}` : ''}</dd></div><div><dt className="font-black text-[#2F2F2F]">SHA-256 Quest</dt><dd className="break-all font-mono text-[9px]">{selected.derivatives.quest.sha256}</dd></div></dl><div className="mt-4 flex flex-wrap gap-2"><a href={selected.source.pageUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-xl bg-[#F7F6F4] px-3 py-2 text-[10px] font-black text-[#2F2F2F]"><ExternalLink size={13}/> Fuente</a><a href={selected.source.licenseUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-xl bg-[#F7F6F4] px-3 py-2 text-[10px] font-black text-[#2F2F2F]"><ShieldCheck size={13}/> Licencia</a></div></details>
         </div>
-      </aside>
+      </aside>}
     </div>
 
     <section className="rounded-2xl border border-[#E9E7E7] bg-white p-5 sm:p-6"><div className="flex items-center gap-3"><HardDrive className="text-[#E49A02]" size={21}/><div><h2 className="font-black text-[#171717]">Escenarios que requieren captura propia</h2><p className="mt-1 text-xs text-[#747474]">No se sustituyen por material parecido ni por videos de YouTube sin permiso de redistribución.</p></div></div><div className="mt-5 grid gap-3 md:grid-cols-2">{captureRequiredScenarios.map((item) => <article key={item.id} className="rounded-2xl bg-[#F7F6F4] p-4"><p className="text-sm font-black text-[#2F2F2F]">{item.title}</p><p className="mt-2 text-[11px] leading-5 text-[#747474]">{item.reason}</p></article>)}</div></section>

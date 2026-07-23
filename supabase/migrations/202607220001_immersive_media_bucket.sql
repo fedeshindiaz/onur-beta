@@ -3,7 +3,7 @@ values (
   'immersive-media',
   'immersive-media',
   true,
-  null,
+  25000000,
   array['image/jpeg', 'video/mp4']
 )
 on conflict (id) do update set

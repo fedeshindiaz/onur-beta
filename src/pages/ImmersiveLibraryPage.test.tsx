@@ -19,12 +19,14 @@ describe('Biblioteca 360°', () => {
     expect(screen.getByText('Supermercado con cámara fija')).toBeInTheDocument()
   })
 
-  it('filtra por texto, intensidad y movimiento sin perder el detalle seleccionado', () => {
+  it('filtra por texto, intensidad y movimiento manteniendo el detalle coherente', () => {
     render(<MemoryRouter><ImmersiveLibraryPage/></MemoryRouter>)
     fireEvent.change(screen.getByLabelText('Buscar escenario'), { target: { value: 'metro' } })
     expect(screen.getByRole('button', { name: /Interior de transporte público/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Calle tranquila/i })).not.toBeInTheDocument()
+    expect(screen.getByText('Vista 360° Interior de transporte público con movimiento ambiental')).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText('Filtrar intensidad'), { target: { value: '3' } })
     expect(screen.getByText('No hay escenarios que coincidan con esos filtros.')).toBeInTheDocument()
+    expect(screen.queryByText(/^Vista 360°/)).not.toBeInTheDocument()
   })
 })

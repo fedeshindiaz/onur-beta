@@ -8,6 +8,7 @@ import { SessionExerciseEditor } from './SessionExerciseEditor'
 vi.mock('../exercise/ExerciseCanvas', () => ({ ExerciseCanvas: () => <div>Vista visual</div> }))
 vi.mock('../exercise/StereoscopicExerciseCanvas', () => ({ StereoscopicExerciseCanvas: () => <div>Vista binocular VR</div> }))
 vi.mock('../exercise/ExercisePlayer', () => ({ ExercisePlayer: () => <div>Reproductor</div> }))
+vi.mock('../immersive/ImmersivePanorama', () => ({ ImmersivePanorama: () => <div>Vista panorámica</div> }))
 
 beforeEach(() => localStorage.clear())
 afterEach(cleanup)
@@ -47,6 +48,16 @@ describe('creación de ejercicios', () => {
     expect(screen.getByLabelText('Avance')).toBeDisabled()
     expect(screen.getByLabelText('Avance')).toHaveValue('automatic')
     expect(screen.getByText(/todavía no inicia WebXR/i)).toBeInTheDocument()
+  })
+
+  it('permite preparar una plantilla 360° para Quest sin asociarla todavía a un domicilio', () => {
+    render(<EditorHarness/>)
+    fireEvent.change(screen.getByLabelText('Objetivo del ejercicio'), { target: { value: 'immersive_context' } })
+
+    expect(screen.getByRole('option', { name: 'Meta Quest · WebXR inmersivo' })).not.toBeDisabled()
+    expect(screen.getByRole('option', { name: 'VR Box · esfera 360° con Cardboard 3DoF' })).not.toBeDisabled()
+    expect(screen.getByLabelText('Modo')).toHaveValue('quest_browser')
+    expect(screen.getByText('Vista panorámica')).toBeInTheDocument()
   })
 
   it('al elegir ejercicio físico muestra postura, superficie y supervisión', () => {
