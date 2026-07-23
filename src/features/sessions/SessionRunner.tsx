@@ -1,7 +1,7 @@
 import { Clock3, Glasses, LogOut, Play, SkipForward } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ExercisePlayer } from '../exercise/ExercisePlayer'
-import { requestCardboardTrackingPermission } from '../exercise/cardboardTracking'
+import { activateCardboardTracking } from '../exercise/cardboardTracking'
 import type { ExerciseCompletionReport, ExerciseConfig, ExerciseDisplayMode } from '../exercise/types'
 import type { SessionAssignmentRecord, SessionEventLogEntry } from './repository'
 import { VR_BOX_TRANSITION_SECONDS } from './sequence'
@@ -101,6 +101,7 @@ function VrBoxTransitionScreen({ direction, seconds, nextLabel, viewerProfile, o
   const completedRef = useRef(false)
   const viewerLabel = viewerProfile === 'cardboard' ? 'Cardboard' : 'VR Box'
   const [trackingPermissionError, setTrackingPermissionError] = useState('')
+  const [activatingSensors, setActivatingSensors] = useState(false)
 
   useEffect(() => {
     if (!started || remaining <= 0) return
@@ -122,19 +123,29 @@ function VrBoxTransitionScreen({ direction, seconds, nextLabel, viewerProfile, o
 
   const startVrPreparation = async () => {
     setTrackingPermissionError('')
-    const permissionRequest = viewerProfile === 'cardboard' ? requestCardboardTrackingPermission() : Promise.resolve('granted' as const)
+    setActivatingSensors(viewerProfile === 'cardboard')
+    const activationRequest = viewerProfile === 'cardboard' ? activateCardboardTracking() : Promise.resolve({ permission: 'granted' as const })
     const fullscreenRequest = containerRef.current?.requestFullscreen?.()
-    const permission = await permissionRequest
+    const activation = await activationRequest
     try {
       await fullscreenRequest
       const orientation = screen.orientation as ScreenOrientation & { lock?: (value: 'landscape') => Promise<void> }
       await orientation.lock?.('landscape')
     } catch { /* La cuenta continúa si fullscreen u orientación no están disponibles. */ }
-    if (permission !== 'granted') {
+    setActivatingSensors(false)
+    if (activation.permission !== 'granted') {
       if (document.fullscreenElement) {
         try { await document.exitFullscreen() } catch { /* El mensaje de sensores sigue visible aunque fullscreen no responda. */ }
       }
-      setTrackingPermissionError(permission === 'denied' ? 'El acceso al movimiento fue rechazado. Permitilo para usar Cardboard con anclaje.' : permission === 'insecure' ? 'El seguimiento necesita abrir la plataforma desde su dirección HTTPS segura.' : 'Este navegador no ofrece los sensores de orientación necesarios para Cardboard.')
+      setTrackingPermissionError(
+        activation.permission === 'denied'
+          ? 'El acceso al movimiento está bloqueado. En Samsung/Chrome abrí Ajustes del sitio → Sensores de movimiento → Permitir y recargá ONUr.'
+          : activation.permission === 'insecure'
+            ? 'El seguimiento necesita abrir la plataforma desde su dirección HTTPS segura.'
+            : activation.permission === 'no_signal'
+              ? 'No llegó señal del giroscopio. Mové suavemente el celular al reintentar y comprobá el permiso Sensores de movimiento.'
+              : 'Este navegador no ofrece los sensores de orientación necesarios para Cardboard. Probá Chrome actualizado.',
+      )
       return
     }
     setStarted(true)
@@ -149,7 +160,7 @@ function VrBoxTransitionScreen({ direction, seconds, nextLabel, viewerProfile, o
       {viewerProfile === 'cardboard' && <p className="mt-3 text-xs leading-5 text-white/55">Cardboard usa giroscopio y acelerómetro para seguimiento 3DoF. Al finalizar la cuenta, mirá el + de frente y mantené la cabeza quieta. El perfil óptico activo ajustará los centros y el campo visual; no mide desplazamiento físico 6DoF ni corrige distorsión de lentes por QR.</p>}
       <p className="mt-4 rounded-2xl bg-black/25 p-4 text-xs font-bold text-white/75">Próxima fase: {nextLabel}</p>
       {trackingPermissionError && <p role="alert" className="mt-4 rounded-2xl bg-[#c74750]/18 p-4 text-xs font-bold leading-5 text-[#ff9da4]">{trackingPermissionError}</p>}
-      <button type="button" onClick={() => void startVrPreparation()} className="mt-6 h-14 w-full rounded-2xl bg-[#E49A02] px-4 text-sm font-black text-white">{viewerProfile === 'cardboard' ? 'Activar sensores y preparar Cardboard' : `Comenzar preparación de ${seconds} segundos`}</button>
+      <button type="button" disabled={activatingSensors} onClick={() => void startVrPreparation()} className="mt-6 h-14 w-full rounded-2xl bg-[#E49A02] px-4 text-sm font-black text-white disabled:opacity-50">{activatingSensors ? 'Comprobando giroscopio… mové suavemente el celular' : viewerProfile === 'cardboard' ? 'Activar sensores y preparar Cardboard' : `Comenzar preparación de ${seconds} segundos`}</button>
       <button type="button" onClick={onExit} className="mt-4 text-xs font-bold text-white/55">Salir de la sesión</button>
     </div>
   </div>

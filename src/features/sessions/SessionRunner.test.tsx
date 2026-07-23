@@ -2,13 +2,14 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defaultExerciseConfig, type ExerciseCompletionReport, type ExerciseConfig } from '../exercise/types'
 import { applyExercisePurpose } from '../exercise/compatibility'
+import type { CardboardTrackingActivation } from '../exercise/cardboardTracking'
 import type { SessionAssignmentRecord } from './repository'
 import { SessionRunner } from './SessionRunner'
 
 const exercisePlayerMock = vi.hoisted(() => vi.fn())
-const trackingPermissionMock = vi.hoisted(() => vi.fn(async () => 'granted'))
+const trackingPermissionMock = vi.hoisted(() => vi.fn<() => Promise<CardboardTrackingActivation>>(async () => ({ permission: 'granted', signalSource: 'relative' })))
 
-afterEach(() => { cleanup(); vi.useRealTimers(); trackingPermissionMock.mockReset(); trackingPermissionMock.mockResolvedValue('granted') })
+afterEach(() => { cleanup(); vi.useRealTimers(); trackingPermissionMock.mockReset(); trackingPermissionMock.mockResolvedValue({ permission: 'granted', signalSource: 'relative' }) })
 
 vi.mock('../exercise/ExercisePlayer', () => ({
   ExercisePlayer: (props: { config: ExerciseConfig; preparationSeconds?: number; onComplete?: (activeSeconds: number, report?: ExerciseCompletionReport) => void }) => {
@@ -26,7 +27,7 @@ vi.mock('../exercise/ExercisePlayer', () => ({
   },
 }))
 
-vi.mock('../exercise/cardboardTracking', () => ({ requestCardboardTrackingPermission: trackingPermissionMock }))
+vi.mock('../exercise/cardboardTracking', () => ({ activateCardboardTracking: trackingPermissionMock }))
 
 const session: SessionAssignmentRecord = {
   id: 'assignment-test', patientId: 'patient-test', patientName: 'Paciente', treatmentCycleId: 'cycle-test', sessionPlanId: 'plan-test',
@@ -115,12 +116,12 @@ describe('SessionRunner', () => {
   })
 
   it('no inicia Cardboard cuando el permiso de movimiento es rechazado', async () => {
-    trackingPermissionMock.mockResolvedValueOnce('denied')
+    trackingPermissionMock.mockResolvedValueOnce({ permission: 'denied', signalSource: 'relative' })
     const cardboardSession = { ...session, exercises: [{ ...applyExercisePurpose(defaultExerciseConfig, 'saccades'), displayMode: 'vr_box' as const, cardboardEnabled: true, doseMode: 'time' as const, advanceMode: 'automatic' as const, rounds: 1 }] }
     render(<SessionRunner session={cardboardSession} onFinish={vi.fn()} onExit={vi.fn()} />)
 
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Activar sensores y preparar Cardboard' })) })
-    expect(screen.getByRole('alert')).toHaveTextContent('acceso al movimiento fue rechazado')
+    expect(screen.getByRole('alert')).toHaveTextContent('acceso al movimiento está bloqueado')
     expect(screen.queryByRole('button', { name: 'Completar ejercicio' })).not.toBeInTheDocument()
   })
 })

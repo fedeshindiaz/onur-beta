@@ -1,6 +1,6 @@
 import { LogOut, Pause, Play, RotateCcw, Scan } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import * as THREE from 'three'
+import type * as THREE from 'three'
 import type { CardboardHeadPose } from '../exercise/cardboardTracking'
 import type { CardboardViewerProfile } from '../exercise/cardboardViewerProfiles'
 import { immersiveMediaUrl, type ImmersiveDevice, type ImmersiveScenario } from './catalog'
@@ -20,6 +20,8 @@ interface ImmersivePanoramaProps {
 type XrSessionLike = NonNullable<Parameters<THREE.WebXRManager['setSession']>[0]>
 
 export function ImmersivePanorama({ scenario, device, paused = false, headPose = null, viewerProfile, className = '', onImmersionChange, onTogglePause, onExit }: ImmersivePanoramaProps) {
+  const onDemand = device === undefined
+  const [activated, setActivated] = useState(!onDemand)
   const containerRef = useRef<HTMLDivElement>(null)
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
   const xrSessionRef = useRef<XrSessionLike | null>(null)
@@ -43,25 +45,31 @@ export function ImmersivePanorama({ scenario, device, paused = false, headPose =
   useEffect(() => { manualViewRef.current = manualView }, [manualView])
 
   useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
-    let renderer: THREE.WebGLRenderer
-    try {
-      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' })
-    } catch {
-      setStatus('error')
-      setMessage('Este navegador no pudo iniciar WebGL para mostrar la esfera 360°.')
-      return
-    }
+    if (!activated) return
+    let disposed = false
+    let release: (() => void) | undefined
+    void import('three').then((THREE) => {
+      if (disposed) return
+      const container = containerRef.current
+      if (!container) return
+      let renderer: THREE.WebGLRenderer
+      try {
+        renderer = new THREE.WebGLRenderer({ antialias: device === 'quest', alpha: false, powerPreference: 'high-performance' })
+      } catch {
+        setStatus('error')
+        setMessage('Este navegador no pudo iniciar WebGL para mostrar la esfera 360°.')
+        return
+      }
     rendererRef.current = renderer
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
+    renderer.setPixelRatio(onDemand ? 1 : Math.min(window.devicePixelRatio || 1, device === 'vr_box' ? 1.25 : 1.5))
     renderer.setClearColor(0x081113)
+    renderer.domElement.className = 'block size-full'
     container.prepend(renderer.domElement)
 
     const scene = new THREE.Scene()
     const camera = new THREE.PerspectiveCamera(viewerProfile?.verticalFovDegrees ?? 75, 2, 0.1, 200)
     camera.position.set(0, 0, 0.01)
-    const geometry = new THREE.SphereGeometry(100, 64, 40)
+    const geometry = new THREE.SphereGeometry(100, 48, 32)
     geometry.scale(-1, 1, 1)
     const material = new THREE.MeshBasicMaterial({ color: 0xffffff })
     const sphere = new THREE.Mesh(geometry, material)
@@ -69,12 +77,16 @@ export function ImmersivePanorama({ scenario, device, paused = false, headPose =
     scene.add(sphere)
 
     let texture: THREE.Texture | null = null
-    const mediaUrl = immersiveMediaUrl(scenario, device ?? 'quest')
+    const mediaUrl = immersiveMediaUrl(scenario, device ?? 'vr_box')
     if (!mediaUrl) {
       setStatus('error')
       setMessage('La biblioteca 360° necesita la conexión de almacenamiento configurada.')
     } else if (scenario.mediaKind === 'image') {
       new THREE.TextureLoader().load(mediaUrl, (loaded) => {
+        if (disposed) {
+          loaded.dispose()
+          return
+        }
         loaded.colorSpace = THREE.SRGBColorSpace
         texture = loaded
         material.map = loaded
@@ -92,7 +104,7 @@ export function ImmersivePanorama({ scenario, device, paused = false, headPose =
       video.crossOrigin = 'anonymous'
       video.muted = true
       video.playsInline = true
-      video.preload = 'auto'
+      video.preload = onDemand ? 'metadata' : 'auto'
       video.loop = false
       video.addEventListener('canplay', () => {
         setStatus('ready')
@@ -120,9 +132,21 @@ export function ImmersivePanorama({ scenario, device, paused = false, headPose =
     }
     const observer = new ResizeObserver(resize)
     observer.observe(container)
+    window.addEventListener('resize', resize)
     resize()
 
+    let visible = true
+    const visibilityObserver = typeof IntersectionObserver === 'undefined' ? null : new IntersectionObserver((entries) => {
+      visible = entries.some((entry) => entry.isIntersecting)
+      if (videoRef.current) {
+        if (!visible || pausedRef.current) videoRef.current.pause()
+        else void videoRef.current.play().catch(() => undefined)
+      }
+    }, { rootMargin: '120px' })
+    visibilityObserver?.observe(container)
+
     const render = () => {
+      if (!visible && !renderer.xr.isPresenting) return
       if (!renderer.xr.isPresenting) {
         const pose = device === 'vr_box' ? headPoseRef.current : null
         const view = manualViewRef.current
@@ -145,8 +169,10 @@ export function ImmersivePanorama({ scenario, device, paused = false, headPose =
     }
     renderer.setAnimationLoop(render)
 
-    return () => {
+    release = () => {
       observer.disconnect()
+      visibilityObserver?.disconnect()
+      window.removeEventListener('resize', resize)
       renderer.setAnimationLoop(null)
       const activeSession = xrSessionRef.current
       xrSessionRef.current = null
@@ -163,7 +189,16 @@ export function ImmersivePanorama({ scenario, device, paused = false, headPose =
       rendererRef.current = null
       onImmersionChangeRef.current?.(false)
     }
-  }, [device, scenario, viewerProfile?.verticalFovDegrees])
+    }).catch(() => {
+      if (disposed) return
+      setStatus('error')
+      setMessage('Este navegador no pudo cargar el visor 360°.')
+    })
+    return () => {
+      disposed = true
+      release?.()
+    }
+  }, [activated, device, onDemand, scenario, viewerProfile?.verticalFovDegrees])
 
   const enterQuestImmersion = async () => {
     const renderer = rendererRef.current
@@ -221,6 +256,29 @@ export function ImmersivePanorama({ scenario, device, paused = false, headPose =
       yaw: start.yaw - (event.clientX - start.x) * 0.004,
       pitch: Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, start.pitch - (event.clientY - start.y) * 0.004)),
     })
+  }
+
+  if (!activated) {
+    const previewBytes = scenario.derivatives.vr_box.bytes
+    const previewSize = previewBytes >= 1_000_000 ? `${(previewBytes / 1_000_000).toFixed(1)} MB` : `${Math.ceil(previewBytes / 1_000)} KB`
+    return <div className={`relative isolate size-full overflow-hidden bg-[#081113] ${className}`} aria-label={`Previsualización liviana: ${scenario.title}`}>
+      <img
+        src={immersiveMediaUrl(scenario, 'thumbnail') || undefined}
+        alt={`Vista equirectangular de ${scenario.title}`}
+        loading="lazy"
+        decoding="async"
+        draggable={false}
+        className="size-full object-cover"
+      />
+      <div className="absolute inset-0 grid place-items-center bg-black/38 p-4 text-center text-white">
+        <div>
+          <span className="mx-auto grid size-12 place-items-center rounded-full bg-[#E49A02] shadow-xl"><Play size={19} fill="currentColor"/></span>
+          <p className="mt-3 text-xs font-black">Abrir vista previa 360°</p>
+          <p className="mt-1 text-[10px] text-white/75">Carga bajo demanda · versión móvil {previewSize}</p>
+          <button type="button" onClick={() => setActivated(true)} className="absolute inset-0" aria-label={`Cargar vista previa 360° de ${scenario.title}`}/>
+        </div>
+      </div>
+    </div>
   }
 
   return <div ref={containerRef} className={`relative isolate size-full overflow-hidden bg-[#081113] ${className}`} onPointerDown={beginDrag} onPointerMove={drag} onPointerUp={() => { pointerRef.current = null }} onPointerCancel={() => { pointerRef.current = null }} aria-label={`Visor panorámico: ${scenario.title}`}>

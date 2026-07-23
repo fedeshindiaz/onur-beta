@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { clinicalSources } from '../clinicalGeneration/catalog'
 import { cognitiveInstruction, cognitiveSymbolLabels, cognitiveTaskLabel } from '../exercise/cognitive'
 import { ExerciseCanvas } from '../exercise/ExerciseCanvas'
-import { requestCardboardTrackingPermission } from '../exercise/cardboardTracking'
+import { activateCardboardTracking } from '../exercise/cardboardTracking'
 import { cardboardEyeCenterPercent, useCardboardViewerProfiles } from '../exercise/cardboardViewerProfiles'
 import { analyzeExerciseCompatibility, applyExercisePurpose, exercisePurposeLabels, isVrBoxPurposeSupported, vrBoxPurposeCompatibility } from '../exercise/compatibility'
 import { buildExerciseExecutionPlan, type ExerciseSetting } from '../exercise/execution'
@@ -34,6 +34,7 @@ const objectDirectionLabels: Record<ObjectDirection, string> = {
 export function SessionExerciseEditor({ config, isFirst = false, setting = 'unspecified', onChange }: SessionExerciseEditorProps) {
   const [playing, setPlaying] = useState(false)
   const [previewError, setPreviewError] = useState('')
+  const [activatingSensors, setActivatingSensors] = useState(false)
   const viewerProfiles = useCardboardViewerProfiles()
   const viewerProfile = viewerProfiles.activeProfile
   const set = <Key extends keyof ExerciseConfig>(key: Key, value: ExerciseConfig[Key]) => onChange({ ...config, [key]: value })
@@ -91,17 +92,27 @@ export function SessionExerciseEditor({ config, isFirst = false, setting = 'unsp
   const startPreview = async () => {
     setPreviewError('')
     if (config.displayMode === 'vr_box') {
-      const permissionRequest = config.cardboardEnabled ? requestCardboardTrackingPermission() : Promise.resolve('granted' as const)
+      setActivatingSensors(config.cardboardEnabled)
+      const activationRequest = config.cardboardEnabled ? activateCardboardTracking() : Promise.resolve({ permission: 'granted' as const })
       const fullscreenRequest = document.documentElement.requestFullscreen?.()
-      const permission = await permissionRequest
+      const activation = await activationRequest
       try {
         await fullscreenRequest
         const orientation = screen.orientation as (ScreenOrientation & { lock?: (value: 'landscape') => Promise<void> }) | undefined
         await orientation?.lock?.('landscape')
       } catch { /* La prueba continúa aunque el navegador no permita fullscreen u orientación fija. */ }
-      if (permission !== 'granted') {
+      setActivatingSensors(false)
+      if (activation.permission !== 'granted') {
         if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined)
-        setPreviewError(permission === 'denied' ? 'Permití el acceso al movimiento para probar Cardboard.' : permission === 'insecure' ? 'El seguimiento de cabeza necesita HTTPS.' : 'Este dispositivo no ofrece sensores de orientación compatibles.')
+        setPreviewError(
+          activation.permission === 'denied'
+            ? 'El acceso a giroscopio o acelerómetro está bloqueado. En Samsung/Chrome abrí Ajustes del sitio → Sensores de movimiento → Permitir y recargá ONUr.'
+            : activation.permission === 'insecure'
+              ? 'El seguimiento de cabeza necesita abrir ONUr desde su dirección HTTPS.'
+              : activation.permission === 'no_signal'
+                ? 'No llegó señal del giroscopio. Mové suavemente el celular al reintentar y comprobá que Sensores de movimiento esté permitido.'
+                : 'Este navegador no ofrece sensores de orientación compatibles. Probá Chrome actualizado en el celular.',
+        )
         return
       }
     }
@@ -287,7 +298,7 @@ export function SessionExerciseEditor({ config, isFirst = false, setting = 'unsp
           <div className="p-5">
             <p className="text-sm font-black text-[#2F2F2F]">{config.name}</p>
             <p className="mt-2 text-xs text-[#747474]">{config.doseMode === 'time' ? `${config.durationSeconds} s` : `${config.targetRepetitions} repeticiones`} × {config.rounds} vueltas · avance {config.advanceMode === 'manual' ? 'manual' : 'automático'}</p>
-            <button type="button" disabled={!compatibility.valid} onClick={() => void startPreview()} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#E49A02] px-4 py-3 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-40"><Play size={16} /> {compatibility.valid ? 'Probar ejercicio' : 'Corregí la compatibilidad para probar'}</button>
+            <button type="button" disabled={!compatibility.valid || activatingSensors} onClick={() => void startPreview()} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#E49A02] px-4 py-3 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-40"><Play size={16} /> {activatingSensors ? 'Comprobando giroscopio… mové suavemente el celular' : compatibility.valid ? 'Probar ejercicio' : 'Corregí la compatibilidad para probar'}</button>
             {previewError && <p role="alert" className="mt-3 rounded-xl bg-[#fceced] p-3 text-[11px] font-bold leading-5 text-[#9A3842]">{previewError}</p>}
           </div>
         </div>

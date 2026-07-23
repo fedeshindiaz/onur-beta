@@ -24,11 +24,21 @@ export interface CardboardFieldOfView {
   verticalFovDegrees: number
 }
 
-export type CardboardTrackingPermission = 'granted' | 'denied' | 'unsupported' | 'insecure'
+export type CardboardTrackingPermission = 'granted' | 'denied' | 'unsupported' | 'insecure' | 'no_signal'
+export type CardboardOrientationSignalSource = 'relative' | 'absolute'
+
+export interface CardboardTrackingActivation {
+  permission: CardboardTrackingPermission
+  signalSource?: CardboardOrientationSignalSource
+  accelerometerPermission?: PermissionState
+  gyroscopePermission?: PermissionState
+}
 
 type DeviceOrientationConstructor = typeof DeviceOrientationEvent & {
   requestPermission?: (absolute?: boolean) => Promise<'granted' | 'denied'>
 }
+
+type SensorPermissionName = 'accelerometer' | 'gyroscope'
 
 const DEG_TO_RAD = Math.PI / 180
 const HALF_PI = Math.PI / 2
@@ -155,10 +165,75 @@ export async function requestCardboardTrackingPermission(): Promise<CardboardTra
   if (!window.isSecureContext && !['localhost', '127.0.0.1'].includes(window.location.hostname)) return 'insecure'
   const constructor = window.DeviceOrientationEvent as DeviceOrientationConstructor | undefined
   if (!constructor) return 'unsupported'
-  if (typeof constructor.requestPermission !== 'function') return 'granted'
+  if (typeof constructor.requestPermission !== 'function') {
+    const sensorPermissions = await queryCardboardSensorPermissions()
+    return sensorPermissions.accelerometer === 'denied' || sensorPermissions.gyroscope === 'denied' ? 'denied' : 'granted'
+  }
   try {
     return await constructor.requestPermission(false)
   } catch {
     return 'denied'
+  }
+}
+
+async function querySensorPermission(name: SensorPermissionName): Promise<PermissionState | undefined> {
+  if (!navigator.permissions?.query) return undefined
+  try {
+    return (await navigator.permissions.query({ name } as unknown as PermissionDescriptor)).state
+  } catch {
+    return undefined
+  }
+}
+
+export async function queryCardboardSensorPermissions() {
+  const [accelerometer, gyroscope] = await Promise.all([
+    querySensorPermission('accelerometer'),
+    querySensorPermission('gyroscope'),
+  ])
+  return { accelerometer, gyroscope }
+}
+
+export function waitForCardboardOrientationSignal(timeoutMilliseconds = 8_000): Promise<CardboardOrientationSignalSource | null> {
+  return new Promise((resolve) => {
+    let finished = false
+    const finish = (source: CardboardOrientationSignalSource | null) => {
+      if (finished) return
+      finished = true
+      window.clearTimeout(timeout)
+      window.removeEventListener('deviceorientation', handleRelative)
+      window.removeEventListener('deviceorientationabsolute', handleAbsolute)
+      resolve(source)
+    }
+    const valid = (event: DeviceOrientationEvent) => (
+      typeof event.alpha === 'number' && Number.isFinite(event.alpha)
+      && typeof event.beta === 'number' && Number.isFinite(event.beta)
+      && typeof event.gamma === 'number' && Number.isFinite(event.gamma)
+    )
+    const handleRelative = (event: DeviceOrientationEvent) => { if (valid(event)) finish('relative') }
+    const handleAbsolute = (event: DeviceOrientationEvent) => { if (valid(event)) finish('absolute') }
+    const timeout = window.setTimeout(() => finish(null), timeoutMilliseconds)
+    window.addEventListener('deviceorientation', handleRelative)
+    window.addEventListener('deviceorientationabsolute', handleAbsolute)
+  })
+}
+
+export async function activateCardboardTracking(timeoutMilliseconds = 8_000): Promise<CardboardTrackingActivation> {
+  const permission = await requestCardboardTrackingPermission()
+  if (permission !== 'granted') return { permission }
+
+  const signalSource = await waitForCardboardOrientationSignal(timeoutMilliseconds)
+  const sensorPermissions = await queryCardboardSensorPermissions()
+  if (!signalSource) {
+    return {
+      permission: sensorPermissions.accelerometer === 'denied' || sensorPermissions.gyroscope === 'denied' ? 'denied' : 'no_signal',
+      accelerometerPermission: sensorPermissions.accelerometer,
+      gyroscopePermission: sensorPermissions.gyroscope,
+    }
+  }
+  return {
+    permission: 'granted',
+    signalSource,
+    accelerometerPermission: sensorPermissions.accelerometer,
+    gyroscopePermission: sensorPermissions.gyroscope,
   }
 }

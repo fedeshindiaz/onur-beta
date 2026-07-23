@@ -24,7 +24,7 @@ const worker = `export default {
       url.pathname === '/registerSW.js'
 
     const headers = new Headers(response.headers)
-    headers.set('Permissions-Policy', 'xr-spatial-tracking=(self)')
+    headers.set('Permissions-Policy', 'accelerometer=(self), gyroscope=(self), xr-spatial-tracking=(self)')
 
     if (requiresFreshResponse) {
       headers.set('Cache-Control', 'no-cache, no-store, must-revalidate')

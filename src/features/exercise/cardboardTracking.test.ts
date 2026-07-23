@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { averageQuaternions, headPoseToCanvasTransform, quaternionAngularDistance, quaternionFromAxisAngle, relativeHeadPose } from './cardboardTracking'
+import { averageQuaternions, headPoseToCanvasTransform, quaternionAngularDistance, quaternionFromAxisAngle, relativeHeadPose, waitForCardboardOrientationSignal } from './cardboardTracking'
 
 const identity = { x: 0, y: 0, z: 0, w: 1 }
 
@@ -36,5 +36,18 @@ describe('seguimiento Cardboard 3DoF', () => {
     const narrow = headPoseToCanvasTransform(pose, 400, 300, { horizontalFovDegrees: 60, verticalFovDegrees: 60 })
     const wide = headPoseToCanvasTransform(pose, 400, 300, { horizontalFovDegrees: 110, verticalFovDegrees: 90 })
     expect(Math.abs(narrow.offsetX)).toBeGreaterThan(Math.abs(wide.offsetX))
+  })
+
+  it('comprueba una señal real antes de autorizar la preparación Cardboard', async () => {
+    const signal = waitForCardboardOrientationSignal(1_000)
+    const event = new Event('deviceorientation')
+    Object.defineProperties(event, {
+      alpha: { value: 12 },
+      beta: { value: 90 },
+      gamma: { value: 0 },
+      absolute: { value: false },
+    })
+    window.dispatchEvent(event)
+    await expect(signal).resolves.toBe('relative')
   })
 })

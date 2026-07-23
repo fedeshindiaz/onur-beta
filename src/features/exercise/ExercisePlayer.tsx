@@ -6,7 +6,7 @@ import { analyzeExerciseCompatibility } from './compatibility'
 import { StereoscopicExerciseCanvas } from './StereoscopicExerciseCanvas'
 import { cardboardEyeCenterPercent, useCardboardViewerProfiles, type CardboardViewerProfile } from './cardboardViewerProfiles'
 import type { ExerciseCompletionReport, ExerciseConfig } from './types'
-import { useCardboardHeadTracking, type CardboardTrackingStatus } from './useCardboardHeadTracking'
+import { useCardboardHeadTracking, type CardboardTrackingFailureReason, type CardboardTrackingStatus } from './useCardboardHeadTracking'
 import { getImmersiveScenario } from '../immersive/catalog'
 import { ImmersivePanorama } from '../immersive/ImmersivePanorama'
 
@@ -79,7 +79,7 @@ function CardboardControlBar({ paused, formattedTime, trackingStatus, onTogglePa
   </div>
 }
 
-function CardboardTrackingOverlay({ status, calibrationProgress, viewerProfile, onRetry, onExit }: { status: CardboardTrackingStatus; calibrationProgress: number; viewerProfile: CardboardViewerProfile; onRetry: () => void; onExit: () => void }) {
+function CardboardTrackingOverlay({ status, failureReason, calibrationProgress, viewerProfile, onRetry, onExit }: { status: CardboardTrackingStatus; failureReason: CardboardTrackingFailureReason; calibrationProgress: number; viewerProfile: CardboardViewerProfile; onRetry: () => void; onExit: () => void }) {
   if (status === 'tracking' || status === 'idle') return null
   const failed = status === 'denied' || status === 'unavailable' || status === 'lost'
   const title = status === 'calibrating' ? 'Calibrando posición frontal' : status === 'waiting' ? 'Esperando recalibración' : status === 'denied' ? 'Permiso de movimiento rechazado' : status === 'lost' ? 'Se perdió el seguimiento' : 'Sensores no disponibles'
@@ -91,7 +91,11 @@ function CardboardTrackingOverlay({ status, calibrationProgress, viewerProfile, 
       ? 'Retirá el visor, permití el acceso al movimiento y volvé a calibrar.'
       : status === 'lost'
         ? 'Retirá el visor, mirá al frente y tocá Recalibrar antes de continuar.'
-        : 'Este dispositivo o navegador no entregó orientación. No continúes el ejercicio con anclaje.'
+        : failureReason === 'insecure_context'
+          ? 'Abrí ONUr desde su dirección HTTPS. Los sensores no funcionan desde una dirección insegura.'
+          : failureReason === 'orientation_api_missing'
+            ? 'Este navegador no ofrece orientación 3DoF. Probá Chrome actualizado en el celular.'
+            : 'No llegó señal del giroscopio. En Samsung/Chrome: Ajustes del sitio → Sensores de movimiento → Permitir; recargá ONUr y mové suavemente el celular al reintentar.'
   const content = (side: 'izquierdo' | 'derecho') => {
     const center = cardboardEyeCenterPercent(viewerProfile, side === 'izquierdo' ? 'left' : 'right')
     return <div className={`relative flex h-full flex-col items-center px-4 pb-16 text-center ${failed ? 'justify-center' : 'justify-end'}`}>
@@ -251,6 +255,7 @@ function CompatibleExercisePlayer({ config, onExit, onSkip, onComplete, preparat
     {cardboard && !preparing && (
       <CardboardTrackingOverlay
         status={tracking.status}
+        failureReason={tracking.failureReason}
         calibrationProgress={tracking.calibrationProgress}
         viewerProfile={viewerProfile}
         onRetry={() => void tracking.requestAndRecenter()}

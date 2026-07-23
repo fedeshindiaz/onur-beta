@@ -37,6 +37,45 @@ describe('validación de sesión',()=>{
     expect(validateSession(session([immersive({ displayMode: 'vr_box', cardboardEnabled: true })], 'in_person'))).toEqual({})
   })
 
+  it('simula sesiones separadas y ejecutables para Galaxy S21+ y PC de consultorio', () => {
+    const galaxy360 = immersive({
+      name: 'Calle tranquila · Galaxy S21+',
+      immersiveScenarioId: 'street_quiet',
+      displayMode: 'vr_box',
+      cardboardEnabled: true,
+      durationSeconds: 30,
+      doseMode: 'time',
+      advanceMode: 'automatic',
+      posture: 'seated',
+      surface: 'firm',
+      supervision: 'direct_clinician',
+    })
+    const galaxyVrBox = optokinetic({
+      name: 'Barras horizontales · VR Box',
+      displayMode: 'vr_box',
+      cardboardEnabled: false,
+      durationSeconds: 30,
+      doseMode: 'time',
+      advanceMode: 'automatic',
+      posture: 'seated',
+      surface: 'firm',
+    })
+    const desktop = config({
+      name: 'RVO x1 · PC inmóvil',
+      displayMode: 'standard',
+      cardboardEnabled: false,
+      durationSeconds: 30,
+      doseMode: 'time',
+      advanceMode: 'manual',
+      posture: 'seated',
+      surface: 'firm',
+    })
+
+    expect(validateSession(session([galaxy360], 'in_person'))).toEqual({})
+    expect(validateSession(session([galaxyVrBox], 'in_person'))).toEqual({})
+    expect(validateSession(session([desktop], 'in_person'))).toEqual({})
+  })
+
   it('bloquea exposición 360° domiciliaria, mezclada o sin seguimiento Cardboard', () => {
     expect(validateSession(session([immersive()], 'home')).exercises).toContain('únicamente en clínica')
     expect(validateSession(session([immersive(), optokinetic({ displayMode: 'quest_browser', supervision: 'direct_clinician', advanceMode: 'automatic' })], 'in_person')).exercises).toContain('único escenario')
